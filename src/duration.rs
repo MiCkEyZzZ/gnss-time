@@ -1,3 +1,5 @@
+//! # Duration
+
 use core::{
     fmt,
     ops::{Add, AddAssign, Neg, Sub, SubAssign},

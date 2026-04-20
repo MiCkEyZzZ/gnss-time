@@ -1,3 +1,5 @@
+//! Error types for the `gnss-time` crate.
+
 use core::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
