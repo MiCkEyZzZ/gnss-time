@@ -21,3 +21,23 @@ criterion = "0.8.2"
 name = "time_bench"
 path = "benches/time_bench.rs"
 harness = false
+
+[[example]]
+name = "basic_usage"
+path = "examples/basic_usage.rs"
+
+[[example]]
+name = "gps_week_tow"
+path = "examples/gps_week_tow.rs"
+
+[[example]]
+name = "glonass_day_tod"
+path = "examples/glonass_day_tod.rs"
+
+[[example]]
+name = "scale_conversion"
+path = "examples/scale_conversion.rs"
+
+[[example]]
+name = "display_formats"
+path = "examples/display_formats.rs"
