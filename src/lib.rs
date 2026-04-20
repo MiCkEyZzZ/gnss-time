@@ -10,11 +10,13 @@ extern crate std;
 extern crate std;
 
 pub mod duration;
+pub mod epoch;
 pub mod error;
 pub mod scale;
 pub mod time;
 
 pub use duration::*;
+pub use epoch::*;
 pub use error::*;
 pub use scale::*;
 pub use time::*;

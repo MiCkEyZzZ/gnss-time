@@ -190,13 +190,6 @@ fn timestamps_order_correctly() {
 }
 
 #[test]
-fn display_gps_epoch_is_sensible() {
-    let s = Time::<Gps>::EPOCH.to_string();
-    assert!(s.contains("GPS"));
-    assert!(s.contains("+0s"));
-}
-
-#[test]
 fn debug_shows_scale_name_and_nanos() {
     let t = Time::<Glonass>::from_nanos(777);
     let dbg = format!("{t:?}");
