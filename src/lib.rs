@@ -28,6 +28,7 @@
 #[cfg(any(feature = "std", test))]
 extern crate std;
 
+pub mod convert;
 pub mod duration;
 pub mod epoch;
 pub mod error;
@@ -36,6 +37,7 @@ pub mod scale;
 pub mod tables;
 pub mod time;
 
+pub use convert::*;
 pub use duration::*;
 pub use epoch::*;
 pub use error::*;
