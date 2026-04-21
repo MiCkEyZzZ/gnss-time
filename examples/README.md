@@ -34,4 +34,6 @@ cargo run --example log_stream
 cargo run --example embedded_safe_arithmetic
 cargo run --example display_formats
 cargo run --example no_domain_mixing
+cargo run --example convert_basic
+cargo run --example convert_contextual
 ```

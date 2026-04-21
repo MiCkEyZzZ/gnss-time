@@ -45,3 +45,11 @@ path = "examples/scale_conversion.rs"
 [[example]]
 name = "display_formats"
 path = "examples/display_formats.rs"
+
+[[example]]
+name = "convert_basic"
+path = "examples/convert_basic.rs"
+
+[[example]]
+name = "convert_contextual"
+path = "examples/convert_contextual.rs"
