@@ -68,7 +68,8 @@ pub enum OffsetToTai {
     Contextual,
 }
 
-/// Управляет тем, как [`Time<S>`] форматируется через [`Display`].
+/// Управляет тем, как [`crate::Time`]`<S>` форматируется через
+/// [`core::fmt::Display`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DisplayStyle {
     /// `"NAME WWW:SSSSSS.mm"` - неделя : время недели (GPS, Galileo, BeiDou)
@@ -90,8 +91,8 @@ pub enum DisplayStyle {
 /// Этот трейит является **sealed** и не может быть реализован вне crate.
 ///
 /// Каждая шкала определяет:
-/// - [`NAME`] — короткое имя
-/// - [`OFFSET_TO_TAI`] — преобразование в TAI
+/// - [`TimeScale::NAME`] — короткое имя
+/// - [`TimeScale::OFFSET_TO_TAI`] — преобразование в TAI
 pub trait TimeScale: private::Sealed + Copy + Clone + Eq + PartialEq + core::fmt::Debug {
     /// Короткое имя шкалы (ASCII) используется в Display/debug
     const NAME: &'static str;

@@ -80,7 +80,7 @@ impl CivilDate {
     ///
     /// Отрицательное значение для дат до 1970 года.
     /// Используется алгоритм Ховарда Хиннанта:
-    /// http://howardhinnant.github.io/date_algorithms.html
+    /// <http://howardhinnant.github.io/date_algorithms.html>
     #[inline]
     pub const fn days_from_unix(self) -> i64 {
         days_from_unix_impl(self.year, self.month as i32, self.day as i32)
@@ -117,7 +117,7 @@ impl CivilDate {
 /// Перевод календарной даты в дни от Unix-эпохи.
 ///
 /// Алгоритм Ховарда Хиннанта —
-/// http://howardhinnant.github.io/date_algorithms.html
+/// <http://howardhinnant.github.io/date_algorithms.html>
 ///
 /// Работает только на целочисленной арифметике и не использует деления
 /// с плавающей точкой.
