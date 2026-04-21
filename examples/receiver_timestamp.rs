@@ -9,6 +9,6 @@ fn main() {
 
     println!("Receiver timestamp: {t}");
     println!("Week: {}", t.week());
-    println!("TOW: {} s", t.tow_seconds());
+    println!("TOW: {}s", t.tow_seconds());
     println!("Sub-ns: {}", t.sub_second_nanos());
 }

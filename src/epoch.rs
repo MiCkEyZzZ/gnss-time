@@ -3,9 +3,11 @@
 //! Каждая GNSS-система привязывает свою шкалу времени к фиксированной
 //! календарной точке — *epoch*. Этот модуль предоставляет:
 //!
-//! - [`CivilDate`] — пролептическая григорианская дата (без времени суток и часового пояса)
+//! - [`CivilDate`] — пролептическая григорианская дата (без времени суток и
+//!   часового пояса)
 //! - Именованные константы эпох для всех поддерживаемых шкал времени
-//! - `const fn` арифметику дней для проверки корректности эпох на этапе компиляции
+//! - `const fn` арифметику дней для проверки корректности эпох на этапе
+//!   компиляции
 //! - Константы смещения в наносекундах для слоя преобразований времени
 //!
 //! ## Таблица эпох
@@ -34,7 +36,8 @@
 /// Пролептическая григорианская календарная дата (год, месяц, день).
 ///
 /// `CivilDate` — это вспомогательный тип для документации и арифметики.
-/// Он не содержит времени суток, часового пояса или информации о високосных секундах.
+/// Он не содержит времени суток, часового пояса или информации о високосных
+/// секундах.
 ///
 /// Все методы являются `const fn`, что позволяет использовать этот тип
 /// для проверки эпох на этапе компиляции.
@@ -42,7 +45,7 @@
 /// # Примеры
 ///
 /// ```rust
-/// use gnss_time::epoch::{CivilDate, GPS_EPOCH, GALILEO_EPOCH};
+/// use gnss_time::epoch::{CivilDate, GALILEO_EPOCH, GPS_EPOCH};
 ///
 /// let delta_s = GPS_EPOCH.seconds_until(GALILEO_EPOCH);
 /// assert_eq!(delta_s, 619_315_200); // well-known GPS → Galileo offset
@@ -65,7 +68,11 @@ impl CivilDate {
     /// Валидация не выполняется — некорректные даты (например, 31 февраля)
     /// не вызывают panic, а просто приводят к некорректным вычислениям.
     #[inline]
-    pub const fn new(year: i32, month: u8, day: u8) -> Self {
+    pub const fn new(
+        year: i32,
+        month: u8,
+        day: u8,
+    ) -> Self {
         CivilDate { year, month, day }
     }
 
@@ -81,19 +88,28 @@ impl CivilDate {
 
     /// Разница в днях между датами (`other − self`).
     #[inline]
-    pub const fn days_until(self, other: CivilDate) -> i64 {
+    pub const fn days_until(
+        self,
+        other: CivilDate,
+    ) -> i64 {
         other.days_from_unix() - self.days_from_unix()
     }
 
     /// Разница в секундах (без учёта времени суток).
     #[inline]
-    pub const fn seconds_until(self, other: CivilDate) -> i64 {
+    pub const fn seconds_until(
+        self,
+        other: CivilDate,
+    ) -> i64 {
         self.days_until(other) * 86_400
     }
 
     /// Разница в наносекундах (без учёта времени суток).
     #[inline]
-    pub const fn nanos_until(self, other: CivilDate) -> i64 {
+    pub const fn nanos_until(
+        self,
+        other: CivilDate,
+    ) -> i64 {
         self.seconds_until(other) * 1_000_000_000
     }
 }
@@ -105,7 +121,11 @@ impl CivilDate {
 ///
 /// Работает только на целочисленной арифметике и не использует деления
 /// с плавающей точкой.
-const fn days_from_unix_impl(y: i32, m: i32, d: i32) -> i64 {
+const fn days_from_unix_impl(
+    y: i32,
+    m: i32,
+    d: i32,
+) -> i64 {
     // Shift Jan/Feb to be months 11/12 of the previous year so that the
     // leap day (Feb 29) always falls at the end of the "year".
     let (y, m) = if m <= 2 { (y - 1, m + 9) } else { (y, m - 3) };
@@ -198,7 +218,8 @@ pub const DAYS_UNIX_TO_GPS: i64 = UNIX_EPOCH.days_until(GPS_EPOCH);
 /// `619_315_200 s × 10⁹ ns/s = 619_315_200_000_000_000 ns`
 pub const NANOS_GPS_TO_GALILEO_EPOCH: i64 = GPS_EPOCH.nanos_until(GALILEO_EPOCH);
 
-/// Calendar nanoseconds from GPS epoch to BeiDou epoch (before leap-second adjustment).
+/// Calendar nanoseconds from GPS epoch to BeiDou epoch (before leap-second
+/// adjustment).
 ///
 /// The actual GPS−BDT offset also includes the 14-second accumulated leap
 /// difference: `BDT = GPS − 14 s` at all times after the BDT epoch.
@@ -230,7 +251,10 @@ const _VERIFY_GLONASS: () = {
 };
 
 impl core::fmt::Display for CivilDate {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut core::fmt::Formatter<'_>,
+    ) -> core::fmt::Result {
         write!(f, "{:04}-{:02}-{:02}", self.year, self.month, self.day)
     }
 }
