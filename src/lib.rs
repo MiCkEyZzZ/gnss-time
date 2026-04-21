@@ -18,7 +18,7 @@
 //!
 //! ## `no_std` by default
 //!
-//! Enable the `std` feature for [`std::error::Error`] on [`GnssTimeError`].
+//! Enable the `std` feature for [`core::error::Error`] on [`GnssTimeError`].
 
 #![no_std]
 // #![deny(missing_docs)]
