@@ -1,0 +1,73 @@
+## Taplo конфигурация форматирования TOML файлов для проекта Gorka
+## Назначение: обеспечить единый стиль всех Cargo.toml файлов в workspace
+## Применение: taplo fmt  — для форматирования
+## Документация: https://taplo.tamasfe.dev/configuration/file.html
+
+# Какие файлы включать для форматирования.
+# Форматировать нужно все Cargo.toml во всём workspace.
+include = ["**/Cargo.toml"]
+
+[formatting]
+# Максимальная ширина строки (после которой Taplo может переносить элементы).
+column_width = 100
+# Максимальная ширина строки (после которой Taplo может переносить элементы).
+array_auto_expand = true
+# Не схлопывать массивы в одну строку (true = разрешить схлопывание, здесь — выключено).
+array_auto_collapse = false
+# Делать компактные массивы (убирает лишние пробелы).
+compact_arrays = true
+# Не схлопывать inline-таблицы в одну строку (оставлять читабельными).
+compact_inline_tables = false
+# Добавлять запятую после последнего элемента массива (trailing comma).
+array_trailing_comma = true
+# Строка отступа — 4 пробела.
+indent_string = "    "
+# Добавлять пустую строку в конце файла.
+trailing_newline = true
+# Выровнять комментарии по колонке.
+align_comments = true
+# Не выравнивать ключи и значения (оставлять как есть).
+align_entries = false
+# Не объединять несколько пар ключ=значение в одну строку.
+compact_entries = false
+# Разворачивать inline-таблицы (например, { key = "value" }) в многострочный вид при необходимости.
+inline_table_expand = true
+# Использовать UNIX-разделитель строк (LF), а не Windows (CRLF).
+crlf = false
+
+# Не сортировать ключи по умолчанию.
+reorder_keys = false
+# Не сортировать элементы в массивах.
+reorder_arrays = false
+# Не сортировать inline-таблицы.
+reorder_inline_tables = false
+
+[[rule]]
+# Для секций зависимостей — сортировать ключи по алфавиту.
+# Это помогает держать Cargo.toml аккуратным и читаемым.
+keys = [
+  "build-dependencies",
+  "dependencies",
+  "dev-dependencies",
+  "workspace.dependencies",
+]
+formatting = { reorder_keys = true }
+
+[[rule]]
+# Для секций package (основные метаданные проекта) — порядок ключей сохраняется.
+# Это важно, т.к. разработчики часто придерживаются логического порядка:
+# name → version → edition → authors → license → description и т.п.
+keys = ["package", "workspace.package"]
+formatting = { reorder_keys = false }
+
+# Файлы и папки, которые Taplo не должен форматировать.
+# Пути указываются относительно корня workspace.
+exclude = [
+  "target/**",
+  "docs/**",
+  "fuzz/**",
+  "node_modules/**",
+  "**/Cargo.lock",
+  ".venv/**",
+  ".git/**",
+]

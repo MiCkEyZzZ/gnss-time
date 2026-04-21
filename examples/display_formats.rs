@@ -50,7 +50,8 @@ fn main() {
 
     println!("\nGPS with milliseconds: {gps_ms}");
 
-    // Демонстрация того, что Display автоматически использует правильный формат для каждой шкалы
+    // Демонстрация того, что Display автоматически использует правильный формат для
+    // каждой шкалы
     let gal_epoch = Time::<Galileo>::EPOCH;
     let bdt_epoch = Time::<Beidou>::EPOCH;
 

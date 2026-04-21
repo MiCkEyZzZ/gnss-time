@@ -23,7 +23,7 @@ fn main() {
     let diff = two_hours - epoch;
 
     println!(
-        "Difference: {} seconds = {} ns",
+        "Difference: {} seconds = {}ns",
         diff.as_seconds(),
         diff.as_nanos()
     );

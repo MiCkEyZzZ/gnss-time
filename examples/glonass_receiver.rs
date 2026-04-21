@@ -9,5 +9,5 @@ fn main() {
 
     println!("GLONASS time: {t}");
     println!("Day: {}", t.day());
-    println!("TOD: {} s", t.tod_seconds());
+    println!("TOD: {}s", t.tod_seconds());
 }

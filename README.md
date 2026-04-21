@@ -15,8 +15,8 @@ ompile time.
 - **Fixed epochs** for each system (1980-01-06, 1996-01-01, etc.)
 - **Conversions via TAI** as a unified pivot
 - **Domain-specific formats**
-    - `Week:TOW` for GPS/Galileo/BeiDou
     - `Day:TOD` for GLONASS
+    - `Week:TOW` for GPS/Galileo/BeiDou
 
 - **High-precision durations** (`Duration`) with nanosecond resolution
 - **Zero-cost abstractions** — timestamps are 8 bytes (`u64`)
