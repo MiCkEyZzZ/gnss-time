@@ -354,27 +354,38 @@ pub fn utc_to_gps<P: LeapSecondsProvider>(
     utc: Time<Utc>,
     ls: &P,
 ) -> Result<Time<Gps>, GnssTimeError> {
-    // Оценочный TAI для lookup: UTC_ns - epoch_offset + 19*1e9.
-    // При GPS-UTC = 0 это точно. При GPS-UTC = 18 (max) — ошибка 18 с.
-    // Шаг таблицы ≥ 6 мес ≈ 1.58e16 нс >> 18e9 нс → lookup всегда верный.
+    // Two-pass lookup to handle leap second boundaries correctly.
+    //
+    // Pass 1: Approximate TAI assuming GPS-UTC = 0. This under-estimates
+    // TAI by up to (current GPS-UTC) seconds near a boundary.
     let approx_tai_ns =
         (utc.as_nanos() as i128) - (UTC_TO_GPS_EPOCH_NS as i128) + 19_000_000_000_i128;
 
-    let tai_for_lookup = if approx_tai_ns >= 0 && approx_tai_ns <= u64::MAX as i128 {
+    let tai1 = if approx_tai_ns >= 0 && approx_tai_ns <= u64::MAX as i128 {
         Time::<Tai>::from_nanos(approx_tai_ns as u64)
     } else {
-        // UTC before GPS epoch: use first table entry
         Time::<Tai>::EPOCH
     };
 
-    let n = ls.tai_minus_utc_at(tai_for_lookup);
+    let n1 = ls.tai_minus_utc_at(tai1);
+
+    // Pass 2: Refine using n1, resolving any boundary ambiguity.
+    let refined_tai_ns = (utc.as_nanos() as i128) - (UTC_TO_GPS_EPOCH_NS as i128)
+        + (n1 as i128 * 1_000_000_000_i128);
+
+    let tai2 = if refined_tai_ns >= 0 && refined_tai_ns <= u64::MAX as i128 {
+        Time::<Tai>::from_nanos(refined_tai_ns as u64)
+    } else {
+        tai1
+    };
+
+    let n = ls.tai_minus_utc_at(tai2);
+
     let gps_ns = (utc.as_nanos() as i128) + ((n - 19) as i128 * 1_000_000_000_i128)
         - (UTC_TO_GPS_EPOCH_NS as i128);
-
     if gps_ns < 0 || gps_ns > u64::MAX as i128 {
         return Err(GnssTimeError::Overflow);
     }
-
     Ok(Time::<Gps>::from_nanos(gps_ns as u64))
 }
 
