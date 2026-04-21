@@ -11,18 +11,24 @@
 //! assert_eq!(core::mem::size_of::<Time<Gps>>(), 8); // идентично u64
 //! ```
 
-use core::fmt;
-use core::marker::PhantomData;
-use core::ops::{Add, AddAssign, Sub, SubAssign};
+use core::{
+    fmt,
+    marker::PhantomData,
+    ops::{Add, AddAssign, Sub, SubAssign},
+};
 
 use crate::{DisplayStyle, Duration, Glonass, GnssTimeError, Gps, OffsetToTai, Tai, TimeScale};
 
-/// Временная метка в шкале времени `S`, хранимая как наносекунды от эпохи шкалы.
+/// Временная метка в шкале времени `S`, хранимая как наносекунды от эпохи
+/// шкалы.
 ///
 /// # Примеры
 ///
 /// ```rust
-/// use gnss_time::{Time, Duration, scale::{Gps, Glonass}};
+/// use gnss_time::{
+///     scale::{Glonass, Gps},
+///     Duration, Time,
+/// };
 ///
 /// let t: Time<Gps> = Time::from_nanos(0); // эпоха GPS
 /// let later = t + Duration::from_seconds(3600);
@@ -143,7 +149,10 @@ impl<S: TimeScale> Time<S> {
 impl<S: TimeScale> Time<S> {
     /// Добавление `Duration`, `None` при переполнении/подпереполнении.
     #[inline]
-    pub fn checked_add(self, d: Duration) -> Option<Self> {
+    pub fn checked_add(
+        self,
+        d: Duration,
+    ) -> Option<Self> {
         let result = (self.nanos as i128) + (d.as_nanos() as i128);
 
         if result < 0 || result > u64::MAX as i128 {
@@ -155,7 +164,10 @@ impl<S: TimeScale> Time<S> {
 
     /// Вычитание `Duration`, `None` при ошибке диапазона.
     #[inline]
-    pub fn checked_sub_duration(self, d: Duration) -> Option<Self> {
+    pub fn checked_sub_duration(
+        self,
+        d: Duration,
+    ) -> Option<Self> {
         let result = (self.nanos as i128) - (d.as_nanos() as i128);
 
         if result < 0 || result > u64::MAX as i128 {
@@ -167,7 +179,10 @@ impl<S: TimeScale> Time<S> {
 
     /// Saturating добавление (ограничение на EPOCH и MAX).
     #[inline]
-    pub fn saturating_add(self, d: Duration) -> Self {
+    pub fn saturating_add(
+        self,
+        d: Duration,
+    ) -> Self {
         self.checked_add(d).unwrap_or(if d.is_negative() {
             Time::EPOCH
         } else {
@@ -177,7 +192,10 @@ impl<S: TimeScale> Time<S> {
 
     /// Saturating вычитание.
     #[inline]
-    pub fn saturating_sub_duration(self, d: Duration) -> Self {
+    pub fn saturating_sub_duration(
+        self,
+        d: Duration,
+    ) -> Self {
         self.checked_sub_duration(d).unwrap_or(if d.is_negative() {
             Time::MAX
         } else {
@@ -187,13 +205,19 @@ impl<S: TimeScale> Time<S> {
 
     /// Fallible add — ошибка [`GnssTimeError::Overflow`] при неудаче.
     #[inline]
-    pub fn try_add(self, d: Duration) -> Result<Self, GnssTimeError> {
+    pub fn try_add(
+        self,
+        d: Duration,
+    ) -> Result<Self, GnssTimeError> {
         self.checked_add(d).ok_or(GnssTimeError::Overflow)
     }
 
     /// Fallible sub — ошибка [`GnssTimeError::Overflow`] при неудаче.
     #[inline]
-    pub fn try_sub_duration(self, d: Duration) -> Result<Self, GnssTimeError> {
+    pub fn try_sub_duration(
+        self,
+        d: Duration,
+    ) -> Result<Self, GnssTimeError> {
         self.checked_sub_duration(d).ok_or(GnssTimeError::Overflow)
     }
 }
@@ -201,7 +225,10 @@ impl<S: TimeScale> Time<S> {
 impl<S: TimeScale> Time<S> {
     /// Интервал `self - earlier`. `None`, если не помещается в `i64`.
     #[inline]
-    pub const fn checked_elapsed(self, ealier: Time<S>) -> Option<Duration> {
+    pub const fn checked_elapsed(
+        self,
+        ealier: Time<S>,
+    ) -> Option<Duration> {
         let diff = (self.nanos as i128) - (ealier.nanos as i128);
 
         if diff > i64::MAX as i128 || diff < i64::MIN as i128 {
@@ -216,7 +243,10 @@ impl<S: TimeScale> Add<Duration> for Time<S> {
     type Output = Time<S>;
 
     #[inline]
-    fn add(self, rhs: Duration) -> Time<S> {
+    fn add(
+        self,
+        rhs: Duration,
+    ) -> Time<S> {
         self.checked_add(rhs)
             .expect("Time<S> + Duration overflowed")
     }
@@ -224,7 +254,10 @@ impl<S: TimeScale> Add<Duration> for Time<S> {
 
 impl<S: TimeScale> AddAssign<Duration> for Time<S> {
     #[inline]
-    fn add_assign(&mut self, rhs: Duration) {
+    fn add_assign(
+        &mut self,
+        rhs: Duration,
+    ) {
         *self = *self + rhs
     }
 }
@@ -233,7 +266,10 @@ impl<S: TimeScale> Sub<Duration> for Time<S> {
     type Output = Time<S>;
 
     #[inline]
-    fn sub(self, rhs: Duration) -> Self::Output {
+    fn sub(
+        self,
+        rhs: Duration,
+    ) -> Self::Output {
         self.checked_sub_duration(rhs)
             .expect("Time<S> - Duration underflowed")
     }
@@ -241,7 +277,10 @@ impl<S: TimeScale> Sub<Duration> for Time<S> {
 
 impl<S: TimeScale> SubAssign<Duration> for Time<S> {
     #[inline]
-    fn sub_assign(&mut self, rhs: Duration) {
+    fn sub_assign(
+        &mut self,
+        rhs: Duration,
+    ) {
         *self = *self - rhs;
     }
 }
@@ -250,7 +289,10 @@ impl<S: TimeScale> Sub<Time<S>> for Time<S> {
     type Output = Duration;
 
     #[inline]
-    fn sub(self, rhs: Time<S>) -> Self::Output {
+    fn sub(
+        self,
+        rhs: Time<S>,
+    ) -> Self::Output {
         self.checked_elapsed(rhs)
             .expect("Time<S> - Time<S> overflowed i64")
     }
@@ -265,8 +307,11 @@ impl Time<Glonass> {
     /// # Errors
     ///
     /// [`GnssTimeError::InvalidInput`] if `tod_s ∉ [0, 86 400)`.
-    pub fn from_day_tod(day: u32, tod_s: f64) -> Result<Self, GnssTimeError> {
-        if tod_s < 0.0 || tod_s >= 86_400.0 {
+    pub fn from_day_tod(
+        day: u32,
+        tod_s: f64,
+    ) -> Result<Self, GnssTimeError> {
+        if !(0.0..86_400.0).contains(&tod_s) {
             return Err(GnssTimeError::InvalidInput("tod_s must be in [0, 86_400)"));
         }
         let day_ns = (day as u64)
@@ -306,14 +351,17 @@ impl Time<Gps> {
     /// # Example
     ///
     /// ```rust
-    /// use gnss_time::{Time, scale::Gps};
+    /// use gnss_time::{scale::Gps, Time};
     ///
     /// let t = Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap();
     /// assert_eq!(t.week(), 2345);
     /// assert_eq!(t.tow_seconds(), 432_000);
     /// ```
-    pub fn from_week_tow(week: u16, tow_s: f64) -> Result<Self, GnssTimeError> {
-        if tow_s < 0.0 || tow_s >= 604_800.0 {
+    pub fn from_week_tow(
+        week: u16,
+        tow_s: f64,
+    ) -> Result<Self, GnssTimeError> {
+        if !(0.0..604_800.0).contains(&tow_s) {
             return Err(GnssTimeError::InvalidInput("tow_s must be in [0, 604_800]"));
         }
         let week_nanos = (week as u64)
@@ -348,20 +396,29 @@ impl Time<Gps> {
 
 impl<S: TimeScale> PartialOrd for Time<S> {
     #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+    fn partial_cmp(
+        &self,
+        other: &Self,
+    ) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl<S: TimeScale> Ord for Time<S> {
     #[inline]
-    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+    fn cmp(
+        &self,
+        other: &Self,
+    ) -> core::cmp::Ordering {
         self.nanos.cmp(&other.nanos)
     }
 }
 
 impl<S: TimeScale> fmt::Debug for Time<S> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         write!(f, "Time<{}>({}ns)", S::NAME, self.nanos)
     }
 }
@@ -374,7 +431,10 @@ impl<S: TimeScale> fmt::Display for Time<S> {
     /// | `WeekTow` | `"GPS 2345:432000.000"`   |
     /// | `DayTod`  | `"GLO 10512:43200.000"`   |
     /// | `Simple`  | `"TAI +1000000000s 0ns"`  |
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match S::DISPLAY_STYLE {
             DisplayStyle::WeekTow => {
                 const WEEK_NS: u64 = 604_800_000_000_000;
@@ -406,14 +466,15 @@ impl<S: TimeScale> fmt::Display for Time<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::scale::{Beidou, Galileo, Glonass, Gps, Tai, Utc};
     #[allow(unused_imports)]
     use std::format;
     #[allow(unused_imports)]
     use std::string::ToString;
     #[allow(unused_imports)]
     use std::vec;
+
+    use super::*;
+    use crate::scale::{Beidou, Galileo, Glonass, Gps, Tai, Utc};
 
     #[test]
     fn test_size_equals_u64() {

@@ -11,7 +11,10 @@ pub enum GnssTimeError {
 }
 
 impl fmt::Display for GnssTimeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
             GnssTimeError::Overflow => {
                 f.write_str("nanosecond arithmetic overflowed the i64 range")

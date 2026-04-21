@@ -2,11 +2,13 @@
 name = "gnss-time"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.75"
 description = "Type-safe GNSS time scales: GLONASS, GPS, Galileo, BeiDou, TAI, UTC"
 license = "MIT OR Apache-2.0"
 keywords = ["gnss", "gps", "time", "no-std", "embedded"]
 categories = ["no-std", "science", "date-and-time"]
+
+# Minimum supported Rust version
+rust-version = "1.75"
 
 [features]
 default = []

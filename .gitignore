@@ -1,3 +1,33 @@
+# macOS system files
+.DS_Store
+
+# Rust build artifacts
+/target
+dist
+tmp
+**/cargo-target
+Cargo.lock
+
+# Editor and IDE directories
+.idea/
+.vscode/
+.zed/
+.trunk
+*.iml
+out/
+.devcontainer/
+
+# Environment files and secrets
+.env
+
+# VS Code workspace configuration
+*.code-workspace
+
+# WebAssembly build outputs
+*.wasm
+
+*.dll
+
 /target
 
 ROADMAP.md

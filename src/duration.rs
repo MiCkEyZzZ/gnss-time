@@ -154,7 +154,10 @@ impl Duration {
 impl Duration {
     /// Add, returning `None` on overflow.
     #[inline]
-    pub const fn checked_add(self, rhs: Duration) -> Option<Duration> {
+    pub const fn checked_add(
+        self,
+        rhs: Duration,
+    ) -> Option<Duration> {
         match self.0.checked_add(rhs.0) {
             Some(n) => Some(Duration(n)),
             None => None,
@@ -163,7 +166,10 @@ impl Duration {
 
     /// Substract, returning `None` on overflow.
     #[inline]
-    pub const fn checked_sub(self, rhs: Duration) -> Option<Duration> {
+    pub const fn checked_sub(
+        self,
+        rhs: Duration,
+    ) -> Option<Duration> {
         match self.0.checked_sub(rhs.0) {
             Some(n) => Some(Duration(n)),
             None => None,
@@ -172,25 +178,37 @@ impl Duration {
 
     /// Add, saturating at `i64::MAX` / `i64::MIN`.
     #[inline]
-    pub const fn saturating_add(self, rhs: Duration) -> Duration {
+    pub const fn saturating_add(
+        self,
+        rhs: Duration,
+    ) -> Duration {
         Duration(self.0.saturating_add(rhs.0))
     }
 
     /// Subtract, saturating at `i64::MAX` / `i64::MIN`.
     #[inline]
-    pub const fn saturating_sub(self, rhs: Duration) -> Duration {
+    pub const fn saturating_sub(
+        self,
+        rhs: Duration,
+    ) -> Duration {
         Duration(self.0.saturating_sub(rhs.0))
     }
 
     /// Fallible addition - returns [`GnssTimeError::Overflow`] on overflow.
     #[inline]
-    pub fn try_add(self, rhs: Duration) -> Result<Duration, GnssTimeError> {
+    pub fn try_add(
+        self,
+        rhs: Duration,
+    ) -> Result<Duration, GnssTimeError> {
         self.checked_add(rhs).ok_or(GnssTimeError::Overflow)
     }
 
     /// Fallible subtraction — returns [`GnssTimeError::Overflow`] on overflow.
     #[inline]
-    pub fn try_sub(self, rhs: Duration) -> Result<Duration, GnssTimeError> {
+    pub fn try_sub(
+        self,
+        rhs: Duration,
+    ) -> Result<Duration, GnssTimeError> {
         self.checked_sub(rhs).ok_or(GnssTimeError::Overflow)
     }
 }
@@ -199,14 +217,20 @@ impl Add for Duration {
     type Output = Duration;
 
     #[inline]
-    fn add(self, rhs: Self) -> Self::Output {
+    fn add(
+        self,
+        rhs: Self,
+    ) -> Self::Output {
         Duration(self.0 + rhs.0)
     }
 }
 
 impl AddAssign for Duration {
     #[inline]
-    fn add_assign(&mut self, rhs: Self) {
+    fn add_assign(
+        &mut self,
+        rhs: Self,
+    ) {
         self.0 += rhs.0
     }
 }
@@ -215,14 +239,20 @@ impl Sub for Duration {
     type Output = Duration;
 
     #[inline]
-    fn sub(self, rhs: Self) -> Self::Output {
+    fn sub(
+        self,
+        rhs: Self,
+    ) -> Self::Output {
         Duration(self.0 - rhs.0)
     }
 }
 
 impl SubAssign for Duration {
     #[inline]
-    fn sub_assign(&mut self, rhs: Self) {
+    fn sub_assign(
+        &mut self,
+        rhs: Self,
+    ) {
         self.0 -= rhs.0
     }
 }
@@ -239,7 +269,10 @@ impl fmt::Display for Duration {
     /// Formats as `[−]Xs Ynano_s` preserving full precision.
     ///
     /// Examples: `"1s 0ns"`, `"-3s 141592654ns"`, `"0s 500000000ns"`.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         let total = self.0;
         let sign = if total < 0 { "-" } else { "" };
         let abs = total.unsigned_abs(); // u64
@@ -251,9 +284,10 @@ impl fmt::Display for Duration {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     #[allow(unused_imports)]
     use std::string::ToString;
+
+    use super::*;
 
     #[test]
     fn test_from_seconds_roundtrip() {
