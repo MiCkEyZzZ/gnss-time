@@ -3,7 +3,7 @@
 **Type-safe time handling for GNSS systems in Rust.**
 
 `gnss-time` is a minimal, zero-cost core library for working with time in satellite
-navigation systems such as GPS, GLONASS, Galileo, and BeiDou.
+navigation systems such as GLONASS, GPS, Galileo, and BeiDou.
 
 This is **not** a GNSS engine and **not** an RTK library.
 It is a strictly typed time model designed to prevent domain-mixing bugs at c
@@ -11,7 +11,7 @@ ompile time.
 
 ## Features
 
-- **Type-safe time scales** — `Gps`, `Glonass`, `Galileo`, `Beidou`, `Tai`, `Utc`
+- **Type-safe time scales** — `Glonass`, `Gps`, `Galileo`, `Beidou`, `Tai`, `Utc`
 - **Fixed epochs** for each system (1980-01-06, 1996-01-01, etc.)
 - **Conversions via TAI** as a unified pivot
 - **Domain-specific formats**
