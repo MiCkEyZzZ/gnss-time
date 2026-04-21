@@ -14,7 +14,7 @@ impl fmt::Display for GnssTimeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             GnssTimeError::Overflow => {
-                f.write_str("nanosecond arithmetic pverflowed the i64 range")
+                f.write_str("nanosecond arithmetic overflowed the i64 range")
             }
             GnssTimeError::InvalidInput(msg) => {
                 write!(f, "invalid input: {msg}")

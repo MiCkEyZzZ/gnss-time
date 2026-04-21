@@ -12,26 +12,26 @@ fn main() {
     let gps_instant = Time::<Gps>::from_seconds(1_000_000);
     let galileo_instant = gps_instant.try_convert::<Galileo>().unwrap();
 
-    println!("ГПС:      {gps_instant}");
-    println!("Галилео:  {galileo_instant}");
+    println!("GPS:      {gps_instant}");
+    println!("Galileo:  {galileo_instant}");
     println!(
-        "Одинаковые наносекунды? {}",
+        "Same nanoseconds? {}",
         gps_instant.as_nanos() == galileo_instant.as_nanos()
     );
 
     // ГПС -> Бэйдоу (BDT = TAI - 33 с, ГПС = TAI - 19 с -> BDT = ГПС - 14 с)
     let bdt_instant = gps_instant.try_convert::<Beidou>().unwrap();
 
-    println!("\nГПС:      {gps_instant}");
-    println!("Бэйдоу:   {bdt_instant}");
+    println!("\nGPS:      {gps_instant}");
+    println!("BeiDou:   {bdt_instant}");
 
     let diff = gps_instant.as_seconds() as i64 - bdt_instant.as_seconds() as i64;
 
-    println!("Разница: {diff} секунд (ГПС опережает BDT на 14 с)");
+    println!("Difference: {diff} seconds (GPS leads BDT by 14 s)");
 
     // Альтернатива: показать математическое соотношение
     println!(
-        "Доказательство: {}с (ГПС) - {}с (BDT) = {}с ✓",
+        "Proof: {}s (GPS) - {}s (BDT) = {}s ✓",
         gps_instant.as_seconds(),
         bdt_instant.as_seconds(),
         diff
@@ -43,21 +43,21 @@ fn main() {
 
     assert_eq!(gps_instant, back_to_gps);
 
-    println!("\nСквозное преобразование через TAI работает: ГПС → TAI → ГПС");
+    println!("\nRound-trip via TAI works: GPS → TAI → GPS");
 
     // Пример переполнения: ГПС близко к MAX не может быть преобразован в TAI
     let almost_max = Time::<Gps>::from_nanos(u64::MAX - 19_000_000_000);
 
     match almost_max.to_tai() {
-        Ok(_) => println!("Преобразование успешно"),
-        Err(e) => println!("\nПереполнение перехвачено: {e}"),
+        Ok(_) => println!("Conversion OK"),
+        Err(e) => println!("\nOverflow caught: {e}"),
     }
 
     // Переполнение вниз (underflow): TAI -> ГПС (TAI < 19 с -> отрицательное ГПС)
     let tai_early = Time::<Tai>::from_seconds(10);
 
     match Time::<Gps>::from_tai(tai_early) {
-        Ok(_) => println!("Неожиданный успех"),
-        Err(e) => println!("Перехвачено исчерпание: {e}"),
+        Ok(_) => println!("Unexpected success"),
+        Err(e) => println!("Underflow caught: {e}"),
     }
 }
