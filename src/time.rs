@@ -17,7 +17,10 @@ use core::{
     ops::{Add, AddAssign, Sub, SubAssign},
 };
 
-use crate::{DisplayStyle, Duration, Glonass, GnssTimeError, Gps, OffsetToTai, Tai, TimeScale};
+use crate::{
+    gps_to_utc, utc_to_gps, DisplayStyle, Duration, Glonass, GnssTimeError, Gps, LeapSeconds,
+    LeapSecondsProvider, OffsetToTai, Tai, TimeScale, Utc,
+};
 
 /// Временная метка в шкале времени `S`, хранимая как наносекунды от эпохи
 /// шкалы.
@@ -362,7 +365,7 @@ impl Time<Gps> {
         tow_s: f64,
     ) -> Result<Self, GnssTimeError> {
         if !(0.0..604_800.0).contains(&tow_s) {
-            return Err(GnssTimeError::InvalidInput("tow_s must be in [0, 604_800]"));
+            return Err(GnssTimeError::InvalidInput("tow_s must be in [0, 604_800)"));
         }
         let week_nanos = (week as u64)
             .checked_mul(604_800_000_000_000) // 604_800 s * 1e9
@@ -373,6 +376,29 @@ impl Time<Gps> {
             .ok_or(GnssTimeError::Overflow)?;
 
         Ok(Time::from_nanos(total))
+    }
+
+    /// Convert GPS time to UTC using the built-in leap second table.
+    ///
+    /// # Accuracy
+    ///
+    /// For most timestamps the conversion is exact to the nanosecond.
+    /// During the 1‑second leap second insertion window (e.g. 2016-12-31
+    /// 23:59:60 UTC) the result may be off by up to 1 second. If this
+    /// matters, use [`to_utc_with`](Self::to_utc_with) and a custom
+    /// provider that handles ambiguity
+    pub fn to_utc(self) -> Result<Time<Utc>, GnssTimeError> {
+        gps_to_utc(self, LeapSeconds::builtin())
+    }
+
+    /// Convert GPS time to UTC using a custom leap second provider.
+    ///
+    /// Same accuracy note as [`to_utc`](Self::to_utc).
+    pub fn to_utc_with<P: LeapSecondsProvider>(
+        self,
+        ls: &P,
+    ) -> Result<Time<Utc>, GnssTimeError> {
+        gps_to_utc(self, ls)
     }
 
     /// GPS week number (integer division).
@@ -391,6 +417,24 @@ impl Time<Gps> {
     #[inline]
     pub const fn sub_second_nanos(self) -> u32 {
         (self.nanos % 1_000_000_000u64) as u32
+    }
+}
+
+impl Time<Utc> {
+    /// Convert UTC to GPS using the built-in leap second table.
+    ///
+    /// # Accuracy
+    /// Same as [`to_utc`](Time::<Gps>::to_utc) – may be ambiguous during leap
+    /// second.
+    pub fn to_gps(self) -> Result<Time<Gps>, GnssTimeError> {
+        utc_to_gps(self, LeapSeconds::builtin())
+    }
+
+    pub fn to_gps_with<P: LeapSecondsProvider>(
+        self,
+        ls: &P,
+    ) -> Result<Time<Gps>, GnssTimeError> {
+        utc_to_gps(self, ls)
     }
 }
 
