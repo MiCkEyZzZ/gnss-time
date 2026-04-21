@@ -4,8 +4,10 @@ version = "0.1.0"
 edition = "2021"
 description = "Type-safe GNSS time scales: GLONASS, GPS, Galileo, BeiDou, TAI, UTC"
 license = "MIT OR Apache-2.0"
-keywords = ["gnss", "gps", "time", "no-std", "embedded"]
+repository = "https://github.com/MiCkEyZzZ/gnss-time"
+keywords = ["gnss", "glonass", "gps", "time", "no-std", "embedded"]
 categories = ["no-std", "science", "date-and-time"]
+authors = ["<zedmfix@gmail.com>"]
 
 # Minimum supported Rust version
 rust-version = "1.75"
