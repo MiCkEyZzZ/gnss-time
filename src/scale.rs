@@ -211,7 +211,8 @@ impl OffsetToTai {
         }
     }
 
-    /// Возвращает `true` для шкал, требующих контекста времени выполнения (UTC, GLONASS).
+    /// Возвращает `true` для шкал, требующих контекста времени выполнения (UTC,
+    /// GLONASS).
     #[inline(always)]
     pub const fn is_contextual(self) -> bool {
         matches!(self, OffsetToTai::Contextual)
@@ -220,8 +221,7 @@ impl OffsetToTai {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-    use std::mem::size_of;
+    use std::{collections::HashSet, mem::size_of};
 
     use super::*;
 

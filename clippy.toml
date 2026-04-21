@@ -1,0 +1,39 @@
+# Строгий стиль для акронимов (SDR, FFT, IQ, CRC и т.д. правильными заглавными)
+upper-case-acronyms-aggressive = true
+
+# Не блокировать изменения в публичном API (проект pre-0.1, API активно меняется)
+avoid-breaking-exported-api = false
+
+# Запрещённые методы
+
+# Небезопасные функции из крейта time (RUSTSEC-2020-0071)
+[[disallowed-methods]]
+path         = "time::now"
+allow-invalid = true
+reason       = "time::now небезопасен (RUSTSEC-2020-0071) — используйте std::time::Instant."
+
+[[disallowed-methods]]
+path         = "time::at"
+allow-invalid = true
+reason       = "time::at небезопасен (RUSTSEC-2020-0071) — используйте std::time::SystemTime."
+
+[[disallowed-methods]]
+path         = "time::at_utc"
+allow-invalid = true
+reason       = "time::at_utc небезопасен (RUSTSEC-2020-0071)."
+
+# transmute ломает систему типов
+[[disallowed-methods]]
+path   = "std::mem::transmute"
+reason = "transmute опасен — используйте безопасные конверсии (From/Into/bytemuck)."
+
+# Запрещённые типы
+
+# Не использовать std::sync::Mutex для IQ-данных в hot path
+[[disallowed-types]]
+path   = "std::sync::Mutex"
+reason = "В hot-path (IQ pipeline) используйте parking_lot::Mutex или crossbeam."
+
+# Допустимые исключения
+# std::thread::Builder::spawn разрешён — SDR pipeline требует явных потоков
+# (recorder, replayer, analyzer все многопоточны)

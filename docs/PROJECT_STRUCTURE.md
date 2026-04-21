@@ -37,9 +37,17 @@ gnss-time
 │   └── time.rs
 ├── tests
 │   └── time_integration_test.rs
+├── .editorconfig
 ├── .gitignore
+├── AUTHOR.md
 ├── Cargo.lock
 ├── Cargo.toml
 ├── CHANGELOG.md
-└── README.md
+├── clippy.toml
+├── INSTALL
+├── justfile
+├── README.md
+├── rust-toolchain.toml
+├── rustfmt.toml
+└── taplo.toml
 ```

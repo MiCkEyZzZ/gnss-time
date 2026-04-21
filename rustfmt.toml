@@ -1,0 +1,46 @@
+# rustfmt.toml — настройки форматирования для проекта Gorka.
+# Примечание: некоторые опции (format_macro_bodies, format_macro_matchers, unstable_features)
+# требуют nightly rustfmt.
+
+edition = "2021" # Rust edition.
+max_width = 100  # Желательная максимальная ширина строки.
+
+hard_tabs = false                  # false => используем пробелы (обычно 4 пробела).
+comment_width = 80                 # Ширина при переносе комментариев.
+wrap_comments = true               # Переносить длинные комментарии автоматически.
+format_code_in_doc_comments = true # Форматировать код внутри doc-комментариев.
+
+# Макросы — форматирование тел и matchers (требует nightly rustfmt)
+format_macro_bodies = true
+format_macro_matchers = true
+
+# Нормализация комментариев и doc-атрибутов
+normalize_comments = true
+normalize_doc_attributes = true
+
+# Конденсация wildcard-суффиксов в импортах (устаревшие/упрощающие формы)
+condense_wildcard_suffixes = true
+
+newline_style = "Unix" # Использовать LF (Unix) для переводов строк.
+
+# Удобные шорткаты
+use_field_init_shorthand = true # s{x} при инициализации вместо x: x
+use_try_shorthand = true        # prefer ?/try shorthands
+
+# Включаем экспериментальные фичи rustfmt (требует nightly)
+unstable_features = true
+
+# Запятая после последнего элемента в многострочных литералах (git-friendly)
+trailing_comma = "Vertical"
+
+# Импорт/группировка use-выражений
+imports_granularity = "Crate"      # "Crate" группирует внутри crate::..., "Preserve" — не трогать
+imports_layout = "Mixed"           # Расположение/внешний вид групп импортов
+group_imports = "StdExternalCrate" # Сначала std, затем внешние крейты, затем crate/local
+
+# Стиль размещения скобок
+brace_style = "SameLineWhere"          # Где ставить '{' для where/impl и т.д.
+control_brace_style = "AlwaysSameLine" # '{' для if/for/while — на той же строке
+
+# Расположение параметров функции: каждый параметр на новой строке (очень "вертикально")
+fn_params_layout = "Vertical"

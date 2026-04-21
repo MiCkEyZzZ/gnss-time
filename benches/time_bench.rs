@@ -1,6 +1,7 @@
+use std::hint::black_box;
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use gnss_time::{Duration, Gps, Time};
-use std::hint::black_box;
 
 fn bench_u64_add(c: &mut Criterion) {
     c.bench_function("u64 add", |b| {

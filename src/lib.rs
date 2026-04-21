@@ -3,8 +3,11 @@
 //! **Type-safe GNSS time scale with zero runtime overhead**.
 //!
 //! ```rust
-//! use gnss_time::{Time, Duration, scale::Gps};
-//! use gnss_time::leap::{LeapSeconds, gps_to_utc};
+//! use gnss_time::{
+//!     leap::{gps_to_utc, LeapSeconds},
+//!     scale::Gps,
+//!     Duration, Time,
+//! };
 //!
 //! let t = Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap();
 //! assert_eq!(t.to_string(), "GPS 2345:432000.000");
@@ -21,11 +24,8 @@
 // #![deny(missing_docs)]
 #![deny(unsafe_code)]
 
-#[cfg(feature = "std")]
-extern crate std;
-
 // Allow std in test builds (cargo test always links std).
-#[cfg(test)]
+#[cfg(any(feature = "std", test))]
 extern crate std;
 
 pub mod duration;

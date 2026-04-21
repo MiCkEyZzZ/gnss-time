@@ -12,7 +12,8 @@
 //!
 //! Причины:
 //! - `no_std` / embedded: глобальной изменяемой памяти нет
-//! - Embedded GNSS-приёмник: таблица читается из алманаха, обновляется в runtime
+//! - Embedded GNSS-приёмник: таблица читается из алманаха, обновляется в
+//!   runtime
 //! - Тестирование: легко подставить нужное состояние без mock'ов
 //! - Determinism: скомпилированный код не зависит от будущих обновлений IERS
 //!
@@ -36,7 +37,8 @@
 
 use crate::{CivilDate, Glonass, GnssTimeError, Gps, Tai, Time, Utc, BUILTIN_TABLE};
 
-/// Наносекунды от эпохи UTC (1972-01-01) до эпохи ГЛОНАСС (1995-12-31 21:00:00 UTC).
+/// Наносекунды от эпохи UTC (1972-01-01) до эпохи ГЛОНАСС (1995-12-31 21:00:00
+/// UTC).
 ///
 /// Эпоха ГЛОНАСС = 1996-01-01 00:00:00 UTC(SU) = 1995-12-31 21:00:00 UTC.
 ///
@@ -63,7 +65,8 @@ const _VERIFY_GLONASS_OFFSET: () = {
 /// Наносекунды от эпохи UTC (1972-01-01) до эпохи GPS (1980-01-06).
 ///
 /// Эпоха GPS позже, значение положительное.
-/// `UTC_nanos_from_1972 = GPS_nanos_from_1980 - (TAI_minus_UTC - 19) * 1e9 + THIS`
+/// `UTC_nanos_from_1972 = GPS_nanos_from_1980 - (TAI_minus_UTC - 19) * 1e9 +
+/// THIS`
 const UTC_TO_GPS_EPOCH_NS: i64 = CivilDate::new(1972, 1, 1).nanos_until(CivilDate::new(1980, 1, 6));
 // = 2927 дней * 86400 * 1e9 = 252_892_800_000_000_000 ns
 
@@ -84,20 +87,25 @@ const _VERIFY_UTC_GPS_OFFSET: () = {
 /// # Реализация
 ///
 /// ```rust
-/// use gnss_time::{LeapSecondsProvider, LeapEntry};
-/// use gnss_time::{Time, Tai};
+/// use gnss_time::{LeapEntry, LeapSecondsProvider, Tai, Time};
 ///
 /// struct FixedLeap(i32);
 ///
 /// impl LeapSecondsProvider for FixedLeap {
-///     fn tai_minus_utc_at(&self, _tai: Time<Tai>) -> i32 {
+///     fn tai_minus_utc_at(
+///         &self,
+///         _tai: Time<Tai>,
+///     ) -> i32 {
 ///         self.0
 ///     }
 /// }
 /// ```
 pub trait LeapSecondsProvider {
     /// Возвращает TAI - UTC (в секундах) для заданного момента TAI.
-    fn tai_minus_utc_at(&self, tai: Time<Tai>) -> i32;
+    fn tai_minus_utc_at(
+        &self,
+        tai: Time<Tai>,
+    ) -> i32;
 }
 
 /// Одна запись в таблице leap seconds.
@@ -130,8 +138,11 @@ pub struct LeapEntry {
 /// # Примеры
 ///
 /// ```rust
-/// use gnss_time::leap::{LeapSeconds, LeapSecondsProvider, gps_to_utc};
-/// use gnss_time::{Time, scale::Gps};
+/// use gnss_time::{
+///     leap::{gps_to_utc, LeapSeconds, LeapSecondsProvider},
+///     scale::Gps,
+///     Time,
+/// };
 ///
 /// // Встроенная таблица (до 2017)
 /// let ls = LeapSeconds::builtin();
@@ -145,7 +156,10 @@ pub struct LeapSeconds {
 }
 
 impl LeapEntry {
-    pub const fn new(tai_nanos: u64, tai_minus_utc: i32) -> Self {
+    pub const fn new(
+        tai_nanos: u64,
+        tai_minus_utc: i32,
+    ) -> Self {
         LeapEntry {
             tai_nanos,
             tai_minus_utc,
@@ -193,7 +207,10 @@ impl LeapSeconds {
 }
 
 impl LeapSecondsProvider for LeapSeconds {
-    fn tai_minus_utc_at(&self, tai: Time<Tai>) -> i32 {
+    fn tai_minus_utc_at(
+        &self,
+        tai: Time<Tai>,
+    ) -> i32 {
         let nanos = tai.as_nanos();
         let entries = self.entries;
 
@@ -216,7 +233,10 @@ impl LeapSecondsProvider for LeapSeconds {
 // Blanket impl: &P automatically implements LeapSecondsProvider when P does.
 // This allows passing &LeapSeconds::builtin() directly.
 impl<P: LeapSecondsProvider> LeapSecondsProvider for &P {
-    fn tai_minus_utc_at(&self, tai: Time<Tai>) -> i32 {
+    fn tai_minus_utc_at(
+        &self,
+        tai: Time<Tai>,
+    ) -> i32 {
         (*self).tai_minus_utc_at(tai)
     }
 }
@@ -249,7 +269,8 @@ pub fn glonass_to_utc(glo: Time<Glonass>) -> Result<Time<Utc>, GnssTimeError> {
 ///
 /// # Ошибки
 ///
-/// [`GnssTimeError::Overflow`] — если UTC раньше GLONASS-эпохи (1996-01-01 UTC(SU)).
+/// [`GnssTimeError::Overflow`] — если UTC раньше GLONASS-эпохи (1996-01-01
+/// UTC(SU)).
 pub fn utc_to_glonass(utc: Time<Utc>) -> Result<Time<Glonass>, GnssTimeError> {
     let glo_ns = (utc.as_nanos() as i128) - (GLONASS_FROM_UTC_EPOCH_NS as i128);
 
@@ -371,10 +392,11 @@ pub fn gps_to_glonass<P: LeapSecondsProvider>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::scale::Gps;
     #[allow(unused_imports)]
     use std::string::ToString;
+
+    use super::*;
+    use crate::scale::Gps;
 
     #[test]
     fn test_utc_to_gps_epoch_offset_is_252892800_seconds() {
@@ -513,8 +535,9 @@ mod tests {
     /// Проверяем GPS-UTC = 18 на 2017-01-01 00:00:00 UTC.
     ///
     /// GPS на 2017-01-01 (unix=1483228800):
-    ///   GPS_s = (1483228800 - 315964800) + (37-19) = 1167264000 + 18 = 1167264018
-    /// UTC nanos от UTC_epoch = 16437 дней * 86400 * 1e9 = 1_420_156_800_000_000_000
+    ///   GPS_s = (1483228800 - 315964800) + (37-19) = 1167264000 + 18 =
+    /// 1167264018 UTC nanos от UTC_epoch = 16437 дней * 86400 * 1e9 =
+    /// 1_420_156_800_000_000_000
     #[test]
     fn test_gps_minus_utc_is_18s_at_2017_01_01() {
         let ls = LeapSeconds::builtin();
@@ -629,7 +652,8 @@ mod tests {
 
     #[test]
     fn test_glonass_offset_is_exactly_3_hours_less_than_day_boundary() {
-        // Смещение = 8766 дней * 86400 - 3*3600 (ровно 3 часа до полуночи 1996-01-01 UTC)
+        // Смещение = 8766 дней * 86400 - 3*3600 (ровно 3 часа до полуночи 1996-01-01
+        // UTC)
         let three_hours_ns: i64 = 3 * 3_600 * 1_000_000_000;
         let days_ns: i64 = 8766 * 86_400 * 1_000_000_000;
 
@@ -652,7 +676,10 @@ mod tests {
         struct Always37;
 
         impl LeapSecondsProvider for Always37 {
-            fn tai_minus_utc_at(&self, _: Time<Tai>) -> i32 {
+            fn tai_minus_utc_at(
+                &self,
+                _: Time<Tai>,
+            ) -> i32 {
                 37
             }
         }
