@@ -1,4 +1,4 @@
-use gnss_time::{Duration, Gps, Time};
+use gnss_time::prelude::*;
 
 fn main() {
     let t = Time::<Gps>::MAX;
