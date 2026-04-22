@@ -1,11 +1,6 @@
 //! Demonstrates contextual conversions (GPS ↔ UTC) that require leap seconds.
 
-use gnss_time::{
-    convert::{ConvertResult, IntoScaleWith},
-    leap::LeapSeconds,
-    scale::{Gps, Utc},
-    Time,
-};
+use gnss_time::{prelude::*, ConvertResult};
 
 fn main() {
     // Получаем встроенную таблицу (статическая ссылка)

@@ -1,4 +1,4 @@
-use gnss_time::{Gps, Time};
+use gnss_time::prelude::*;
 
 fn main() {
     // данные из GNSS приёмника (например u-blox)

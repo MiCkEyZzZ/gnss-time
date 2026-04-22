@@ -1,4 +1,4 @@
-use gnss_time::{Glonass, Gps, Time};
+use gnss_time::prelude::*;
 
 fn main() {
     let _gps = Time::<Gps>::from_seconds(1000);
