@@ -23,12 +23,7 @@
 //! ## Ergonomic usage
 //!
 //! ```rust
-//! use gnss_time::{
-//!     convert::{IntoScale, IntoScaleWith},
-//!     leap::LeapSeconds,
-//!     scale::{Galileo, Gps, Tai, Utc},
-//!     Time,
-//! };
+//! use gnss_time::{Galileo, Gps, IntoScale, IntoScaleWith, LeapSeconds, Tai, Time, Utc};
 //!
 //! // Fixed-offset conversions — no context needed
 //! let gps = Time::<Gps>::from_week_tow(2345, 0.0).unwrap();
@@ -50,12 +45,7 @@
 //! Use [`IntoScaleWith::into_scale_with_checked`] to detect this:
 //!
 //! ```rust
-//! use gnss_time::{
-//!     convert::{ConvertResult, IntoScaleWith},
-//!     leap::LeapSeconds,
-//!     scale::{Gps, Utc},
-//!     Time,
-//! };
+//! use gnss_time::{ConvertResult, Gps, IntoScaleWith, LeapSeconds, Time, Utc};
 //!
 //! let ls = LeapSeconds::builtin();
 //!
