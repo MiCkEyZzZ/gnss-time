@@ -10,8 +10,8 @@
 navigation systems such as GLONASS, GPS, Galileo, and BeiDou.
 
 This is **not** a GNSS engine and **not** an RTK library.
-It is a strictly typed time model designed to prevent domain-mixing bugs at c
-ompile time.
+It is a strictly typed time model designed to prevent domain-mixing bugs at compile
+time.
 
 ## Features
 
@@ -86,13 +86,3 @@ Dual-licensed under:
 
 - MIT
 - Apache-2.0
-
-## Contributing
-
-Contributions are welcome.
-Focus areas:
-
-- conversion correctness
-- embedded support
-- performance benchmarks
-- real-world GNSS datasets

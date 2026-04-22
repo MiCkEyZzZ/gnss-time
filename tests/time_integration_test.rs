@@ -10,7 +10,7 @@ use gnss_time::{
 };
 
 #[test]
-fn time_is_same_size_as_u64_for_all_scales() {
+fn test_time_is_same_size_as_u64_for_all_scales() {
     assert_eq!(core::mem::size_of::<Time<Gps>>(), 8);
     assert_eq!(core::mem::size_of::<Time<Glonass>>(), 8);
     assert_eq!(core::mem::size_of::<Time<Galileo>>(), 8);
@@ -20,12 +20,12 @@ fn time_is_same_size_as_u64_for_all_scales() {
 }
 
 #[test]
-fn duration_is_same_size_as_i64() {
+fn test_duration_is_same_size_as_i64() {
     assert_eq!(core::mem::size_of::<Duration>(), 8);
 }
 
 #[test]
-fn epoch_is_zero_nanos_for_every_scale() {
+fn test_epoch_is_zero_nanos_for_every_scale() {
     assert_eq!(Time::<Gps>::EPOCH.as_nanos(), 0);
     assert_eq!(Time::<Glonass>::EPOCH.as_nanos(), 0);
     assert_eq!(Time::<Galileo>::EPOCH.as_nanos(), 0);
@@ -35,14 +35,14 @@ fn epoch_is_zero_nanos_for_every_scale() {
 }
 
 #[test]
-fn gps_week_0_tow_0_is_epoch() {
+fn test_gps_week_0_tow_0_is_epoch() {
     let t = Time::<Gps>::from_week_tow(0, 0.0).unwrap();
 
     assert_eq!(t, Time::<Gps>::EPOCH);
 }
 
 #[test]
-fn gps_week_tow_roundtrip() {
+fn test_gps_week_tow_roundtrip() {
     let t = Time::<Gps>::from_week_tow(2300, 12_345.678).unwrap();
 
     assert_eq!(t.week(), 2300);
@@ -51,12 +51,12 @@ fn gps_week_tow_roundtrip() {
 }
 
 #[test]
-fn gps_tow_boundary_valid() {
+fn test_gps_tow_boundary_valid() {
     assert!(Time::<Gps>::from_week_tow(0, 604_799.999_999).is_ok());
 }
 
 #[test]
-fn gps_tow_at_604800_is_invalid() {
+fn test_gps_tow_at_604800_is_invalid() {
     assert!(matches!(
         Time::<Gps>::from_week_tow(0, 604_800.0),
         Err(GnssTimeError::InvalidInput(_))
@@ -64,7 +64,7 @@ fn gps_tow_at_604800_is_invalid() {
 }
 
 #[test]
-fn gps_negative_tow_is_invalid() {
+fn test_gps_negative_tow_is_invalid() {
     assert!(matches!(
         Time::<Gps>::from_week_tow(0, -0.001),
         Err(GnssTimeError::InvalidInput(_))
@@ -72,19 +72,19 @@ fn gps_negative_tow_is_invalid() {
 }
 
 #[test]
-fn glonass_day_0_tod_0_is_epoch() {
+fn test_glonass_day_0_tod_0_is_epoch() {
     let t = Time::<Glonass>::from_day_tod(0, 0.0).unwrap();
 
     assert_eq!(t, Time::<Glonass>::EPOCH);
 }
 
 #[test]
-fn glonass_tod_boundary_valid() {
+fn test_glonass_tod_boundary_valid() {
     assert!(Time::<Glonass>::from_day_tod(100, 86_399.999_9).is_ok());
 }
 
 #[test]
-fn glonass_tod_at_86400_is_invalid() {
+fn test_glonass_tod_at_86400_is_invalid() {
     assert!(matches!(
         Time::<Glonass>::from_day_tod(0, 86_400.0),
         Err(GnssTimeError::InvalidInput(_))
@@ -92,7 +92,7 @@ fn glonass_tod_at_86400_is_invalid() {
 }
 
 #[test]
-fn glonass_day_and_tod_accessors() {
+fn test_glonass_day_and_tod_accessors() {
     let t = Time::<Glonass>::from_day_tod(10_512, 43_200.0).unwrap();
 
     assert_eq!(t.day(), 10_512);
@@ -100,7 +100,7 @@ fn glonass_day_and_tod_accessors() {
 }
 
 #[test]
-fn duration_unit_constructors_are_consistent() {
+fn test_duration_unit_constructors_are_consistent() {
     assert_eq!(Duration::from_days(1), Duration::from_hours(24));
     assert_eq!(Duration::from_hours(1), Duration::from_minutes(60));
     assert_eq!(Duration::from_minutes(1), Duration::from_seconds(60));
@@ -110,7 +110,7 @@ fn duration_unit_constructors_are_consistent() {
 }
 
 #[test]
-fn adding_one_week_to_epoch() {
+fn test_adding_one_week_to_epoch() {
     let one_week_ns = 604_800u64 * 1_000_000_000u64;
     let t = Time::<Gps>::EPOCH + Duration::from_seconds(604_800);
 
@@ -118,7 +118,7 @@ fn adding_one_week_to_epoch() {
 }
 
 #[test]
-fn subtracting_duration_is_inverse_of_adding() {
+fn test_subtracting_duration_is_inverse_of_adding() {
     let base = Time::<Beidou>::from_seconds(1_000_000);
     let d = Duration::from_seconds(42_000);
 
@@ -126,7 +126,7 @@ fn subtracting_duration_is_inverse_of_adding() {
 }
 
 #[test]
-fn elapsed_between_two_gps_timestamps() {
+fn test_elapsed_between_two_gps_timestamps() {
     let start = Time::<Gps>::from_week_tow(2300, 0.0).unwrap();
     let end = Time::<Gps>::from_week_tow(2300, 3600.0).unwrap();
 
@@ -134,7 +134,7 @@ fn elapsed_between_two_gps_timestamps() {
 }
 
 #[test]
-fn negative_elapsed() {
+fn test_negative_elapsed() {
     let a = Time::<Tai>::from_seconds(100);
     let b = Time::<Tai>::from_seconds(200);
 
@@ -142,14 +142,14 @@ fn negative_elapsed() {
 }
 
 #[test]
-fn checked_add_overflow() {
+fn test_checked_add_overflow() {
     assert!(Time::<Gps>::MAX
         .checked_add(Duration::ONE_NANOSECOND)
         .is_none());
 }
 
 #[test]
-fn saturating_add_clamps_to_max() {
+fn test_saturating_add_clamps_to_max() {
     assert_eq!(
         Time::<Gps>::MAX.saturating_add(Duration::from_seconds(999)),
         Time::<Gps>::MAX
@@ -157,7 +157,7 @@ fn saturating_add_clamps_to_max() {
 }
 
 #[test]
-fn try_add_returns_err_on_overflow() {
+fn test_try_add_returns_err_on_overflow() {
     assert!(matches!(
         Time::<Gps>::MAX.try_add(Duration::ONE_NANOSECOND),
         Err(GnssTimeError::Overflow)
@@ -165,7 +165,7 @@ fn try_add_returns_err_on_overflow() {
 }
 
 #[test]
-fn timestamps_sort_correctly() {
+fn test_timestamps_sort_correctly() {
     let t0 = Time::<Gps>::from_seconds(0);
     let t1 = Time::<Gps>::from_seconds(1);
     let t2 = Time::<Gps>::from_seconds(2);
@@ -177,53 +177,53 @@ fn timestamps_sort_correctly() {
 }
 
 #[test]
-fn gps_display_canonical_example() {
-    // The exact format from the issue: "GPS 2345:432000.000"
+fn test_gps_display_canonical_example() {
+    // Точный формат из issue: "GPS 2345:432000.000"
     let t = Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap();
 
     assert_eq!(t.to_string(), "GPS 2345:432000.000");
 }
 
 #[test]
-fn gps_display_epoch_is_zero_week() {
+fn test_gps_display_epoch_is_zero_week() {
     assert_eq!(Time::<Gps>::EPOCH.to_string(), "GPS 0:000000.000");
 }
 
 #[test]
-fn gps_display_tow_is_zero_padded_to_6_digits() {
+fn test_gps_display_tow_is_zero_padded_to_6_digits() {
     let t = Time::<Gps>::from_week_tow(10, 1.0).unwrap();
 
     assert_eq!(t.to_string(), "GPS 10:000001.000");
 }
 
 #[test]
-fn gps_display_millis_precision() {
+fn test_gps_display_millis_precision() {
     let t = Time::<Gps>::from_week_tow(0, 0.123).unwrap();
 
     assert_eq!(t.to_string(), "GPS 0:000000.123");
 }
 
 #[test]
-fn glonass_display_canonical() {
+fn test_glonass_display_canonical() {
     let t = Time::<Glonass>::from_day_tod(10_512, 43_200.0).unwrap();
 
     assert_eq!(t.to_string(), "GLO 10512:43200.000");
 }
 
 #[test]
-fn glonass_display_epoch() {
+fn test_glonass_display_epoch() {
     assert_eq!(Time::<Glonass>::EPOCH.to_string(), "GLO 0:00000.000");
 }
 
 #[test]
-fn glonass_display_tod_is_zero_padded_to_5_digits() {
+fn test_glonass_display_tod_is_zero_padded_to_5_digits() {
     let t = Time::<Glonass>::from_day_tod(5, 1.0).unwrap();
 
     assert_eq!(t.to_string(), "GLO 5:00001.000");
 }
 
 #[test]
-fn galileo_display_uses_week_tow_format() {
+fn test_galileo_display_uses_week_tow_format() {
     let s = Time::<Galileo>::EPOCH.to_string();
 
     assert!(s.starts_with("GAL "));
@@ -232,26 +232,26 @@ fn galileo_display_uses_week_tow_format() {
 }
 
 #[test]
-fn beidou_display_uses_week_tow_format() {
+fn test_beidou_display_uses_week_tow_format() {
     let s = Time::<Beidou>::EPOCH.to_string();
 
     assert!(s.starts_with("BDT "));
 }
 
 #[test]
-fn tai_display_uses_simple_format() {
+fn test_tai_display_uses_simple_format() {
     let s = Time::<Tai>::from_seconds(1_000_000_000).to_string();
 
     assert_eq!(s, "TAI +1000000000s 0ns");
 }
 
 #[test]
-fn utc_display_uses_simple_format() {
+fn test_utc_display_uses_simple_format() {
     assert!(Time::<Utc>::EPOCH.to_string().starts_with("UTC +"));
 }
 
 #[test]
-fn display_styles_match_expected() {
+fn test_display_styles_match_expected() {
     assert_eq!(Gps::DISPLAY_STYLE, DisplayStyle::WeekTow);
     assert_eq!(Glonass::DISPLAY_STYLE, DisplayStyle::DayTod);
     assert_eq!(Galileo::DISPLAY_STYLE, DisplayStyle::WeekTow);
@@ -261,7 +261,7 @@ fn display_styles_match_expected() {
 }
 
 #[test]
-fn epoch_civil_dates_are_correct() {
+fn test_epoch_civil_dates_are_correct() {
     assert_eq!(Gps::EPOCH_CIVIL.year, 1980);
     assert_eq!(Gps::EPOCH_CIVIL.month, 1);
     assert_eq!(Gps::EPOCH_CIVIL.day, 6);
@@ -280,20 +280,20 @@ fn epoch_civil_dates_are_correct() {
 }
 
 #[test]
-fn gps_epoch_is_3657_days_from_unix() {
+fn test_gps_epoch_is_3657_days_from_unix() {
     assert_eq!(DAYS_UNIX_TO_GPS, 3657);
     assert_eq!(GPS_EPOCH.days_from_unix(), 3657);
 }
 
 #[test]
-fn gps_to_galileo_delta_matches_igs_standard() {
+fn test_gps_to_galileo_delta_matches_igs_standard() {
     assert_eq!(DAYS_GPS_TO_GALILEO, 7168);
     assert_eq!(GPS_EPOCH.seconds_until(GALILEO_EPOCH), 619_315_200);
     assert_eq!(NANOS_GPS_TO_GALILEO_EPOCH, 619_315_200_000_000_000_i64);
 }
 
 #[test]
-fn gps_to_beidou_delta_matches_igs_standard() {
+fn test_gps_to_beidou_delta_matches_igs_standard() {
     assert_eq!(DAYS_GPS_TO_BEIDOU, 9492);
     assert_eq!(GPS_EPOCH.seconds_until(BEIDOU_EPOCH), 820_108_800);
     assert_eq!(
@@ -303,26 +303,26 @@ fn gps_to_beidou_delta_matches_igs_standard() {
 }
 
 #[test]
-fn gps_to_glonass_delta() {
+fn test_gps_to_glonass_delta() {
     assert_eq!(DAYS_GPS_TO_GLONASS, 5839);
     assert_eq!(GPS_EPOCH.seconds_until(GLONASS_EPOCH), 5839 * 86_400);
 }
 
 #[test]
-fn leap_seconds_at_epochs_are_correct() {
+fn test_leap_seconds_at_epochs_are_correct() {
     assert_eq!(LEAP_SECONDS_AT_GPS_EPOCH, 19);
     assert_eq!(LEAP_SECONDS_AT_GLONASS_EPOCH, 30);
     assert_eq!(LEAP_SECONDS_AT_BEIDOU_EPOCH, 33);
 }
 
 #[test]
-fn civil_date_arithmetic_self_distance_is_zero() {
+fn test_civil_date_arithmetic_self_distance_is_zero() {
     assert_eq!(GPS_EPOCH.days_until(GPS_EPOCH), 0);
     assert_eq!(UNIX_EPOCH.days_until(UNIX_EPOCH), 0);
 }
 
 #[test]
-fn civil_date_arithmetic_is_antisymmetric() {
+fn test_civil_date_arithmetic_is_antisymmetric() {
     let a = CivilDate::new(2000, 1, 1);
     let b = CivilDate::new(2001, 6, 15);
 
@@ -330,7 +330,7 @@ fn civil_date_arithmetic_is_antisymmetric() {
 }
 
 #[test]
-fn gps_to_tai_adds_19s() {
+fn test_gps_to_tai_adds_19s() {
     let gps = Time::<Gps>::from_seconds(100);
     let tai = gps.to_tai().unwrap();
 
@@ -338,7 +338,7 @@ fn gps_to_tai_adds_19s() {
 }
 
 #[test]
-fn tai_to_gps_subtracts_19s() {
+fn test_tai_to_gps_subtracts_19s() {
     let tai = Time::<Tai>::from_seconds(119);
     let gps = Time::<Gps>::from_tai(tai).unwrap();
 
@@ -346,8 +346,8 @@ fn tai_to_gps_subtracts_19s() {
 }
 
 #[test]
-fn gps_galileo_roundtrip_via_tai_is_identity() {
-    // GPS and Galileo share the same TAI offset → same nanos
+fn test_gps_galileo_roundtrip_via_tai_is_identity() {
+    // GPS и Galileo используют одинаковое смещение TAI → одинаковые наносекунды
     let gps = Time::<Gps>::from_seconds(12_345);
     let gal = gps.try_convert::<Galileo>().unwrap();
 
@@ -355,8 +355,8 @@ fn gps_galileo_roundtrip_via_tai_is_identity() {
 }
 
 #[test]
-fn gps_to_beidou_via_tai() {
-    // GPS(100s) → TAI(119s) → BDT(119-33=86s)
+fn test_gps_to_beidou_via_tai() {
+    // GPS(100c) → TAI(119c) → BDT(119-33=86c)
     let gps = Time::<Gps>::from_seconds(100);
     let bdt = gps.try_convert::<Beidou>().unwrap();
 
@@ -364,7 +364,7 @@ fn gps_to_beidou_via_tai() {
 }
 
 #[test]
-fn glonass_to_tai_requires_context() {
+fn test_glonass_to_tai_requires_context() {
     assert!(matches!(
         Time::<Glonass>::from_seconds(100).to_tai(),
         Err(GnssTimeError::LeapSecondsRequired)
@@ -372,7 +372,7 @@ fn glonass_to_tai_requires_context() {
 }
 
 #[test]
-fn utc_to_tai_requires_context() {
+fn test_utc_to_tai_requires_context() {
     assert!(matches!(
         Time::<Utc>::from_seconds(100).to_tai(),
         Err(GnssTimeError::LeapSecondsRequired)
@@ -380,8 +380,8 @@ fn utc_to_tai_requires_context() {
 }
 
 #[test]
-fn tai_underflow_is_detected() {
-    // TAI(0) - GPS offset(19s) → negative → Overflow
+fn test_tai_underflow_is_detected() {
+    // TAI(0) - смещение GPS (19 с) → отрицательное значение → Overflow
     let tai = Time::<Tai>::from_nanos(0);
 
     assert!(matches!(
@@ -391,7 +391,7 @@ fn tai_underflow_is_detected() {
 }
 
 #[test]
-fn beidou_roundtrip_via_tai() {
+fn test_beidou_roundtrip_via_tai() {
     let t = Time::<Beidou>::from_seconds(1_000_000);
     let back = Time::<Beidou>::from_tai(t.to_tai().unwrap()).unwrap();
 
@@ -399,7 +399,7 @@ fn beidou_roundtrip_via_tai() {
 }
 
 #[test]
-fn offset_to_tai_constants() {
+fn test_offset_to_tai_constants() {
     const NS: i64 = 1_000_000_000;
 
     assert_eq!(Gps::OFFSET_TO_TAI, OffsetToTai::Fixed(19 * NS));
