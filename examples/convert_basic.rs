@@ -2,11 +2,7 @@
 //!
 //! These conversions are compile-time constant and never ambiguous.
 
-use gnss_time::{
-    convert::IntoScale,
-    scale::{Beidou, Galileo, Gps, Tai, Utc},
-    Glonass, Time,
-};
+use gnss_time::prelude::*;
 
 fn main() {
     // GPS → TAI (add 19 seconds)

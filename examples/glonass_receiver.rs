@@ -1,4 +1,4 @@
-use gnss_time::{Glonass, Time};
+use gnss_time::prelude::*;
 
 fn main() {
     // данные из GLONASS эфемерид

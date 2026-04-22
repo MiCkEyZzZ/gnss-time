@@ -1,4 +1,4 @@
-use gnss_time::{Beidou, Galileo, Gps, Time};
+use gnss_time::prelude::*;
 
 fn main() {
     let gps = Time::<Gps>::from_week_tow(100, 1000.0).unwrap();
