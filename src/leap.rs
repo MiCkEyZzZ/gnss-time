@@ -35,7 +35,7 @@
 //! (разница между эпохами), без каких-либо поправок на leap seconds.
 //! Leap seconds нужны только при переходе к GPS/Galileo/BeiDou.
 
-use crate::{CivilDate, Glonass, GnssTimeError, Gps, Tai, Time, Utc, BUILTIN_TABLE};
+use crate::{tables::BUILTIN_TABLE, CivilDate, Glonass, GnssTimeError, Gps, Tai, Time, Utc};
 
 /// Наносекунды от эпохи UTC (1972-01-01) до эпохи ГЛОНАСС (1995-12-31 21:00:00
 /// UTC).
