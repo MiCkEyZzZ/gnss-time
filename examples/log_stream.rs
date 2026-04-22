@@ -1,4 +1,4 @@
-use gnss_time::{Gps, Time};
+use gnss_time::prelude::*;
 
 fn main() {
     let log = vec![(2345, 432000.0), (2345, 432001.0), (2345, 432002.0)];

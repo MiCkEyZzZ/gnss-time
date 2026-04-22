@@ -1,4 +1,4 @@
-use gnss_time::{Beidou, Galileo, Gps, Time};
+use gnss_time::prelude::*;
 
 fn main() {
     let gps = Time::<Gps>::from_seconds(1_000_000);

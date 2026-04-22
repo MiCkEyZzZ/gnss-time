@@ -1,6 +1,6 @@
 //! Различные форматы отображения для каждой шкалы времени.
 
-use gnss_time::{Beidou, Galileo, Glonass, Gps, Tai, Time, Utc};
+use gnss_time::prelude::*;
 
 fn main() {
     // ГПС / Галилео / Бэйдоу: формат Неделя:TOW
