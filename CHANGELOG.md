@@ -2,9 +2,52 @@
 
 All notable changes to **gnss-time** are documented in this file.
 
-## [v0.1.0] — 2026-05-21
+## [Unreleased] — 0000-00-00
 
 ### Added
+
+- **Единый конверсионный API (`convert`)**.
+  - Трейт `IntoScale<Target>` для конверсий с фиксированным смещением (GPS↔TAI,
+    GPS↔Galileo, GPS↔BeiDou, GLO↔UTC).
+  - Трейт `IntoScaleWith<Target>` для контекстных конверсий (GPS↔UTC, GPS↔GLO) с
+    явной передачей `LeapSecondsProvider`.
+  - Тип `ConvertResult<T>` для обработки неоднозначного 1-секундного окна при
+    вставке leap second.
+  - Метод `into_scale_with_checked` для детектирования момента внутри leap second.
+
+- **Модуль `prelude`** — удобный импорт самых часто используемых типов:
+
+  ```rust
+  use gnss_time::prelude::*;
+  ```
+
+- **Новые примеры (`examples/`)**:
+  - `convert_basic.rs` — демонстрация конверсий с фиксированным смещением (без
+    leap seconds).
+  - `convert_contextual.rs` — демонстрация GPS↔UTC конверсий с leap seconds и
+    детекцией неоднозначности.
+
+- **Интеграционные тесты (`tests/`)**:
+  - `roundtrip_test.rs` — проверка roundtrip точности для всех шкал, 18 переходов
+    leap seconds, известные RINEX эпохи.
+  - `time_integration_test.rs` — комплексные сценарии использования.
+
+### Fixed
+
+- **Исправлен алгоритм `utc_to_gps`** — заменён однопроходный приближённый lookup
+  на двухпроходный.
+  Раньше на границе leap second обратная конверсия `GPS → UTC → GPS` давала ошибку
+  в 1 секунду.
+  Теперь roundtrip точен с погрешностью менее 1 наносекунды (фундаментальная
+  неоднозначность остаётся только в самой секунде вставки).
+
+### Documentation
+
+- Добавлена документация к `convert` модулю с таблицей поддерживаемых конверсий
+  и примерами.
+- Добавлен `prelude` для удобного импорта.
+
+## [v0.1.0] — 2026-05-21
 
 - **Тип `Duration`** — знаковый интервал времени в наносекундах (`i64`).
   - Конструкторы: `from_nanos`, `from_micros`, `from_millis`, `from_seconds`,
@@ -16,7 +59,8 @@ All notable changes to **gnss-time** are documented in this file.
   - Свойства: `is_positive`, `is_negative`, `is_zero`, `abs`.
   - Реализованы трейты: `Add`, `AddAssign`, `Sub`, `SubAssign`, `Neg`, `Display`.
 
-- **Тип `Time<S>`** — параметризованная временная метка с наносекундной точностью (`u64`).
+- **Тип `Time<S>`** — параметризованная временная метка с наносекундной точностью
+  (`u64`).
   - Общие методы: `from_nanos`, `from_seconds`, `checked_from_seconds`, `as_nanos`,
     `as_seconds`, `as_seconds_f64`.
   - Арифметика с `Duration`: `checked_add`, `checked_sub_duration`, `saturating_add`,
@@ -47,7 +91,8 @@ All notable changes to **gnss-time** are documented in this file.
 
 - **Leap seconds (`leap`)** — поддержка конверсий через таблицу високосных секунд.
   - Тип `LeapEntry` с полями `tai_nanos` и `tai_minus_utc`.
-  - Тип `LeapSeconds` со статической встроенной таблицей (19 записей, от 1980 до 2017).
+  - Тип `LeapSeconds` со статической встроенной таблицей (19 записей, от 1980 до
+    2017).
   - Трейт `LeapSecondsProvider` для кастомных источников (blanket impl для `&P`).
   - Функции конверсии:
     - `gps_to_utc`, `utc_to_gps` (требуют `LeapSecondsProvider`).
