@@ -86,10 +86,31 @@ impl<S: TimeScale> Time<S> {
 }
 
 impl<S: TimeScale> Time<S> {
-    /// Конвертация в TAI с использованием фиксированного смещения шкалы.
+    /// Raw nanoseconds since this scale's epoch.
+    #[inline(always)]
+    pub const fn as_nanos(self) -> u64 {
+        self.nanos
+    }
+
+    /// Whole seconds since this scale's epoch (truncated).
+    #[inline]
+    pub const fn as_seconds(self) -> u64 {
+        self.nanos / 1_000_000_000
+    }
+
+    /// Seconds as `f64`. For large timestamps, sub-microsecond precision is
+    /// lost.
+    #[inline]
+    pub const fn as_seconds_f64(self) -> f64 {
+        self.nanos as f64 / 1_000_000_000.0
+    }
+}
+
+impl<S: TimeScale> Time<S> {
+    /// Convert to TAI using the scale's fixed offset.
     ///
-    /// Возвращает [`GnssTimeError::LeapSecondsRequired`] для контекстных шкал
-    /// (UTC, GLONASS) и [`GnssTimeError::Overflow`] при переполнении.
+    /// Returns [`GnssTimeError::LeapSecondsRequired`] for contextual scales
+    /// (UTC, GLONASS) and [`GnssTimeError::Overflow`] for out-of-range results
     pub fn to_tai(self) -> Result<Time<Tai>, GnssTimeError> {
         match S::OFFSET_TO_TAI {
             OffsetToTai::Fixed(offset) => {
@@ -105,7 +126,7 @@ impl<S: TimeScale> Time<S> {
         }
     }
 
-    /// Создание `Time<S>` из TAI при использовании фиксированного смещения.
+    /// Construct `Time<S>` from a TAI timestamp using the scale's fixed offset.
     pub fn from_tai(tai: Time<Tai>) -> Result<Self, GnssTimeError> {
         match S::OFFSET_TO_TAI {
             OffsetToTai::Fixed(offset) => {
@@ -121,7 +142,7 @@ impl<S: TimeScale> Time<S> {
         }
     }
 
-    /// Прямая конвертация между шкалами с фиксированным смещением через TAI.
+    /// Convert directly between two fixed-offset scales via TAI.
     pub fn try_convert<T: TimeScale>(self) -> Result<Time<T>, GnssTimeError> {
         let tai = self.to_tai()?;
 
@@ -130,27 +151,7 @@ impl<S: TimeScale> Time<S> {
 }
 
 impl<S: TimeScale> Time<S> {
-    /// Сырые наносекунды от эпохи шкалы.
-    #[inline(always)]
-    pub const fn as_nanos(self) -> u64 {
-        self.nanos
-    }
-
-    /// Целые секунды от эпохи (усечение).
-    #[inline]
-    pub const fn as_seconds(self) -> u64 {
-        self.nanos / 1_000_000_000
-    }
-
-    /// Секунды как `f64`. Возможна потеря точности для больших значений.
-    #[inline]
-    pub const fn as_seconds_f64(self) -> f64 {
-        self.nanos as f64 / 1_000_000_000.0
-    }
-}
-
-impl<S: TimeScale> Time<S> {
-    /// Добавление `Duration`, `None` при переполнении/подпереполнении.
+    /// Add a `Duration`, returning `None` on overflow or underflow.
     #[inline]
     pub fn checked_add(
         self,
@@ -165,7 +166,7 @@ impl<S: TimeScale> Time<S> {
         Some(Time::from_nanos(result as u64))
     }
 
-    /// Вычитание `Duration`, `None` при ошибке диапазона.
+    /// Subtract a `Duration`, returning `None` on overflow or underflow.
     #[inline]
     pub fn checked_sub_duration(
         self,
@@ -180,7 +181,7 @@ impl<S: TimeScale> Time<S> {
         Some(Time::from_nanos(result as u64))
     }
 
-    /// Saturating добавление (ограничение на EPOCH и MAX).
+    /// Add, saturating at `EPOCH` (below) and `MAX` (above).
     #[inline]
     pub fn saturating_add(
         self,
@@ -193,7 +194,7 @@ impl<S: TimeScale> Time<S> {
         })
     }
 
-    /// Saturating вычитание.
+    /// Subtract duration, saturating at bounds.
     #[inline]
     pub fn saturating_sub_duration(
         self,
@@ -206,7 +207,7 @@ impl<S: TimeScale> Time<S> {
         })
     }
 
-    /// Fallible add — ошибка [`GnssTimeError::Overflow`] при неудаче.
+    /// Fallible add — [`GnssTimeError::Overflow`] on failure.
     #[inline]
     pub fn try_add(
         self,
@@ -215,7 +216,7 @@ impl<S: TimeScale> Time<S> {
         self.checked_add(d).ok_or(GnssTimeError::Overflow)
     }
 
-    /// Fallible sub — ошибка [`GnssTimeError::Overflow`] при неудаче.
+    /// Fallible subtract — [`GnssTimeError::Overflow`] on failure.
     #[inline]
     pub fn try_sub_duration(
         self,
@@ -226,7 +227,7 @@ impl<S: TimeScale> Time<S> {
 }
 
 impl<S: TimeScale> Time<S> {
-    /// Интервал `self - earlier`. `None`, если не помещается в `i64`.
+    /// Signed interval `self − earlier`. Returns `None` if it overflows `i64`.
     #[inline]
     pub const fn checked_elapsed(
         self,
@@ -326,16 +327,69 @@ impl Time<Glonass> {
         Ok(Time::from_nanos(total))
     }
 
-    /// Номер дня от эпохи GLONASS.
+    /// Day number since GLONASS epoch.
     #[inline]
     pub const fn day(self) -> u32 {
         (self.nanos / 86_400_000_000_000u64) as u32
     }
 
-    /// Секунды времени суток.
+    /// Time of day in whole seconds.
     #[inline]
     pub const fn tod_seconds(self) -> u32 {
         ((self.nanos % 86_400_000_000_000u64) / 1_000_000_000u64) as u32
+    }
+
+    /// Sub-second nanosecond remainder within the current second.
+    #[inline]
+    pub const fn sub_second_nanos(self) -> u32 {
+        (self.nanos % 1_000_000_000u64) as u32
+    }
+
+    /// Day of week: **1 = Monday ..7 = Sunday** (NavIC / ISO 8601 convertion).
+    ///
+    /// GLONASS epoch (1996-01-01) was a **Monday**, so day 0 -> 1 (Monday).
+    ///
+    /// The formula is simply `(day % 7) + 1`.
+    ///
+    /// # GLONASS ICD note
+    ///
+    /// The GLONASS interface Control Document define the "day number within the
+    /// four-yaer interval" (`N_T`) starting from 1, but for simplicity this
+    /// crate uses 0-based day counts from the epoch and exposes the ISO / NavIC
+    /// weekday (1=Mon..7=Sun) through this method.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gnss_time::{Glonass, Time};
+    ///
+    /// // Day 0 = 1996-01-01 = Monday
+    /// let t = Time::<Glonass>::from_day_tod(0, 0.0).unwrap();
+    ///
+    /// assert_eq!(t.day_of_week(), 1); // Monday
+    ///
+    /// // Day 6 = 1996-01-07 = Sunday
+    /// let t2 = Time::<Glonass>::from_day_tod(6, 0.0).unwrap();
+    ///
+    /// assert_eq!(t2.day_of_week(), 7); // Sunday
+    ///
+    /// // Day 7 = 1996-01-08 = Monday again
+    /// let t3 = Time::<Glonass>::from_day_tod(7, 0.0).unwrap();
+    ///
+    /// assert_eq!(t3.day_of_week(), 1);
+    /// ```
+    #[inline]
+    pub const fn day_of_week(self) -> u8 {
+        // GLONASS epoch = Monday -> day 0 maps to 1
+        (self.day() % 7) as u8 + 1
+    }
+
+    /// Returns `true` if the current day-of-week is Saturday (6) or Sunday (7).
+    #[inline]
+    pub const fn is_weekend(self) -> bool {
+        let d = self.day_of_week();
+
+        d == 6 || d == 7
     }
 }
 

@@ -6,6 +6,18 @@ All notable changes to **gnss-time** are documented in this file.
 
 ### Added
 
+- **GLONASS‑специфичные методы** (`Time<Glonass>`):
+  - `sub_second_nanos()` – наносекундная доля текущей секунды.
+  - `day_of_week()` – день недели по ISO (1 = Monday … 7 = Sunday), основан на
+    эпохе 1996-01-01 (понедельник).
+  - `is_weekend()` – возвращает `true` для субботы или воскресенья.
+
+- **Интеграционные тесты GLONASS** (`tests/glonass_test.rs`):
+  - Проверка постоянного сдвига GLO ↔ UTC (без leap seconds).
+  - Roundtrip GLO → UTC → GLO и GLO → GPS → GLO.
+  - Проверка корректности `day_of_week()` на известных датах.
+  - Поведение на границе leap second (2017-01-01).
+
 - **Единый конверсионный API (`convert`)**.
   - Трейт `IntoScale<Target>` для конверсий с фиксированным смещением (GPS↔TAI,
     GPS↔Galileo, GPS↔BeiDou, GLO↔UTC).
