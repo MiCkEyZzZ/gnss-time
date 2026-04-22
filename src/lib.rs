@@ -18,11 +18,11 @@
 //!
 //! ## `no_std` by default
 //!
-//! Enable the `std` feature for [`core::error::Error`] on [`GnssTimeError`].
+//! Enable the `std` feature for [`std::error::Error`] on [`GnssTimeError`].
 
 #![no_std]
 // #![deny(missing_docs)]
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 
 // Allow std in test builds (cargo test always links std).
 #[cfg(any(feature = "std", test))]
@@ -34,7 +34,7 @@ pub mod epoch;
 pub mod error;
 pub mod leap;
 pub mod scale;
-pub mod tables;
+mod tables;
 pub mod time;
 
 pub use convert::*;
@@ -43,5 +43,4 @@ pub use epoch::*;
 pub use error::*;
 pub use leap::*;
 pub use scale::*;
-pub use tables::*;
 pub use time::*;

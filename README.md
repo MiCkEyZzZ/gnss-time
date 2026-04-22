@@ -1,5 +1,9 @@
 # gnss-time
 
+![Crates.io](https://img.shields.io/crates/v/gnss-time)
+![no_std](https://img.shields.io/badge/no__std-yes-blue)
+[![docs.rs](https://docs.rs/gnss-time/badge.svg)](https://docs.rs/gnss-time)
+
 **Type-safe time handling for GNSS systems in Rust.**
 
 `gnss-time` is a minimal, zero-cost core library for working with time in satellite
@@ -15,8 +19,8 @@ ompile time.
 - **Fixed epochs** for each system (1980-01-06, 1996-01-01, etc.)
 - **Conversions via TAI** as a unified pivot
 - **Domain-specific formats**
-    - `Day:TOD` for GLONASS
-    - `Week:TOW` for GPS/Galileo/BeiDou
+  - `Day:TOD` for GLONASS
+  - `Week:TOW` for GPS/Galileo/BeiDou
 
 - **High-precision durations** (`Duration`) with nanosecond resolution
 - **Zero-cost abstractions** — timestamps are 8 bytes (`u64`)
