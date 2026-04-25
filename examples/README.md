@@ -36,4 +36,7 @@ cargo run --example display_formats
 cargo run --example no_domain_mixing
 cargo run --example convert_basic
 cargo run --example convert_contextual
+cargo run --example chain_conversion
+cargo run --example dynamic_conversion
+cargo run --example matrix_inspection
 ```
