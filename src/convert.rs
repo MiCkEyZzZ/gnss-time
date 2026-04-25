@@ -1,55 +1,56 @@
-//! # Unified type-safe conversion API
+//! # Унифицированный типобезопасный API преобразований
 //!
-//! This module provides the [`IntoScale`] and [`IntoScaleWith`] traits for
-//! converting between time scales, plus [`ConvertResult`] for handling the
-//! one-second ambiguous window that occurs during leap second insertion.
+//! Этот модуль предоставляет трейты [`IntoScale`] и [`IntoScaleWith`] для
+//! преобразования между шкалами времени, а также [`ConvertResult`] для
+//! обработки односекундного окна неоднозначности, возникающего при вставке
+//! високосной секунды.
 //!
-//! ## Quick overview
+//! ## Краткий обзор
 //!
-//! | From → To        | API                                | Context?            |
-//! |------------------|------------------------------------|---------------------|
-//! | `GPS → TAI`      | [`IntoScale::into_scale`]          | no                  |
-//! | `GPS → Galileo`  | [`IntoScale::into_scale`]          | no                  |
-//! | `GPS → BeiDou`   | [`IntoScale::into_scale`]          | no                  |
-//! | `Galileo → GPS`  | [`IntoScale::into_scale`]          | no                  |
-//! | `BeiDou → GPS`   | [`IntoScale::into_scale`]          | no                  |
-//! | `GPS → UTC`      | [`IntoScaleWith::into_scale_with`] | LeapSecondsProvider |
-//! | `UTC → GPS`      | [`IntoScaleWith::into_scale_with`] | LeapSecondsProvider |
-//! | `GLO → UTC`      | [`IntoScale::into_scale`]          | no (constant shift) |
-//! | `UTC → GLO`      | [`IntoScale::into_scale`]          | no (constant shift) |
-//! | `GPS → GLO`      | [`IntoScaleWith::into_scale_with`] | LeapSecondsProvider |
-//! | `GLO → GPS`      | [`IntoScaleWith::into_scale_with`] | LeapSecondsProvider |
+//! | Из → В           | API                                | Контекст?              |
+//! |------------------|------------------------------------|------------------------|
+//! | `GPS → TAI`      | [`IntoScale::into_scale`]          | нет                    |
+//! | `GPS → Galileo`  | [`IntoScale::into_scale`]          | нет                    |
+//! | `GPS → BeiDou`   | [`IntoScale::into_scale`]          | нет                    |
+//! | `Galileo → GPS`  | [`IntoScale::into_scale`]          | нет                    |
+//! | `BeiDou → GPS`   | [`IntoScale::into_scale`]          | нет                    |
+//! | `GPS → UTC`      | [`IntoScaleWith::into_scale_with`] | LeapSecondsProvider    |
+//! | `UTC → GPS`      | [`IntoScaleWith::into_scale_with`] | LeapSecondsProvider    |
+//! | `GLO → UTC`      | [`IntoScale::into_scale`]          | нет (постоянный сдвиг) |
+//! | `UTC → GLO`      | [`IntoScale::into_scale`]          | нет (постоянный сдвиг) |
+//! | `GPS → GLO`      | [`IntoScaleWith::into_scale_with`] | LeapSecondsProvider    |
+//! | `GLO → GPS`      | [`IntoScaleWith::into_scale_with`] | LeapSecondsProvider    |
 //!
-//! ## Ergonomic usage
+//! ## Эргономичное использование
 //!
 //! ```rust
 //! use gnss_time::{Galileo, Gps, IntoScale, IntoScaleWith, LeapSeconds, Tai, Time, Utc};
 //!
-//! // Fixed-offset conversions — no context needed
+//! // Преобразования с фиксированным смещением — без контекста
 //! let gps = Time::<Gps>::from_week_tow(2345, 0.0).unwrap();
 //! let tai: Time<Tai> = gps.into_scale().unwrap();
 //! let gal: Time<Galileo> = gps.into_scale().unwrap();
 //!
-//! // Contextual conversions — explicit leap seconds
+//! // Контекстные преобразования — с явными leap seconds
 //! let ls = LeapSeconds::builtin();
 //! let utc: Time<Utc> = gps.into_scale_with(ls).unwrap();
 //! ```
 //!
-//! ## Leap second ambiguity
+//! ## Неоднозначность leap second
 //!
-//! When converting `GPS -> UTC`, the 1-second window of ;eap second insertion
-//! produces a UTC value that is technically ambiguous: the same UTC nanosecond
-//! count could represent either the **inserted** leap second (`23:59:60`) or
-//! the first second of the new minute (`00:00:00`).
+//! При преобразовании `GPS → UTC` 1-секундное окно вставки високосной секунды
+//! приводит к неоднозначности: одно и то же UTC-значение может соответствовать
+//! либо вставленной leap second (`23:59:60`), либо первой секунде следующей
+//! минуты (`00:00:00`).
 //!
-//! Use [`IntoScaleWith::into_scale_with_checked`] to detect this:
+//! Используйте [`IntoScaleWith::into_scale_with_checked`] для её обнаружения:
 //!
 //! ```rust
 //! use gnss_time::{ConvertResult, Gps, IntoScaleWith, LeapSeconds, Time, Utc};
 //!
 //! let ls = LeapSeconds::builtin();
 //!
-//! // 2017-01-01 00:00:00 GPS (18 s ahead of UTC after the leap)
+//! // 2017-01-01 00:00:00 GPS (на 18 с впереди UTC после leap second)
 //! let gps = Time::<Gps>::from_seconds(1_167_264_018);
 //! let result: Result<ConvertResult<Time<Utc>>, _> = gps.into_scale_with_checked(ls);
 //!
@@ -57,78 +58,86 @@
 //! ```
 
 use crate::{
-    glonass_to_gps, glonass_to_utc, gps_to_glonass, gps_to_utc, utc_to_glonass, utc_to_gps, Beidou,
-    Galileo, Glonass, GnssTimeError, Gps, LeapSecondsProvider, Tai, Time, TimeScale, Utc,
+    beidou_to_glonass, beidou_to_utc, galileo_to_glonass, galileo_to_utc, glonass_to_beidou,
+    glonass_to_galileo, glonass_to_gps, glonass_to_utc, gps_to_glonass, gps_to_utc, utc_to_beidou,
+    utc_to_galileo, utc_to_glonass, utc_to_gps, Beidou, Galileo, Glonass, GnssTimeError, Gps,
+    LeapSecondsProvider, Tai, Time, TimeScale, Utc,
 };
 
-/// Convert a `Time<Self>` into `Time<Target>` using a fixed offset.
+/// Преобразование `Time<Self>` в `Time<Target>` с использованием фиксированного
+/// смещения.
 ///
-/// Only available for scale pairs that have a **compile-time constant** offset
-/// (GLONASS..UTC, GPS..TAI, GPS..Galileo, GPS..BeiDou, Galileo..BeiDou).
+/// Доступно только для пар шкал, у которых есть **константный на этапе
+/// компиляции** сдвиг (GLONASS..UTC, GPS..TAI, GPS..Galileo, GPS..BeiDou,
+/// Galileo..BeiDou).
 ///
-/// # Errors
+/// # Ошибки
 ///
-/// [`GnssTimeError::Overflow`] if the result lies outside `[0, u64::MAX]` ns.
+/// [`GnssTimeError::Overflow`] если результат выходит за пределы `[0,
+/// u64::MAX]` нс.
 pub trait IntoScale<Target: TimeScale>: Sized {
-    /// Perform the fixed-offset conversion.
+    /// Выполнить преобразование с фиксированным смещением.
     fn into_scale(self) -> Result<Time<Target>, GnssTimeError>;
 }
 
-/// Convert a `Time<Self>` into `Time<Target>` using a leap-second provider.
+/// Преобразование `Time<Self>` в `Time<Target>` с использованием провайдера
+/// leap seconds.
 ///
-/// Required for conversions that cross the UTC <-> TAI boundary, where the
-/// number of accumulated leap seconds changes over time.
+/// Требуется для конверсий, пересекающих границу UTC <-> TAI, где количество
+/// накопленных високосных секунд меняется со временем.
 ///
-/// # Leap second ambiguty
+/// # Неоднозначность leap second
 ///
-/// Use [`into_scale_with_checked`](Self::into_scale_with_checked) to detect
-/// the 1-second ambiguous window during leap second insertion.
+/// Используйте [`into_scale_with_checked`](Self::into_scale_with_checked),
+/// чтобы обнаружить 1-секундное окно неоднозначности во время вставки leap
+/// second.
 pub trait IntoScaleWith<Target: TimeScale>: Sized {
-    /// Performanceyje contextual conversion, returning `Err` on overflow.
+    /// Контекстное преобразование, возвращающее `Err` при переполнении.
     ///
-    /// During leap second insertion the result is still returned as `Ok`,
-    /// but may be subtly off by 1s for the duration of the leap second.
-    /// Use [`into_scale_with_checked`](Self::into_scale_with_checked) if you
-    /// need to detect this.
+    /// Во время вставки високосной секунды результат всё ещё возвращается как
+    /// `Ok`, но может отличаться на 1 секунду в пределах leap second окна.
+    /// Используйте [`into_scale_with_checked`](Self::into_scale_with_checked),
+    /// если нужно явно детектировать этот случай.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
     ) -> Result<Time<Target>, GnssTimeError>;
 
-    /// Like [`into_scale_with`](Self::into_scale_with), but additionally
-    /// signals when the result falls inside a leap second window.
+    /// Аналог [`into_scale_with`](Self::into_scale_with), но дополнительно
+    /// сигнализирует, если результат попадает в окно високосной секунды.
     ///
-    /// Returns [`ConvertResult::AmbiguousLeapSecond`] when the GPS timestamp
-    /// corresponds to the inserted leap second second (the "61st second").
+    /// Возвращает [`ConvertResult::AmbiguousLeapSecond`], когда GPS-время
+    /// соответствует вставленной leap second (так называемой "61-й секунде").
     fn into_scale_with_checked<P: LeapSecondsProvider>(
         self,
         ls: P,
     ) -> Result<ConvertResult<Time<Target>>, GnssTimeError>;
 }
 
-/// Result of a conversion that may be ambiguous during leap second insertion.
+/// Результат преобразования, который может быть неоднозначным во время вставки
+/// високосной секунды.
 ///
-/// During the 1-second leap second window, a GPS timestamp maps to a UTC value
-/// that lies within the "64st second" of the minute. Most wall_clock systems
-/// cannot represent `23:59:60`, so we report the next representable value
-/// together with a flag indicating the situation.
+/// Во время 1-секундного окна leap second GPS-метка времени соответствует
+/// UTC-значению, которое попадает в "60-ю секунду" минуты. Большинство систем
+/// представления времени не поддерживают `23:59:60`, поэтому возвращается
+/// ближайшее представимое значение вместе с флагом неоднозначности.
 ///
-/// For all other moments the result is [`Exact`](ConvertResult::Exact).
+/// Во все остальные моменты результат — [`Exact`](ConvertResult::Exact).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConvertResult<T> {
-    /// Unambiguous conversion - the only correct value.
+    /// Однозначное преобразование — единственно корректное значение.
     Exact(T),
 
-    /// The source timestamp falls inside the 1-second leap second window.
+    /// Источник попадает в 1-секундное окно високосной секунды.
     ///
-    /// The inner value is the first nanosecond of the *new* minute in UTC.
-    /// The actual leap second occupies the interval
+    /// Внутреннее значение — первая наносекунда *новой* минуты UTC.
+    /// Фактическая leap second занимает интервал:
     /// `(inner - 1_000_000_000 ns, inner)`.
     AmbiguousLeapSecond(T),
 }
 
 impl<T> ConvertResult<T> {
-    /// Unwrap the inner value regardless of the variant.
+    /// Извлечь внутреннее значение независимо от варианта.
     #[inline]
     pub fn into_inner(self) -> T {
         match self {
@@ -136,50 +145,29 @@ impl<T> ConvertResult<T> {
         }
     }
 
-    /// Returns `true` if this is an unambiguous result.
+    /// Возвращает `true`, если результат однозначный.
     #[inline]
     pub fn is_exact(&self) -> bool {
         matches!(self, ConvertResult::Exact(_))
     }
 
-    /// Returns `true` if this falls inside a leap second insertion window.
+    /// Возвращает `true`, если результат попадает в окно високосной секунды.
     #[inline]
     pub fn is_unambiguous(&self) -> bool {
         matches!(self, ConvertResult::AmbiguousLeapSecond(_))
     }
 }
 
-impl IntoScale<Utc> for Time<Glonass> {
-    /// GLONASS -> UTC: constant epoch shift (+757 371 600 s, no leap seconds).
-    ///
-    /// GLONASS tracks UTC(SU) = UTC + 3 h, including leap second insertions.
-    /// Converting to/from UTC is therefore a simple constant epoch shift.
-    ///
-    /// ```rust
-    /// use gnss_time::{
-    ///     convert::IntoScale,
-    ///     scale::{Glonass, Utc},
-    ///     Time,
-    /// };
-    ///
-    /// let glo = Time::<Glonass>::from_day_tod(0, 0.0).unwrap(); // GLO epoch
-    /// let utc: Time<Utc> = glo.into_scale().unwrap();
-    ///
-    /// // UTC at GLO epoch: 1995-12-31 21:00:00 UTC = 757_371_600 s from 1972
-    /// assert_eq!(utc.as_nanos(), 757_371_600_000_000_000);
-    /// ```
-    #[inline]
-    fn into_scale(self) -> Result<Time<Utc>, GnssTimeError> {
-        glonass_to_utc(self)
-    }
-}
+////////////////////////////////////////////////////////////////////////////////
+// GLONASS for Gps, Galileo, Beidou, UTC
+////////////////////////////////////////////////////////////////////////////////
 
 impl IntoScale<Glonass> for Time<Utc> {
-    /// UTC -> GLONASS: constant epoch shift.
+    /// UTC -> GLONASS: постоянный сдвиг эпохи.
     ///
     /// # Errors
     ///
-    /// [`GnssTimeError::Overflow`] if UTC is before the GLONASS epoch
+    /// [`GnssTimeError::Overflow`] если UTC раньше эпохи GLONASS
     /// (1995-12-31 21:00:00 UTC).
     #[inline]
     fn into_scale(self) -> Result<Time<Glonass>, GnssTimeError> {
@@ -187,101 +175,66 @@ impl IntoScale<Glonass> for Time<Utc> {
     }
 }
 
-impl IntoScale<Tai> for Time<Gps> {
-    /// GPS -> TAI: add 19 seconds (constant, no leap seconds).
-    ///
-    /// ```rust
-    /// use gnss_time::{
-    ///     convert::IntoScale,
-    ///     scale::{Gps, Tai},
-    ///     Time,
-    /// };
-    ///
-    /// let gps = Time::<Gps>::from_seconds(100);
-    /// let tai: Time<Tai> = gps.into_scale().unwrap();
-    ///
-    /// assert_eq!(tai.as_seconds(), 119); // 100 + 19
-    /// ```
-    #[inline]
-    fn into_scale(self) -> Result<Time<Tai>, GnssTimeError> {
-        self.to_tai()
+impl IntoScaleWith<Glonass> for Time<Gps> {
+    /// GPS -> GLONASS через UTC.
+    fn into_scale_with<P: LeapSecondsProvider>(
+        self,
+        ls: P,
+    ) -> Result<Time<Glonass>, GnssTimeError> {
+        gps_to_glonass(self, &ls)
+    }
+
+    fn into_scale_with_checked<P: LeapSecondsProvider>(
+        self,
+        ls: P,
+    ) -> Result<ConvertResult<Time<Glonass>>, GnssTimeError> {
+        Ok(ConvertResult::Exact(gps_to_glonass(self, &ls)?))
     }
 }
 
-impl IntoScale<Gps> for Time<Tai> {
-    /// TAI -> GPS: substract 19 seconds.
-    ///
-    /// ```rust
-    /// use gnss_time::{
-    ///     convert::IntoScale,
-    ///     scale::{Gps, Tai},
-    ///     Time,
-    /// };
-    ///
-    /// let tai = Time::<Tai>::from_seconds(119);
-    /// let gps: Time<Gps> = tai.into_scale().unwrap();
-    ///
-    /// assert_eq!(gps.as_seconds(), 100);
-    /// ```
-    #[inline]
-    fn into_scale(self) -> Result<Time<Gps>, GnssTimeError> {
-        Time::<Gps>::from_tai(self)
+impl IntoScaleWith<Glonass> for Time<Galileo> {
+    /// Galileo → GLONASS через UTC.
+    fn into_scale_with<P: LeapSecondsProvider>(
+        self,
+        ls: P,
+    ) -> Result<Time<Glonass>, GnssTimeError> {
+        galileo_to_glonass(self, &ls)
+    }
+
+    fn into_scale_with_checked<P: LeapSecondsProvider>(
+        self,
+        ls: P,
+    ) -> Result<ConvertResult<Time<Glonass>>, GnssTimeError> {
+        Ok(ConvertResult::Exact(galileo_to_glonass(self, &ls)?))
     }
 }
 
-impl IntoScale<Galileo> for Time<Gps> {
-    /// GPS -> Galoleo: identify on nanoseconds (both share `TAI - 19s`).
-    ///
-    /// A GPS and a Galileo timestamp with the same nanosecond cout represent
-    /// the **same physical instant**.
-    ///
-    /// ```rust
-    /// use gnss_time::{
-    ///     convert::IntoScale,
-    ///     scale::{Galileo, Gps},
-    ///     Time,
-    /// };
-    ///
-    /// let gps = Time::<Gps>::from_seconds(12_345);
-    /// let gal: Time<Galileo> = gps.into_scale().unwrap();
-    ///
-    /// assert_eq!(gps.as_nanos(), gal.as_nanos());
-    /// ```
-    #[inline]
-    fn into_scale(self) -> Result<Time<Galileo>, GnssTimeError> {
-        // GPS and Galileo share the same TAI offset (19s) -> round-trip via TAI is an
-        // identify on nanoseconds.
-        self.try_convert::<Galileo>()
+impl IntoScaleWith<Glonass> for Time<Beidou> {
+    /// BeiDou -> GLONASS через UTC.
+    fn into_scale_with<P: LeapSecondsProvider>(
+        self,
+        ls: P,
+    ) -> Result<Time<Glonass>, GnssTimeError> {
+        beidou_to_glonass(self, &ls)
+    }
+
+    fn into_scale_with_checked<P: LeapSecondsProvider>(
+        self,
+        ls: P,
+    ) -> Result<ConvertResult<Time<Glonass>>, GnssTimeError> {
+        Ok(ConvertResult::Exact(beidou_to_glonass(self, &ls)?))
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Gps for Glonass, Galileo, Beidou, Tai, Utc
+////////////////////////////////////////////////////////////////////////////////
 
 impl IntoScale<Gps> for Time<Galileo> {
-    /// Galileo -> GPS: identify on nanoseconds.
+    /// Galileo -> GPS: тождественно на уровне наносекунд.
     #[inline]
     fn into_scale(self) -> Result<Time<Gps>, GnssTimeError> {
         self.try_convert::<Gps>()
-    }
-}
-
-impl IntoScale<Beidou> for Time<Gps> {
-    /// GPS -> BeiDou: `BDT = GPS - 14s` (via TAI: GPS + 19s TAI, BDT + 33s
-    /// TAI).
-    ///
-    /// ```rust
-    /// use gnss_time::{
-    ///     convert::IntoScale,
-    ///     scale::{Beidou, Gps},
-    ///     Time,
-    /// };
-    ///
-    /// let gps = Time::<Gps>::from_seconds(100);
-    /// let bdt: Time<Beidou> = gps.into_scale().unwrap();
-    ///
-    /// assert_eq!(bdt.as_seconds(), 86); // 100 + 19 - 33 = 86
-    /// ```
-    #[inline]
-    fn into_scale(self) -> Result<Time<Beidou>, GnssTimeError> {
-        self.try_convert::<Beidou>()
     }
 }
 
@@ -289,11 +242,7 @@ impl IntoScale<Gps> for Time<Beidou> {
     /// BeiDou -> GPS: `GPS = BDT + 14s`.
     ///
     /// ```rust
-    /// use gnss_time::{
-    ///     convert::IntoScale,
-    ///     scale::{Beidou, Gps},
-    ///     Time,
-    /// };
+    /// use gnss_time::{Beidou, Gps, IntoScale, Time};
     ///
     /// let bdt = Time::<Beidou>::from_seconds(86);
     /// let gps: Time<Gps> = bdt.into_scale().unwrap();
@@ -306,92 +255,45 @@ impl IntoScale<Gps> for Time<Beidou> {
     }
 }
 
-impl IntoScale<Beidou> for Time<Galileo> {
-    /// Galileo -> BeiDou via TAI.
-    #[inline]
-    fn into_scale(self) -> Result<Time<Beidou>, GnssTimeError> {
-        self.try_convert::<Beidou>()
-    }
-}
-
-impl IntoScale<Galileo> for Time<Beidou> {
-    /// BeiDou -> Galileo via TAI.
-    #[inline]
-    fn into_scale(self) -> Result<Time<Galileo>, GnssTimeError> {
-        self.try_convert::<Galileo>()
-    }
-}
-
-impl IntoScaleWith<Utc> for Time<Gps> {
-    /// GPS -> UTC with leap second context.
-    ///
-    /// Roundtrip accuracy: `GPS -> UTC -> GPS` is exact (< 1ns error) for all
-    /// times iutside the 1-second leap second insertion window.
+impl IntoScale<Gps> for Time<Tai> {
+    /// TAI -> GPS: вычитание 19 секунд.
     ///
     /// ```rust
-    /// use gnss_time::{
-    ///     convert::IntoScaleWith,
-    ///     leap::LeapSeconds,
-    ///     scale::{Gps, Utc},
-    ///     Time,
-    /// };
+    /// use gnss_time::{Gps, IntoScale, Tai, Time};
     ///
-    /// let ls = LeapSeconds::builtin();
-    /// let gps = Time::<Gps>::from_seconds(1_167_264_018); // 2017-01-01 GPS
-    /// let utc: Time<Utc> = gps.into_scale_with(ls).unwrap();
+    /// let tai = Time::<Tai>::from_seconds(119);
+    /// let gps: Time<Gps> = tai.into_scale().unwrap();
     ///
-    /// let delta = gps.as_seconds() as i64 - utc.as_seconds() as i64 + 252_892_800_i64;
-    /// // GPS leads UTC by 18 s → UTC is 18 s earlier
-    /// assert_eq!(delta, 18);
+    /// assert_eq!(gps.as_seconds(), 100);
     /// ```
     #[inline]
+    fn into_scale(self) -> Result<Time<Gps>, GnssTimeError> {
+        Time::<Gps>::from_tai(self)
+    }
+}
+
+impl IntoScaleWith<Gps> for Time<Glonass> {
+    /// GLONASS -> GPS через UTC.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
-    ) -> Result<Time<Utc>, GnssTimeError> {
-        gps_to_utc(self, &ls)
+    ) -> Result<Time<Gps>, GnssTimeError> {
+        glonass_to_gps(self, &ls)
     }
 
     fn into_scale_with_checked<P: LeapSecondsProvider>(
         self,
         ls: P,
-    ) -> Result<ConvertResult<Time<Utc>>, GnssTimeError> {
-        let utc = gps_to_utc(self, &ls)?;
-
-        // Detect leap second window: compute the TAI at this GPS moment and compare the
-        // leap count just before and just after. If they differ, we are inside (or just
-        // crossed) a leap second boundary.
-        let tai = self.to_tai()?;
-        let n_at = ls.tai_minus_utc_at(tai);
-
-        // Check 1s earlier to detect antry into the leap second
-        let tai_prev = if tai.as_nanos() >= 1_000_000_000 {
-            Time::<Tai>::from_nanos(tai.as_nanos() - 1_000_000_000)
-        } else {
-            tai
-        };
-        let n_before = ls.tai_minus_utc_at(tai_prev);
-
-        if n_at != n_before {
-            // We crossed a leap second boundary within the last second.
-            // The GPS second corresponding to n_before (old count) is the "ambiguous" one.
-            Ok(ConvertResult::AmbiguousLeapSecond(utc))
-        } else {
-            Ok(ConvertResult::Exact(utc))
-        }
+    ) -> Result<ConvertResult<Time<Gps>>, GnssTimeError> {
+        Ok(ConvertResult::Exact(glonass_to_gps(self, &ls)?))
     }
 }
 
 impl IntoScaleWith<Gps> for Time<Utc> {
-    /// UTC -> GPS with leap second context.
+    /// UTC -> GPS с учётом контекста leap seconds.
     ///
     /// ```rust
-    /// use gnss_time::{
-    ///     convert::{IntoScale, IntoScaleWith},
-    ///     leap::LeapSeconds,
-    ///     scale::{Gps, Utc},
-    ///     Time,
-    /// };
+    /// use gnss_time::{Gps, IntoScale, IntoScaleWith, LeapSeconds, Time, Utc};
     ///
     /// let ls = LeapSeconds::builtin();
     /// let gps_orig = Time::<Gps>::from_week_tow(2086, 0.0).unwrap();
@@ -411,45 +313,288 @@ impl IntoScaleWith<Gps> for Time<Utc> {
         self,
         ls: P,
     ) -> Result<ConvertResult<Time<Gps>>, GnssTimeError> {
-        // UTC -> GPS is unambiguous: each UTC nanosecond maps to exactly one GPS
-        // nanosecond (GPS has no gaps or repeated seconds).
+        // UTC -> GPS однозначно: каждая UTC-наносекунда соответствует
+        // ровно одной GPS-наносекунде (у GPS нет пропусков или повторяющихся секунд).
         Ok(ConvertResult::Exact(utc_to_gps(self, &ls)?))
     }
 }
 
-impl IntoScaleWith<Glonass> for Time<Gps> {
-    /// GPS -> GLONASS via UTC.
+////////////////////////////////////////////////////////////////////////////////
+// Galileo for Glonass, Gps, Beidou, Utc
+////////////////////////////////////////////////////////////////////////////////
+
+impl IntoScale<Galileo> for Time<Gps> {
+    /// GPS -> Galileo: тождественно на уровне наносекунд (обе шкалы используют
+    /// `TAI − 19с`).
+    ///
+    /// GPS- и Galileo-времена с одинаковым числом наносекунд представляют
+    /// один и тот же физический момент.
+    ///
+    /// ```rust
+    /// use gnss_time::{Galileo, Gps, IntoScale, Time};
+    ///
+    /// let gps = Time::<Gps>::from_seconds(12_345);
+    /// let gal: Time<Galileo> = gps.into_scale().unwrap();
+    ///
+    /// assert_eq!(gps.as_nanos(), gal.as_nanos());
+    /// ```
+    #[inline]
+    fn into_scale(self) -> Result<Time<Galileo>, GnssTimeError> {
+        // GPS и Galileo используют одинаковое смещение относительно TAI (19 с)
+        // → преобразование туда и обратно через TAI сохраняет наносекунды без изменений
+        self.try_convert::<Galileo>()
+    }
+}
+
+impl IntoScale<Galileo> for Time<Beidou> {
+    /// BeiDou -> Galileo через TAI.
+    #[inline]
+    fn into_scale(self) -> Result<Time<Galileo>, GnssTimeError> {
+        self.try_convert::<Galileo>()
+    }
+}
+
+impl IntoScaleWith<Galileo> for Time<Glonass> {
+    /// GLONASS -> Galileo через UTC.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
-    ) -> Result<Time<Glonass>, GnssTimeError> {
-        gps_to_glonass(self, &ls)
+    ) -> Result<Time<Galileo>, GnssTimeError> {
+        glonass_to_galileo(self, &ls)
     }
 
     fn into_scale_with_checked<P: LeapSecondsProvider>(
         self,
         ls: P,
-    ) -> Result<ConvertResult<Time<Glonass>>, GnssTimeError> {
-        Ok(ConvertResult::Exact(gps_to_glonass(self, &ls)?))
+    ) -> Result<ConvertResult<Time<Galileo>>, GnssTimeError> {
+        Ok(ConvertResult::Exact(glonass_to_galileo(self, &ls)?))
     }
 }
 
-impl IntoScaleWith<Gps> for Time<Glonass> {
-    /// GLONASS -> GPS via UTC.
+impl IntoScaleWith<Galileo> for Time<Utc> {
+    /// UTC -> Galileo через GPS.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
-    ) -> Result<Time<Gps>, GnssTimeError> {
-        glonass_to_gps(self, &ls)
+    ) -> Result<Time<Galileo>, GnssTimeError> {
+        utc_to_galileo(self, &ls)
     }
 
     fn into_scale_with_checked<P: LeapSecondsProvider>(
         self,
         ls: P,
-    ) -> Result<ConvertResult<Time<Gps>>, GnssTimeError> {
-        Ok(ConvertResult::Exact(glonass_to_gps(self, &ls)?))
+    ) -> Result<ConvertResult<Time<Galileo>>, GnssTimeError> {
+        Ok(ConvertResult::Exact(utc_to_galileo(self, &ls)?))
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Beidou for Glonass, Gps, Galileo, Utc
+////////////////////////////////////////////////////////////////////////////////
+
+impl IntoScale<Beidou> for Time<Gps> {
+    /// GPS -> BeiDou: `BDT = GPS - 14s` (via TAI: GPS + 19s TAI, BDT + 33s
+    /// TAI).
+    ///
+    /// ```rust
+    /// use gnss_time::{Beidou, Gps, IntoScale, Time};
+    ///
+    /// let gps = Time::<Gps>::from_seconds(100);
+    /// let bdt: Time<Beidou> = gps.into_scale().unwrap();
+    ///
+    /// assert_eq!(bdt.as_seconds(), 86); // 100 + 19 - 33 = 86
+    /// ```
+    #[inline]
+    fn into_scale(self) -> Result<Time<Beidou>, GnssTimeError> {
+        self.try_convert::<Beidou>()
+    }
+}
+
+impl IntoScale<Beidou> for Time<Galileo> {
+    /// Galileo -> BeiDou через TAI.
+    #[inline]
+    fn into_scale(self) -> Result<Time<Beidou>, GnssTimeError> {
+        self.try_convert::<Beidou>()
+    }
+}
+
+impl IntoScaleWith<Beidou> for Time<Utc> {
+    /// UTC → BeiDou через GPS.
+    fn into_scale_with<P: LeapSecondsProvider>(
+        self,
+        ls: P,
+    ) -> Result<Time<Beidou>, GnssTimeError> {
+        utc_to_beidou(self, &ls)
+    }
+    fn into_scale_with_checked<P: LeapSecondsProvider>(
+        self,
+        ls: P,
+    ) -> Result<ConvertResult<Time<Beidou>>, GnssTimeError> {
+        Ok(ConvertResult::Exact(utc_to_beidou(self, &ls)?))
+    }
+}
+
+impl IntoScaleWith<Beidou> for Time<Glonass> {
+    /// GLONASS -> BeiDou через UTC.
+    fn into_scale_with<P: LeapSecondsProvider>(
+        self,
+        ls: P,
+    ) -> Result<Time<Beidou>, GnssTimeError> {
+        glonass_to_beidou(self, &ls)
+    }
+
+    fn into_scale_with_checked<P: LeapSecondsProvider>(
+        self,
+        ls: P,
+    ) -> Result<ConvertResult<Time<Beidou>>, GnssTimeError> {
+        Ok(ConvertResult::Exact(glonass_to_beidou(self, &ls)?))
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Utc for Glonass, Gps, Galileo, Beidou
+////////////////////////////////////////////////////////////////////////////////
+
+impl IntoScale<Utc> for Time<Glonass> {
+    /// GLONASS -> UTC: постоянный сдвиг эпохи (+757 371 600 с, без leap
+    /// seconds).
+    ///
+    /// GLONASS отслеживает UTC(SU) = UTC + 3 часа, включая вставки високосных
+    /// секунд. Поэтому преобразование к/из UTC выполняется как простой
+    /// сдвиг эпохи.
+    ///
+    /// ```rust
+    /// use gnss_time::{Glonass, IntoScale, Time, Utc};
+    ///
+    /// let glo = Time::<Glonass>::from_day_tod(0, 0.0).unwrap(); // эпоха GLONASS
+    /// let utc: Time<Utc> = glo.into_scale().unwrap();
+    ///
+    /// // UTC в момент эпохи GLONASS:
+    /// // 1995-12-31 21:00:00 UTC = 757_371_600 с от 1972
+    /// assert_eq!(utc.as_nanos(), 757_371_600_000_000_000);
+    /// ```
+    #[inline]
+    fn into_scale(self) -> Result<Time<Utc>, GnssTimeError> {
+        glonass_to_utc(self)
+    }
+}
+
+impl IntoScaleWith<Utc> for Time<Gps> {
+    /// GPS -> UTC с учётом контекста leap seconds.
+    ///
+    /// Круговая точность: `GPS -> UTC -> GPS` точна (< 1 нс) для всех моментов,
+    /// кроме 1-секундного окна вставки високосной секунды.
+    ///
+    /// ```rust
+    /// use gnss_time::{Gps, IntoScaleWith, LeapSeconds, Time, Utc};
+    ///
+    /// let ls = LeapSeconds::builtin();
+    /// let gps = Time::<Gps>::from_seconds(1_167_264_018); // 2017-01-01 GPS
+    /// let utc: Time<Utc> = gps.into_scale_with(ls).unwrap();
+    ///
+    /// let delta = gps.as_seconds() as i64 - utc.as_seconds() as i64 + 252_892_800_i64;
+    ///
+    /// // GPS опережает UTC на 18 с → UTC на 18 с раньше
+    /// assert_eq!(delta, 18);
+    /// ```
+    #[inline]
+    fn into_scale_with<P: LeapSecondsProvider>(
+        self,
+        ls: P,
+    ) -> Result<Time<Utc>, GnssTimeError> {
+        gps_to_utc(self, &ls)
+    }
+
+    fn into_scale_with_checked<P: LeapSecondsProvider>(
+        self,
+        ls: P,
+    ) -> Result<ConvertResult<Time<Utc>>, GnssTimeError> {
+        let utc = gps_to_utc(self, &ls)?;
+
+        // Обнаружение окна високосной секунды: вычисляем TAI в этой GPS-метке времени
+        // и сравниваем количество leap seconds до и после.
+        // Если значения различаются — мы находимся внутри (или сразу после)
+        // границы високосной секунды.
+        let tai = self.to_tai()?;
+        let n_at = ls.tai_minus_utc_at(tai);
+
+        // Проверяем 1 секунду назад для детектирования входа в leap second
+        let tai_prev = if tai.as_nanos() >= 1_000_000_000 {
+            Time::<Tai>::from_nanos(tai.as_nanos() - 1_000_000_000)
+        } else {
+            tai
+        };
+        let n_before = ls.tai_minus_utc_at(tai_prev);
+
+        if n_at != n_before {
+            // Мы пересекли границу високосной секунды в пределах последней секунды.
+            // GPS-секунда, соответствующая n_before (старому значению), является
+            // неоднозначной.
+            Ok(ConvertResult::AmbiguousLeapSecond(utc))
+        } else {
+            Ok(ConvertResult::Exact(utc))
+        }
+    }
+}
+
+impl IntoScaleWith<Utc> for Time<Galileo> {
+    /// Galielo -> UTC через GPS (оба делят TAI-offset 19с)
+    fn into_scale_with<P: LeapSecondsProvider>(
+        self,
+        ls: P,
+    ) -> Result<Time<Utc>, GnssTimeError> {
+        galileo_to_utc(self, &ls)
+    }
+
+    fn into_scale_with_checked<P: LeapSecondsProvider>(
+        self,
+        ls: P,
+    ) -> Result<ConvertResult<Time<Utc>>, GnssTimeError> {
+        Ok(ConvertResult::Exact(galileo_to_utc(self, &ls)?))
+    }
+}
+
+impl IntoScaleWith<Utc> for Time<Beidou> {
+    /// BeiDou -> UTC через GPS.
+    fn into_scale_with<P: LeapSecondsProvider>(
+        self,
+        ls: P,
+    ) -> Result<Time<Utc>, GnssTimeError> {
+        beidou_to_utc(self, &ls)
+    }
+
+    fn into_scale_with_checked<P: LeapSecondsProvider>(
+        self,
+        ls: P,
+    ) -> Result<ConvertResult<Time<Utc>>, GnssTimeError> {
+        Ok(ConvertResult::Exact(beidou_to_utc(self, &ls)?))
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Tai for Gps
+////////////////////////////////////////////////////////////////////////////////
+
+impl IntoScale<Tai> for Time<Gps> {
+    /// GPS -> TAI: добавление 19 секунд (константа, без leap seconds).
+    ///
+    /// ```rust
+    /// use gnss_time::{Gps, IntoScale, Tai, Time};
+    ///
+    /// let gps = Time::<Gps>::from_seconds(100);
+    /// let tai: Time<Tai> = gps.into_scale().unwrap();
+    ///
+    /// assert_eq!(tai.as_seconds(), 119); // 100 + 19
+    /// ```
+    #[inline]
+    fn into_scale(self) -> Result<Time<Tai>, GnssTimeError> {
+        self.to_tai()
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Tests
+////////////////////////////////////////////////////////////////////////////////
 
 #[cfg(test)]
 mod tests {
@@ -485,7 +630,7 @@ mod tests {
 
     #[test]
     fn test_tai_to_gps_underflow_at_tai_zero() {
-        // TAI(0) - 19 s → negative GPS → overflow
+        // TAI(0) − 19 с → отрицательное GPS-время → переполнение
         let tai = Time::<Tai>::EPOCH;
         let result: Result<Time<Gps>, _> = tai.into_scale();
 
@@ -557,7 +702,7 @@ mod tests {
         let glo = Time::<Glonass>::EPOCH;
         let utc: Time<Utc> = glo.into_scale().unwrap();
 
-        // GLONASS epoch = 1995-12-31 21:00:00 UTC = 757_371_600 s from 1972
+        // Эпоха ГЛОНАСС = 1995-12-31 21:00:00 UTC = 757_371_600 с от 1972 года
         assert_eq!(utc.as_nanos(), 757_371_600_000_000_000);
     }
 
@@ -609,22 +754,21 @@ mod tests {
     #[test]
     fn test_gps_utc_roundtrip_exact_at_nanosecond_level() {
         let ls = LeapSeconds::builtin();
-        // Use a timestamp with non-zero nanosecond component
+        // Использум временную метку с ненулевой нанosekundной частью
         let gps = Time::<Gps>::from_nanos(1_167_264_100_123_456_789);
         let utc: Time<Utc> = gps.into_scale_with(ls).unwrap();
         let back: Time<Gps> = utc.into_scale_with(ls).unwrap();
 
-        assert_eq!(gps, back); // exact, no rounding
+        assert_eq!(gps, back); // точно, без округления
     }
 
-    /// Verify GPS-UTC = 18 s on 2017-01-01 00:00:00 UTC.
     #[test]
     fn test_gps_leads_utc_by_18s_at_2017_01_01() {
         let ls = LeapSeconds::builtin();
-        // 2017-01-01 UTC: 16437 days * 86400 s from 1972-01-01
+        // 2017-01-01 UTC: 16437 дней * 86400 с от 1972-01-01
         let expected_utc_s: u64 = 16_437 * 86_400;
-        // GPS seconds for that UTC moment: GPS = UTC - epoch_offset + (n - 19)
-        // where n=37, epoch_offset = 252_892_800 s
+        // GPS-секунды для этого UTC момента: GPS = UTC - epoch_offset + (n - 19)
+        // где n = 37, epoch_offset = 252_892_800 с
         let gps_s: u64 = 1_167_264_000 + 18; // pre-verified
         let gps = Time::<Gps>::from_seconds(gps_s);
         let utc: Time<Utc> = gps.into_scale_with(ls).unwrap();
@@ -632,7 +776,6 @@ mod tests {
         assert_eq!(utc.as_seconds(), expected_utc_s);
     }
 
-    /// Verify GPS-UTC = 13 s on 1999-01-01 00:00:00 UTC.
     #[test]
     fn test_gps_leads_utc_by_13s_at_1999_01_01() {
         let ls = LeapSeconds::builtin();
@@ -653,7 +796,6 @@ mod tests {
         assert_eq!(gps, back);
     }
 
-    /// Normal time → Exact result.
     #[test]
     fn test_normal_gps_gives_exact_convert_result() {
         let ls = LeapSeconds::builtin();
@@ -663,7 +805,6 @@ mod tests {
         assert!(result.is_exact());
     }
 
-    /// UTC → GPS always produces Exact (GPS has no ambiguous seconds).
     #[test]
     fn test_utc_to_gps_always_exact() {
         let ls = LeapSeconds::builtin();
