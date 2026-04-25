@@ -76,7 +76,7 @@ Typical time libraries:
 - [x] Fixed-offset conversions
 - [x] Leap second handling
 - [x] Display formats
-- [ ] Full conversion matrix
+- [x] Full conversion matrix
 - [ ] Serialization (`serde`)
 - [ ] Parsing (RINEX / NMEA / UBX)
 

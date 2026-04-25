@@ -14,7 +14,7 @@ const NANOS_PER_MICRO: i64 = 1_000;
 /// A signed time interval measured in nanoseconds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[repr(transparent)]
-pub struct Duration(i64); // nanoseconds
+pub struct Duration(i64); // наносекунды
 
 impl Duration {
     /// Zero duration.
@@ -282,6 +282,10 @@ impl fmt::Display for Duration {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Tests
+////////////////////////////////////////////////////////////////////////////////
+
 #[cfg(test)]
 mod tests {
     #[allow(unused_imports)]
@@ -385,10 +389,10 @@ mod tests {
 
     #[test]
     fn test_as_seconds_f64_precision() {
-        let d = Duration::from_nanos(1_500_000_001); // 1.500000001 s
+        let d = Duration::from_nanos(1_500_000_001); // 1.500000001 с
         let f = d.as_seconds_f64();
 
-        // f64 has ~15 sig digits; 1.500000001 requires 10 → exact
+        // f64 имеет ~15 значащих цифр; 1.500000001 требует 10 → представляется точно
         assert!((f - 1.500_000_001_f64).abs() < 1e-9);
     }
 
