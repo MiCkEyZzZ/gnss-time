@@ -6,6 +6,34 @@ All notable changes to **gnss-time** are documented in this file.
 
 ### Added
 
+- **Полная матрица конверсий (`matrix`)**:
+  - Тип `ScaleId` для идентификации шкал времени в рантайме (GPS, GLONASS, Galileo,
+    BeiDou, TAI, UTC).
+  - Тип `ConversionKind` – классификация преобразований (Fixed, Identity, EpochShift,
+    Contextual, SameScale).
+  - Структура `ConversionMatrix` – проверка совместимости и статистика по графу
+    конверсий.
+  - Константы смещений относительно TAI: `TAI_OFFSET_GPS_NS`, `TAI_OFFSET_GALILEO_NS`,
+    `TAI_OFFSET_BEIDOU_NS`, `TAI_OFFSET_TAI_NS`, `GLONASS_UTC_EPOCH_SHIFT_NS`.
+  - Функция `beidou_via_gps_to_glonass_via_utc` – пример последовательного преобразования
+    через все шкалы.
+  - Тесты для проверки симметричности и классификации всех 30 внедиагональных путей.
+
+- **Расширенные возможности конверсий в `leap` и `convert`**:
+  - Функции `galileo_to_utc`, `galileo_to_glonass`, `beidou_to_utc`, `beidou_to_glonass`,
+    а также соответствующие обратные преобразования `utc_to_galileo`, `utc_to_beidou`.
+  - Реализации трейтов `IntoScale` и `IntoScaleWith` для всех пар шкал, включая
+    Galileo ↔ GLONASS, BeiDou ↔ GLONASS, Galileo ↔ UTC, BeiDou ↔ UTC.
+  - Полная поддержка 6×6 матрицы конверсий (всего 30 направлений).
+
+- **Исправлена опечатка** в doctest `matrix.rs` (метод `needs_leap_seconds` и число
+  контекстных путей 16 вместо 22).
+
+- **Новые примеры**:
+  - `matrix_inspection.rs` – вывод матрицы конверсий.
+  - `dynamic_conversion.rs` – динамическая конверсия (рантайм).
+  - `chain_conversion.rs` – сквозная цепочка BeiDou → TAI.
+
 - **GLONASS‑специфичные методы** (`Time<Glonass>`):
   - `sub_second_nanos()` – наносекундная доля текущей секунды.
   - `day_of_week()` – день недели по ISO (1 = Monday … 7 = Sunday), основан на

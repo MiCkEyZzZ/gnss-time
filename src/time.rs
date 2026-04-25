@@ -8,6 +8,7 @@
 //!
 //! ```rust
 //! # use gnss_time::{Time, scale::Gps};
+//!
 //! assert_eq!(core::mem::size_of::<Time<Gps>>(), 8); // идентично u64
 //! ```
 
@@ -35,6 +36,7 @@ use crate::{
 ///
 /// let t: Time<Gps> = Time::from_nanos(0); // эпоха GPS
 /// let later = t + Duration::from_seconds(3600);
+///
 /// assert_eq!((later - t).as_seconds(), 3600);
 ///
 /// // Ошибка компиляции — разные шкалы несовместимы:
@@ -48,19 +50,19 @@ pub struct Time<S: TimeScale> {
 }
 
 impl<S: TimeScale> Time<S> {
-    /// The scale's epoch - 0 nanoseconds.
+    /// Начало шкалы - 0 наносекунд.
     pub const EPOCH: Self = Time {
         nanos: 0,
         _scale: PhantomData,
     };
 
-    /// Maximum representable instant (~584 years from epoch).
+    /// Максимально представимое значение момента (~584 года от эпохи).
     pub const MAX: Self = Time {
         nanos: u64::MAX,
         _scale: PhantomData,
     };
 
-    /// Construct from raw nanoseconds since this scale's epoch.
+    /// Создаёт из сырых наносекунд с момента эпохи этой шкалы.
     #[inline(always)]
     pub const fn from_nanos(nanos: u64) -> Self {
         Time {
@@ -69,13 +71,13 @@ impl<S: TimeScale> Time<S> {
         }
     }
 
-    /// Construct from whole seconds since this scale's epoch.
+    /// Создаёт из целых секунд с момента эпохи этой шкалы.
     #[inline]
     pub const fn from_seconds(secs: u64) -> Self {
         Time::from_nanos(secs * 1_000_000_000)
     }
 
-    /// Construct from whole seconds, returning `None` on overflow.
+    /// Создаёт из целых секунд, возвращая `None` при переполнении.
     #[inline]
     pub const fn checked_from_seconds(secs: u64) -> Option<Self> {
         match secs.checked_mul(1_000_000_000) {
@@ -86,20 +88,20 @@ impl<S: TimeScale> Time<S> {
 }
 
 impl<S: TimeScale> Time<S> {
-    /// Raw nanoseconds since this scale's epoch.
+    /// Сырые наносекунды с момента эпохи этой шкалы.
     #[inline(always)]
     pub const fn as_nanos(self) -> u64 {
         self.nanos
     }
 
-    /// Whole seconds since this scale's epoch (truncated).
+    /// Целые секунды с момента эпохи этой шкалы (усечение).
     #[inline]
     pub const fn as_seconds(self) -> u64 {
         self.nanos / 1_000_000_000
     }
 
-    /// Seconds as `f64`. For large timestamps, sub-microsecond precision is
-    /// lost.
+    /// Секунды в виде `f64`. Для больших временных значений теряется точность
+    /// меньше микросекунды.
     #[inline]
     pub const fn as_seconds_f64(self) -> f64 {
         self.nanos as f64 / 1_000_000_000.0
@@ -107,10 +109,10 @@ impl<S: TimeScale> Time<S> {
 }
 
 impl<S: TimeScale> Time<S> {
-    /// Convert to TAI using the scale's fixed offset.
+    /// Конвертация в TAI с использованием фиксированного смещения шкалы.
     ///
-    /// Returns [`GnssTimeError::LeapSecondsRequired`] for contextual scales
-    /// (UTC, GLONASS) and [`GnssTimeError::Overflow`] for out-of-range results
+    /// Возвращает [`GnssTimeError::LeapSecondsRequired`] для контекстных шкал
+    /// (UTC, GLONASS) и [`GnssTimeError::Overflow`] при выходе за диапазон.
     pub fn to_tai(self) -> Result<Time<Tai>, GnssTimeError> {
         match S::OFFSET_TO_TAI {
             OffsetToTai::Fixed(offset) => {
@@ -126,7 +128,8 @@ impl<S: TimeScale> Time<S> {
         }
     }
 
-    /// Construct `Time<S>` from a TAI timestamp using the scale's fixed offset.
+    /// Создать `Time<S>` из TAI-времени, используя фиксированное смещение
+    /// шкалы.
     pub fn from_tai(tai: Time<Tai>) -> Result<Self, GnssTimeError> {
         match S::OFFSET_TO_TAI {
             OffsetToTai::Fixed(offset) => {
@@ -142,7 +145,8 @@ impl<S: TimeScale> Time<S> {
         }
     }
 
-    /// Convert directly between two fixed-offset scales via TAI.
+    /// Прямое преобразование между двумя шкалами с фиксированным смещением
+    /// через TAI.
     pub fn try_convert<T: TimeScale>(self) -> Result<Time<T>, GnssTimeError> {
         let tai = self.to_tai()?;
 
@@ -151,7 +155,8 @@ impl<S: TimeScale> Time<S> {
 }
 
 impl<S: TimeScale> Time<S> {
-    /// Add a `Duration`, returning `None` on overflow or underflow.
+    /// Добавить `Duration`, возвращая `None` при переполнении или потере
+    /// диапазона.
     #[inline]
     pub fn checked_add(
         self,
@@ -166,7 +171,8 @@ impl<S: TimeScale> Time<S> {
         Some(Time::from_nanos(result as u64))
     }
 
-    /// Subtract a `Duration`, returning `None` on overflow or underflow.
+    /// Вычесть `Duration`, возвращая `None` при переполнении или потере
+    /// диапазона.
     #[inline]
     pub fn checked_sub_duration(
         self,
@@ -181,7 +187,7 @@ impl<S: TimeScale> Time<S> {
         Some(Time::from_nanos(result as u64))
     }
 
-    /// Add, saturating at `EPOCH` (below) and `MAX` (above).
+    /// Сложение с насыщением (saturating) на границах `EPOCH` и `MAX`.
     #[inline]
     pub fn saturating_add(
         self,
@@ -194,7 +200,7 @@ impl<S: TimeScale> Time<S> {
         })
     }
 
-    /// Subtract duration, saturating at bounds.
+    /// Вычитание с насыщением на границах.
     #[inline]
     pub fn saturating_sub_duration(
         self,
@@ -207,7 +213,7 @@ impl<S: TimeScale> Time<S> {
         })
     }
 
-    /// Fallible add — [`GnssTimeError::Overflow`] on failure.
+    /// Fallible addition — возвращает [`GnssTimeError::Overflow`] при ошибке.
     #[inline]
     pub fn try_add(
         self,
@@ -216,7 +222,8 @@ impl<S: TimeScale> Time<S> {
         self.checked_add(d).ok_or(GnssTimeError::Overflow)
     }
 
-    /// Fallible subtract — [`GnssTimeError::Overflow`] on failure.
+    /// Fallible subtraction — возвращает [`GnssTimeError::Overflow`] при
+    /// ошибке.
     #[inline]
     pub fn try_sub_duration(
         self,
@@ -227,7 +234,8 @@ impl<S: TimeScale> Time<S> {
 }
 
 impl<S: TimeScale> Time<S> {
-    /// Signed interval `self − earlier`. Returns `None` if it overflows `i64`.
+    /// Знаковый интервал `self − earlier`. Возвращает `None` при переполнении
+    /// `i64`.
     #[inline]
     pub const fn checked_elapsed(
         self,
@@ -303,14 +311,14 @@ impl<S: TimeScale> Sub<Time<S>> for Time<S> {
 }
 
 impl Time<Glonass> {
-    /// Construct from GLONASS **day number** and **time-of-day** in seconds.
+    /// Создать из номера дня ГЛОНАСС и времени суток в секундах.
     ///
-    /// - `day`: days since GLONASS epoch (1996-01-01 00:00:00 UTC(SU)).
-    /// - `tod_s`: time of day in seconds, must be in `[0, 86 400)`.
+    /// - `day`: дни с эпохи ГЛОНАСС (1996-01-01 00:00:00 UTC(SU)).
+    /// - `tod_s`: время суток в секундах, должно быть в `[0, 86 400)`.
     ///
-    /// # Errors
+    /// # Ошибки
     ///
-    /// [`GnssTimeError::InvalidInput`] if `tod_s ∉ [0, 86 400)`.
+    /// [`GnssTimeError::InvalidInput`] если `tod_s ∉ [0, 86 400)`.
     pub fn from_day_tod(
         day: u32,
         tod_s: f64,
@@ -318,6 +326,7 @@ impl Time<Glonass> {
         if !(0.0..86_400.0).contains(&tod_s) {
             return Err(GnssTimeError::InvalidInput("tod_s must be in [0, 86_400)"));
         }
+
         let day_ns = (day as u64)
             .checked_mul(86_400_000_000_000)
             .ok_or(GnssTimeError::Overflow)?;
@@ -327,64 +336,65 @@ impl Time<Glonass> {
         Ok(Time::from_nanos(total))
     }
 
-    /// Day number since GLONASS epoch.
+    /// Номер дня с эпохи ГЛОНАСС.
     #[inline]
     pub const fn day(self) -> u32 {
         (self.nanos / 86_400_000_000_000u64) as u32
     }
 
-    /// Time of day in whole seconds.
+    /// Время суток в целых секундах.
     #[inline]
     pub const fn tod_seconds(self) -> u32 {
         ((self.nanos % 86_400_000_000_000u64) / 1_000_000_000u64) as u32
     }
 
-    /// Sub-second nanosecond remainder within the current second.
+    /// Наносекунды внутри текущей секунды (дробная часть).
     #[inline]
     pub const fn sub_second_nanos(self) -> u32 {
         (self.nanos % 1_000_000_000u64) as u32
     }
 
-    /// Day of week: **1 = Monday ..7 = Sunday** (NavIC / ISO 8601 convertion).
+    /// День недели: **1 = понедельник .. 7 = воскресенье** (NavIC / ISO 8601).
     ///
-    /// GLONASS epoch (1996-01-01) was a **Monday**, so day 0 -> 1 (Monday).
+    /// Эпоха ГЛОНАСС (1996-01-01) была **понедельником**, поэтому день 0 -> 1.
     ///
-    /// The formula is simply `(day % 7) + 1`.
+    /// Формула: `(day % 7) + 1`.
     ///
-    /// # GLONASS ICD note
+    /// # Примечание GLONASS ICD
     ///
-    /// The GLONASS interface Control Document define the "day number within the
-    /// four-yaer interval" (`N_T`) starting from 1, but for simplicity this
-    /// crate uses 0-based day counts from the epoch and exposes the ISO / NavIC
-    /// weekday (1=Mon..7=Sun) through this method.
+    /// В GLONASS Interface Control Document используется "номер дня внутри
+    /// четырёхлетнего интервала" (`N_T`), начинающийся с 1, но для простоты
+    /// в этом крейте используется 0-базированный счёт дней от эпохи и
+    /// предоставляется ISO/NavIC-нумерация дня недели (1=Mon..7=Sun).
     ///
-    /// # Examples
+    /// # Примеры
     ///
     /// ```rust
     /// use gnss_time::{Glonass, Time};
     ///
-    /// // Day 0 = 1996-01-01 = Monday
+    /// // День 0 = 1996-01-01 = понедельник
     /// let t = Time::<Glonass>::from_day_tod(0, 0.0).unwrap();
     ///
     /// assert_eq!(t.day_of_week(), 1); // Monday
     ///
-    /// // Day 6 = 1996-01-07 = Sunday
+    /// // День 6 = 1996-01-07 = воскресенье
     /// let t2 = Time::<Glonass>::from_day_tod(6, 0.0).unwrap();
     ///
     /// assert_eq!(t2.day_of_week(), 7); // Sunday
     ///
-    /// // Day 7 = 1996-01-08 = Monday again
+    /// // День 7 = 1996-01-08 = снова понедельник
     /// let t3 = Time::<Glonass>::from_day_tod(7, 0.0).unwrap();
     ///
     /// assert_eq!(t3.day_of_week(), 1);
     /// ```
     #[inline]
     pub const fn day_of_week(self) -> u8 {
-        // GLONASS epoch = Monday -> day 0 maps to 1
+        // Эпоха ГЛОНАСС = понедельник → день 0 соответствует 1
         (self.day() % 7) as u8 + 1
     }
 
-    /// Returns `true` if the current day-of-week is Saturday (6) or Sunday (7).
+    /// Возвращает `true`, если текущий день недели — суббота (6) или
+    /// воскресенье (7).
     #[inline]
     pub const fn is_weekend(self) -> bool {
         let d = self.day_of_week();
@@ -394,18 +404,19 @@ impl Time<Glonass> {
 }
 
 impl Time<Gps> {
-    /// Construct from a GPS **week number** and **time of week** in seconds.
+    /// Создать из номера GPS-недели и времени внутри недели в секундах.
     ///
-    /// - `week`: GPS week number (0 = 1980-01-06, rolls over at 1024 without
-    ///   rollover correction; this constructor accepts the raw value).
-    /// - `tow_s`: time of week in seconds `[0, 604 800)`.
+    /// - `week`: номер GPS-недели (0 = 1980-01-06, без коррекции rollover; этот
+    ///   конструктор принимает "сырое" значение).
+    /// - `tow_s`: время внутри недели в секундах `[0, 604 800)`.
     ///
-    /// # Errors
+    /// # Ошибки
     ///
-    /// [`GnssTimeError::InvalidInput`] if `tow_s ∉ [0, 604 800)`.
-    /// [`GnssTimeError::Overflow`] if the result exceeds `u64::MAX` ns.
+    /// [`GnssTimeError::InvalidInput`] если `tow_s ∉ [0, 604 800)`.
+    /// [`GnssTimeError::Overflow`] если результат не помещается в `u64`
+    /// наносекунд.
     ///
-    /// # Example
+    /// # Пример
     ///
     /// ```rust
     /// use gnss_time::{scale::Gps, Time};
@@ -421,8 +432,9 @@ impl Time<Gps> {
         if !(0.0..604_800.0).contains(&tow_s) {
             return Err(GnssTimeError::InvalidInput("tow_s must be in [0, 604_800)"));
         }
+
         let week_nanos = (week as u64)
-            .checked_mul(604_800_000_000_000) // 604_800 s * 1e9
+            .checked_mul(604_800_000_000_000) // 604_800 с * 1е9
             .ok_or(GnssTimeError::Overflow)?;
         let tow_nanos = (tow_s * 1_000_000_000.0) as u64;
         let total = week_nanos
@@ -432,22 +444,24 @@ impl Time<Gps> {
         Ok(Time::from_nanos(total))
     }
 
-    /// Convert GPS time to UTC using the built-in leap second table.
+    /// Преобразование GPS времени в UTC с использованием встроенной таблицы
+    /// leap seconds.
     ///
-    /// # Accuracy
+    /// # Точность
     ///
-    /// For most timestamps the conversion is exact to the nanosecond.
-    /// During the 1‑second leap second insertion window (e.g. 2016-12-31
-    /// 23:59:60 UTC) the result may be off by up to 1 second. If this
-    /// matters, use [`to_utc_with`](Self::to_utc_with) and a custom
-    /// provider that handles ambiguity
+    /// Для большинства временных меток преобразование точно до наносекунды.
+    /// Во время окна вставки високосной секунды (например, 2016-12-31 23:59:60
+    /// UTC) результат может отличаться до 1 секунды. Если это критично,
+    /// используйте [`to_utc_with`](Self::to_utc_with) и собственный
+    /// провайдер, который корректно обрабатывает неоднозначность.
     pub fn to_utc(self) -> Result<Time<Utc>, GnssTimeError> {
         gps_to_utc(self, LeapSeconds::builtin())
     }
 
-    /// Convert GPS time to UTC using a custom leap second provider.
+    /// Преобразование GPS времени в UTC с использованием пользовательского
+    /// провайдера leap seconds.
     ///
-    /// Same accuracy note as [`to_utc`](Self::to_utc).
+    /// Тот же комментарий по точности, что и для [`to_utc`](Self::to_utc).
     pub fn to_utc_with<P: LeapSecondsProvider>(
         self,
         ls: &P,
@@ -455,19 +469,19 @@ impl Time<Gps> {
         gps_to_utc(self, ls)
     }
 
-    /// GPS week number (integer division).
+    /// Номер GPS-недели (целочисленное деление).
     #[inline]
     pub const fn week(self) -> u32 {
         (self.nanos / 604_800_000_000_000u64) as u32
     }
 
-    /// Time of week in whole seconds.
+    /// Время внутри недели в целых секундах.
     #[inline]
     pub const fn tow_seconds(self) -> u32 {
         ((self.nanos % 604_800_000_000_000u64) / 1_000_000_000u64) as u32
     }
 
-    /// Sub-second nanosecond remainder within the current second.
+    /// Наносекунды внутри текущей секунды (дробная часть).
     #[inline]
     pub const fn sub_second_nanos(self) -> u32 {
         (self.nanos % 1_000_000_000u64) as u32
@@ -475,11 +489,12 @@ impl Time<Gps> {
 }
 
 impl Time<Utc> {
-    /// Convert UTC to GPS using the built-in leap second table.
+    /// Преобразование UTC в GPS с использованием встроенной таблицы leap
+    /// seconds.
     ///
-    /// # Accuracy
-    /// Same as [`to_utc`](Time::<Gps>::to_utc) – may be ambiguous during leap
-    /// second.
+    /// # Точность
+    /// То же, что и в [`to_utc`](Time::<Gps>::to_utc) — возможна
+    /// неоднозначность во время вставки високосной секунды.
     pub fn to_gps(self) -> Result<Time<Gps>, GnssTimeError> {
         utc_to_gps(self, LeapSeconds::builtin())
     }
@@ -522,13 +537,13 @@ impl<S: TimeScale> fmt::Debug for Time<S> {
 }
 
 impl<S: TimeScale> fmt::Display for Time<S> {
-    /// Format depends on the scale's [`DisplayStyle`]:
+    /// Формат зависит от [`DisplayStyle`] шкалы:
     ///
-    /// | Style     | Example                   |
-    /// |-----------|---------------------------|
-    /// | `WeekTow` | `"GPS 2345:432000.000"`   |
-    /// | `DayTod`  | `"GLO 10512:43200.000"`   |
-    /// | `Simple`  | `"TAI +1000000000s 0ns"`  |
+    /// | Стиль      | Пример                     |
+    /// |------------|----------------------------|
+    /// | `WeekTow`  | `"GPS 2345:432000.000"`    |
+    /// | `DayTod`   | `"GLO 10512:43200.000"`    |
+    /// | `Simple`   | `"TAI +1000000000s 0ns"`   |
     fn fmt(
         &self,
         f: &mut fmt::Formatter<'_>,
@@ -561,6 +576,10 @@ impl<S: TimeScale> fmt::Display for Time<S> {
         }
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Tests
+////////////////////////////////////////////////////////////////////////////////
 
 #[cfg(test)]
 mod tests {
@@ -675,6 +694,7 @@ mod tests {
     fn test_sub_times_positive() {
         let a = Time::<Gps>::from_seconds(200);
         let b = Time::<Gps>::from_seconds(100);
+
         assert_eq!((a - b).as_seconds(), 100);
     }
 
@@ -689,6 +709,7 @@ mod tests {
     #[test]
     fn test_sub_same_is_zero() {
         let t = Time::<Gps>::from_seconds(42);
+
         assert!((t - t).is_zero());
     }
 
@@ -802,7 +823,6 @@ mod tests {
 
     #[test]
     fn test_gps_display_week_tow_format() {
-        // GPS 2345:432000.000 — the canonical example from the issue
         let t = Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap();
 
         assert_eq!(t.to_string(), "GPS 2345:432000.000");
@@ -817,7 +837,7 @@ mod tests {
 
     #[test]
     fn test_gps_display_tow_zero_padded() {
-        // TOW = 1 second → must show 000001
+        // TOW = 1 секунда → должно отображаться как 000001
         let t = Time::<Gps>::from_week_tow(1, 1.0).unwrap();
 
         assert_eq!(t.to_string(), "GPS 1:000001.000");

@@ -1,8 +1,9 @@
 //! # gnss-time
 //!
-//! **Type-safe GNSS time scale with zero runtime overhead**.
+//! **Типобезопасная шкала GNSS времени с нулевыми накладными расходами во время
+//! выполнения**.
 //!
-//! ## Quick start
+//! ## Быстрый старт
 //!
 //! ```rust
 //! use gnss_time::prelude::*;
@@ -26,6 +27,7 @@ pub mod duration;
 pub mod epoch;
 pub mod error;
 pub mod leap;
+pub mod matrix;
 pub mod scale;
 pub mod time;
 
@@ -38,6 +40,7 @@ pub use duration::*;
 pub use epoch::*;
 pub use error::*;
 pub use leap::*;
+pub use matrix::*;
 pub use scale::*;
 pub use time::*;
 

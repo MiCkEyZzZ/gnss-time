@@ -53,3 +53,7 @@ path = "examples/convert_basic.rs"
 [[example]]
 name = "convert_contextual"
 path = "examples/convert_contextual.rs"
+
+[[example]]
+name = "matrix_inspection"
+path = "examples/matrix_inspection.rs"

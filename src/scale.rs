@@ -220,6 +220,10 @@ impl OffsetToTai {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Tests
+////////////////////////////////////////////////////////////////////////////////
+
 #[cfg(test)]
 mod tests {
     use std::{collections::HashSet, mem::size_of};
@@ -272,7 +276,7 @@ mod tests {
 
     #[test]
     fn test_gps_and_galileo_are_aligned() {
-        // Same TAI offset → simultaneous instants
+        // одинаковое смещение TAI → синхронные (совпадающие по времени) моменты
         assert_eq!(Gps::OFFSET_TO_TAI, Galileo::OFFSET_TO_TAI);
     }
 
@@ -293,6 +297,7 @@ mod tests {
             Utc::NAME,
         ];
         let set: HashSet<_> = names.iter().collect();
+
         assert_eq!(set.len(), names.len());
     }
 
