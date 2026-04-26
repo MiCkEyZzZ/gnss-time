@@ -54,12 +54,12 @@ time.
 use gnss_time::prelude::*;
 
 let gps = Time::<Gps>::from_week_tow(2200, 0.0).unwrap();
-let utc = gps.into_scale_with(&leap_seconds);
+let ls = LeapSeconds::builtin();
 
-match utc {
-    ConvertResult::Ok(t) => println!("UTC: {:?}", t),
-    ConvertResult::Ambiguous(a, b) => {
-        println!("Ambiguous: {:?} or {:?}", a, b);
+match gps.into_scale_with_checked(ls).unwrap() {
+    ConvertResult::Exact(utc) => println!("UTC: {}", utc),
+    ConvertResult::AmbiguousLeapSecond(utc) => {
+        println!("Inside leap second, UTC value: {}", utc);
     }
 }
 ```
@@ -103,8 +103,6 @@ Typical time libraries:
 - [x] Leap second handling
 - [x] Display formats
 - [x] Full conversion matrix
-- [ ] Serialization (`serde`)
-- [ ] Parsing (RINEX / NMEA / UBX)
 
 ## License
 
