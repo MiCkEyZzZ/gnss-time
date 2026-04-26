@@ -4,12 +4,12 @@ fn main() {
     let ls = LeapSeconds::builtin();
     let bdt = Time::<Beidou>::from_seconds(2_000_000_000); // достаточно большое значение
     match beidou_via_gps_to_glonass_via_utc(bdt, &ls) {
-        Ok((gps, glo, utc, tai)) => {
+        Ok(chain) => {
             println!("Исходное BeiDou: {}", bdt);
-            println!("→ GPS:          {}", gps);
-            println!("→ GLONASS:      {}", glo);
-            println!("→ UTC:          {}", utc);
-            println!("→ TAI:          {}", tai);
+            println!("→ GPS:          {}", chain.gps);
+            println!("→ GLONASS:      {}", chain.glonass);
+            println!("→ UTC:          {}", chain.utc);
+            println!("→ TAI:          {}", chain.tai);
         }
         Err(e) => println!("Ошибка: {}", e),
     }

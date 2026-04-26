@@ -2,7 +2,7 @@
 
 All notable changes to **gnss-time** are documented in this file.
 
-## [Unreleased] — 0000-00-00
+## [v0.2.0] — 2026-04-26
 
 ### Added
 
@@ -87,7 +87,7 @@ All notable changes to **gnss-time** are documented in this file.
   и примерами.
 - Добавлен `prelude` для удобного импорта.
 
-## [v0.1.0] — 2026-05-21
+## [v0.1.0] — 2026-04-21
 
 - **Тип `Duration`** — знаковый интервал времени в наносекундах (`i64`).
   - Конструкторы: `from_nanos`, `from_micros`, `from_millis`, `from_seconds`,

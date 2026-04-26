@@ -1,7 +1,8 @@
 //! # Матрица конверсий: полный граф поддерживаемых преобразований
 //!
 //! Этот модуль документирует и проверяет **полную матрицу** допустимых
-//! конверсий между шкалами времени, а также предоставляет [`ConvertionMatrix`]
+//! конверсий между шкалами времени, а также предоставляет
+//! [`crate::matrix::ConversionMatrix`]
 //! - тип для runtime проверки совместимости шкал.
 //!
 //! ## Таблица оффсетов (источники: ICD-GLONASS, IS-GPS-200, OS-SIS-ICD Galileo, BDS-SIS-ICD)
@@ -99,6 +100,14 @@ pub enum ScaleId {
 /// assert_eq!(matrix.path_count(true), 16); // контекстных путей
 /// ```
 pub struct ConversionMatrix;
+
+#[derive(Debug)]
+pub struct ConversionChain {
+    pub gps: Time<Gps>,
+    pub glonass: Time<Glonass>,
+    pub utc: Time<Utc>,
+    pub tai: Time<Tai>,
+}
 
 impl ScaleId {
     /// Все поддерживаемые шкалы.
@@ -228,13 +237,18 @@ impl Default for ConversionMatrix {
 pub fn beidou_via_gps_to_glonass_via_utc<P: LeapSecondsProvider>(
     bdt: Time<Beidou>,
     ls: &P,
-) -> Result<(Time<Gps>, Time<Glonass>, Time<Utc>, Time<Tai>), GnssTimeError> {
+) -> Result<ConversionChain, GnssTimeError> {
     let gps: Time<Gps> = bdt.into_scale()?;
     let glo: Time<Glonass> = gps.into_scale_with(ls)?;
     let utc: Time<Utc> = glo.into_scale()?;
     let tai: Time<Tai> = gps.into_scale()?;
 
-    Ok((gps, glo, utc, tai))
+    Ok(ConversionChain {
+        gps,
+        glonass: glo,
+        utc,
+        tai,
+    })
 }
 
 ////////////////////////////////////////////////////////////////////////////////
