@@ -6,18 +6,24 @@ gnss-time
 │   └── time_bench.rs
 ├── docs
 │   ├── duration.txt
+│   ├── epoch.txt
 │   ├── PROJECT_STRUCTURE.md
+│   ├── README.txt
 │   ├── ROADMAP.md
 │   ├── scale.txt
 │   └── time.txt
 ├── examples
 │   ├── basic_usage.rs
+│   ├── chain_conversion.rs
+│   ├── convert_basic.rs
+│   ├── convert_contextual.rs
 │   ├── display_formats.rs
 │   ├── embedded_safe_arithmetic.rs
 │   ├── glonass_day_tod.rs
 │   ├── glonass_receiver.rs
 │   ├── gps_week_tow.rs
 │   ├── log_stream.rs
+│   ├── matrix_inspection.rs
 │   ├── multi_constellation.rs
 │   ├── no_domain_mixing.rs
 │   ├── README.md
@@ -34,6 +40,7 @@ gnss-time
 │   ├── error.rs
 │   ├── leap.rs
 │   ├── lib.rs
+│   ├── matrix.rs
 │   ├── prelude.rs
 │   ├── scale.rs
 │   └── time.rs
@@ -50,6 +57,8 @@ gnss-time
 ├── clippy.toml
 ├── INSTALL
 ├── justfile
+├── LICENSE.APACHE
+├── LICENSE.MIT
 ├── README.md
 ├── rust-toolchain.toml
 ├── rustfmt.toml
