@@ -15,34 +15,60 @@ time.
 
 ## Features
 
-- **Type-safe time scales** — `Glonass`, `Gps`, `Galileo`, `Beidou`, `Tai`, `Utc`
-- **Fixed epochs** for each system (1980-01-06, 1996-01-01, etc.)
-- **Conversions via TAI** as a unified pivot
-- **Domain-specific formats**
-  - `Day:TOD` for GLONASS
-  - `Week:TOW` for GPS/Galileo/BeiDou
+- **Type-safe time scales**
+  `Glonass`, `Gps`, `Galileo`, `Beidou`, `Tai`, `Utc`
 
-- **High-precision durations** (`Duration`) with nanosecond resolution
-- **Zero-cost abstractions** — timestamps are 8 bytes (`u64`)
-- **`no_std` by default** — suitable for embedded systems
-- **Explicit leap second handling** (no hidden global state)
+- **Full 6×6 conversion matrix (30 directions)**
+  All time scale conversions are explicitly defined and verified
+
+- **Typed conversion API**
+  - `IntoScale` — fixed-offset conversions
+  - `IntoScaleWith` — leap-second-aware conversions
+
+- **Explicit leap second handling**
+  - No hidden global state
+  - Detection of ambiguity during leap insertion
+  - `ConvertResult<T>` for safe handling
+
+- **Deterministic conversions via TAI pivot**
+
+- **Domain-specific formats**
+  - `Day:TOD` (GLONASS)
+  - `Week:TOW` (GPS, Galileo, BeiDou)
+
+- **Runtime conversion graph inspection**
+  - `ConversionMatrix`
+  - `ScaleId`, `ConversionKind`
+
+- **High-precision durations** (`Duration`, nanoseconds)
+
+- **Zero-cost abstractions**
+  - timestamps are 8 bytes (`u64`)
+
+- **`no_std` by default**
+  suitable for embedded and real-time systems
 
 ## Example
 
 ```rust
-use gnss_time::{Time, Duration, Gps};
+use gnss_time::prelude::*;
 
-let epoch = Time::<Gps>::EPOCH;
-let one_week = Time::<Gps>::from_week_tow(1, 0.0).unwrap();
-let diff = one_week - epoch;
+let gps = Time::<Gps>::from_week_tow(2200, 0.0).unwrap();
+let utc = gps.into_scale_with(&leap_seconds);
 
-assert_eq!(diff.as_seconds(), 604_800);
+match utc {
+    ConvertResult::Ok(t) => println!("UTC: {:?}", t),
+    ConvertResult::Ambiguous(a, b) => {
+        println!("Ambiguous: {:?} or {:?}", a, b);
+    }
+}
 ```
 
 ## Design Goals
 
 - Prevent mixing incompatible time domains at compile time
 - Make leap seconds explicit and impossible to ignore
+- Guarantee deterministic conversions
 - Provide zero-cost abstractions over raw timestamps
 - Be fully usable in `no_std` environments
 - Serve as a foundational building block for GNSS software
