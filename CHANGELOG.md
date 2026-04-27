@@ -6,6 +6,18 @@ All notable changes to **gnss-time** are documented in this file.
 
 ### Added
 
+- **time.rs**: добавлена константа `Time::MIN` (синоним `EPOCH`) для симметрии
+  с `MAX`.
+
+- **time.rs**: добавлена документация о диапазоне значений `Time<S>` (~584 года
+  от эпохи, для GPS до 2554 года).
+
+- **time.rs**: добавлен тест `test_time_max_behavior` для проверки поведения
+  вблизи `u64::MAX`.
+
+- **.github/workflows/embedded.yml**: добавлена проверка `clippy::arithmetic_overflow`
+  в lint job.
+
 - **Добавлен шаблон Issue `enhancement.yml`** для предложений по улучшению
   существующей функциональности.
   - Категории: производительность, API, конверсии шкал времени, leap seconds,
@@ -91,6 +103,11 @@ All notable changes to **gnss-time** are documented in this file.
     - `ci`
 
 ### Fixed
+
+- **time.rs**: исправлена опечатка в документации "Дипазон значений" → "Диапазон
+  значений".
+
+- **time.rs**: убран `const` у метода `as_seconds_f64` (совместимость с `no_std`).
 
 - **leap.rs**: исправлена функция `LeapSeconds::builtin()` для совместимости с `no_std`.
   - Раньше использовалась `const fn`, которая не может обращаться к статическим
