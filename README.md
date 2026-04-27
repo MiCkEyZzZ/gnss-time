@@ -55,7 +55,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-gnss-time = "0.2.0"
+gnss-time = "0.3.0"
 ```
 
 ## Example
