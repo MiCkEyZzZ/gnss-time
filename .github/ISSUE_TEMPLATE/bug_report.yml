@@ -1,0 +1,35 @@
+name: Bug report
+description: Report a bug in the gnss-time library
+title: "[BUG]"
+labels: [bug]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug in **gnss-time**!
+        Please fill out the template below to help us reproduce and fix the issue.
+
+  - type: input
+    id: description
+    attributes:
+      label: What went wrong?
+      description: Describe the bug in detail. Include unexpected behavior, crashes, panics, or wrong time conversions.
+      placeholder: e.g. `Time<Gps>::from_week_tow` panics on valid input, or GPS→UTC conversion produces incorrect result
+
+  - type: input
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the minimal steps to reproduce the issue.
+      placeholder: |
+        1. Create a timestamp using `Time::<Gps>::from_week_tow(week, tow)`
+        2. Convert to UTC using `gps_to_utc()`
+        3. Observe panic, overflow, or incorrect output
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, Rust version, gnss-time version, target platform (`no_std`?), and any relevant feature flags.
+      placeholder: e.g. Ubuntu 22.04, Rust 1.76 stable, gnss-time v0.1.0, no_std + defmt
