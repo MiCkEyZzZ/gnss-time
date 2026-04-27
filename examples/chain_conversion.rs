@@ -6,10 +6,10 @@ fn main() {
     match beidou_via_gps_to_glonass_via_utc(bdt, &ls) {
         Ok(chain) => {
             println!("Исходное BeiDou: {}", bdt);
-            println!("→ GPS:          {}", chain.gps);
-            println!("→ GLONASS:      {}", chain.glonass);
-            println!("→ UTC:          {}", chain.utc);
-            println!("→ TAI:          {}", chain.tai);
+            println!("-> GPS:          {}", chain.gps);
+            println!("-> GLONASS:      {}", chain.glonass);
+            println!("-> UTC:          {}", chain.utc);
+            println!("-> TAI:          {}", chain.tai);
         }
         Err(e) => println!("Ошибка: {}", e),
     }

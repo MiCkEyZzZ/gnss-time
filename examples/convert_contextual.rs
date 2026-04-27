@@ -10,7 +10,7 @@ fn main() {
     let gps = Time::<Gps>::from_week_tow(2086, 0.0).unwrap();
     let utc: Time<Utc> = gps.into_scale_with(ls).unwrap();
 
-    println!("GPS → UTC (exact): {} → {}", gps, utc);
+    println!("GPS -> UTC (exact): {} -> {}", gps, utc);
 
     // Обратная конверсия
     let gps_back: Time<Gps> = utc.into_scale_with(ls).unwrap();
