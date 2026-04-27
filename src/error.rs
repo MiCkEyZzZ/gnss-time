@@ -2,11 +2,19 @@
 
 use core::fmt;
 
+/// All errors that `gnss-time` operations can produce.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum GnssTimeError {
+    /// Integer arithmetic overflowed the `i64` / `f64` nanosecond range
     Overflow,
+
+    /// A coordinate or parameter was outside its valid domain
+    ///
+    /// Carries a static decription of which parameter was invalid
     InvalidInput(&'static str),
+
+    /// A conversion required leap-second context that was not provided
     LeapSecondsRequired,
 }
 
@@ -29,5 +37,27 @@ impl fmt::Display for GnssTimeError {
     }
 }
 
+// std::error::Error impl behind the `std` feature gate.
 #[cfg(feature = "std")]
 impl std::error::Error for GnssTimeError {}
+
+// defmt support: embedded logging via probe-rs / defmt-rtt
+#[cfg(feature = "defmt")]
+impl defmt::Format for GnssTimeError {
+    fn format(
+        &self,
+        f: defmt::Formatter,
+    ) {
+        match self {
+            GnssTimeError::Overflow => {
+                defmt::write!(f, "nanosecond arithmetic overflowed the i64 range")
+            }
+            GnssTimeError::InvalidInput(msg) => {
+                defmt::write!(f, "invalid input: {}", msg)
+            }
+            GnssTimeError::LeapSecondsRequired => {
+                defmt::write!(f, "conversion requires LeapSeconds context")
+            }
+        }
+    }
+}

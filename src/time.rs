@@ -103,7 +103,7 @@ impl<S: TimeScale> Time<S> {
     /// Секунды в виде `f64`. Для больших временных значений теряется точность
     /// меньше микросекунды.
     #[inline]
-    pub const fn as_seconds_f64(self) -> f64 {
+    pub fn as_seconds_f64(self) -> f64 {
         self.nanos as f64 / 1_000_000_000.0
     }
 }
@@ -128,7 +128,7 @@ impl<S: TimeScale> Time<S> {
         }
     }
 
-    /// Создать `Time<S>` из TAI-времени, используя фиксированное смещение
+    /// Создаёт `Time<S>` из TAI-времени, используя фиксированное смещение
     /// шкалы.
     pub fn from_tai(tai: Time<Tai>) -> Result<Self, GnssTimeError> {
         match S::OFFSET_TO_TAI {
@@ -499,6 +499,10 @@ impl Time<Utc> {
         utc_to_gps(self, LeapSeconds::builtin())
     }
 
+    /// Преобразование UTC в GPS с использованием пользовательского
+    /// провайдера leap seconds.
+    ///
+    /// Тот же комментарий по точности, что и для [`to_gps`](Self::to_gps).
     pub fn to_gps_with<P: LeapSecondsProvider>(
         self,
         ls: &P,
@@ -572,6 +576,43 @@ impl<S: TimeScale> fmt::Display for Time<S> {
                 let ns_rem = self.nanos % 1_000_000_000;
 
                 write!(f, "{} +{}s {}ns", S::NAME, secs, ns_rem)
+            }
+        }
+    }
+}
+
+// defmt support
+
+#[cfg(feature = "defmt")]
+impl<S: TimeScale> defmt::Format for Time<S> {
+    fn format(
+        &self,
+        f: defmt::Formatter,
+    ) {
+        match S::DISPLAY_STYLE {
+            DisplayStyle::WeekTow => {
+                const WEEK_NS: u64 = 604_800_000_000_000;
+                let week = self.nanos / WEEK_NS;
+                let tow_ns = self.nanos % WEEK_NS;
+                let tow_s = tow_ns / 1_000_000_000;
+                let tow_ms = (tow_ns % 1_000_000_000) / 1_000_000;
+
+                defmt::write!(f, "{} {}:{:06}.{:03}", S::NAME, week, tow_s, tow_ms)
+            }
+            DisplayStyle::DayTod => {
+                const DAY_NS: u64 = 86_400_000_000_000;
+                let day = self.nanos / DAY_NS;
+                let tod_ns = self.nanos % DAY_NS;
+                let tod_s = tod_ns / 1_000_000_000;
+                let tod_ms = (tod_ns % 1_000_000_000) / 1_000_000;
+
+                defmt::write!(f, "{} {}:{:05}.{:03}", S::NAME, day, tod_s, tod_ms)
+            }
+            DisplayStyle::Simple => {
+                let secs = self.nanos / 1_000_000_000;
+                let ns_rem = self.nanos % 1_000_000_000;
+
+                defmt::write!(f, "{} +{}s {}ns", S::NAME, secs, ns_rem)
             }
         }
     }

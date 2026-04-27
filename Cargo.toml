@@ -2,21 +2,55 @@
 name = "gnss-time"
 version = "0.2.0"
 edition = "2021"
-description = "Type-safe GNSS time scales: GLONASS, GPS, Galileo, BeiDou, TAI, UTC"
+description = "Type-safe GNSS time scales: GPS, GLONASS, Galileo, BeiDou, TAI, UTC — no_std by default"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/MiCkEyZzZ/gnss-time"
-keywords = ["gnss", "glonass", "gps", "time", "no-std", "embedded"]
+homepage = "https://github.com/MiCkEyZzZ/gnss-time"
+documentation = "https://docs.rs/gnss-time"
+readme = "README.md"
+keywords = ["glonass", "gnss", "gps", "time", "no-std", "embedded"]
 categories = ["no-std", "science", "date-and-time"]
 authors = ["<zedmfix@gmail.com>"]
 
 # Minimum supported Rust version
 rust-version = "1.75"
 
+# Список файлов, включаемых в пакет crates.io (исключает dev-файлы)
+include = [
+    "src/**/*",
+    "Cargo.toml",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE.MIT",
+    "LICENSE.APACHE",
+]
+
 [features]
+# Список feature-флагов по умолчанию — пустой.
+# Crate компилируется в no_std среде без каких-либо флагов.
 default = []
+
+# std: добавляет impl std::error::Error for GnssTimeError.
+# Нужен только если потребитель использует Box<dyn Error> или anyhow.
+# Не включайте если собираете под embedded!
 std = []
 
+# defmt: добавляет impl defmt::Format для всех публичных типов.
+# Используется для структурированного логирования через probe-rs / defmt-rtt.
+#
+# Использование в потребительском Cargo.toml:
+#   [dependencies]
+#   gnss-time = { version = "0.2", features = ["defmt"] }
+#   defmt     = "0.3"
+#
+# Версии defmt: https://crates.io/crates/defmt
+defmt = ["dep:defmt"]
+
 [dependencies]
+# defmt — опциональная зависимость для embedded logging.
+# Активируется через features = ["defmt"].
+# Pin-версия 0.3 для совместимости с defmt-rtt 0.4+.
+defmt = { version = "0.3", optional = true }
 
 [dev-dependencies]
 criterion = "0.8.2"
@@ -57,3 +91,9 @@ path = "examples/convert_contextual.rs"
 [[example]]
 name = "matrix_inspection"
 path = "examples/matrix_inspection.rs"
+
+[package.metadata.docs.rs]
+# docs.rs собирает с features = ["std", "defmt"] чтобы показать все API
+features = ["std", "defmt"]
+# Указываем targets для которых показываем docs
+targets = ["x86_64-unknown-linux-gnu", "thumbv7em-none-eabihf"]

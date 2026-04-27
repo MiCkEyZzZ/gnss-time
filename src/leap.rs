@@ -39,6 +39,10 @@ use crate::{
     tables::BUILTIN_TABLE, Beidou, CivilDate, Galileo, Glonass, GnssTimeError, Gps, Tai, Time, Utc,
 };
 
+static BUILTIN_LEAP_SECONDS: LeapSeconds = LeapSeconds {
+    entries: &BUILTIN_TABLE,
+};
+
 /// Наносекунды от эпохи UTC (1972-01-01) до эпохи GLONASS (1995-12-31 21:00:00
 /// UTC).
 ///
@@ -158,6 +162,14 @@ pub struct LeapSeconds {
 }
 
 impl LeapEntry {
+    /// Создаёт новую запись о високосной секунде.
+    ///
+    /// # Параметры
+    /// - `tai_nanos`: пороговое значение в наносекундах TAI (включительно),
+    ///   начиная с которого применяется данное смещение.
+    /// - `tai_minus_utc`: разница TAI - UTC в секундах, действующая с этого
+    ///   порога.
+    #[inline]
     pub const fn new(
         tai_nanos: u64,
         tai_minus_utc: i32,
@@ -175,12 +187,8 @@ impl LeapSeconds {
     /// Охватывает все 18 leap second event эпохи GPS.
     ///
     /// Источник: [IERS Bulletin C](https://www.iers.org/IERS/EN/Publications/Bulletins/bulletins.html)
-    pub const fn builtin() -> &'static LeapSeconds {
-        static INSTANCE: LeapSeconds = LeapSeconds {
-            entries: &BUILTIN_TABLE,
-        };
-
-        &INSTANCE
+    pub fn builtin() -> &'static LeapSeconds {
+        &BUILTIN_LEAP_SECONDS
     }
 
     /// Создаёт из кастомного среза (например, загруженного с приёмника).
@@ -657,12 +665,12 @@ mod tests {
         assert_eq!(utc.as_nanos(), 252_892_800_000_000_000);
     }
 
-    /// Проверяем GPS-UTC = 18 на 2017-01-01 00:00:00 UTC.
-    ///
-    /// GPS на 2017-01-01 (unix=1483228800):
-    ///   GPS_s = (1483228800 - 315964800) + (37-19) = 1167264000 + 18 =
-    /// 1167264018 UTC nanos от UTC_epoch = 16437 дней * 86400 * 1e9 =
-    /// 1_420_156_800_000_000_000
+    // Проверяем GPS-UTC = 18 на 2017-01-01 00:00:00 UTC.
+    //
+    // GPS на 2017-01-01 (unix=1483228800):
+    //   GPS_s = (1483228800 - 315964800) + (37-19) = 1167264000 + 18 =
+    // 1167264018 UTC nanos от UTC_epoch = 16437 дней * 86400 * 1e9 =
+    // 1_420_156_800_000_000_000
     #[test]
     fn test_gps_minus_utc_is_18s_at_2017_01_01() {
         let ls = LeapSeconds::builtin();
@@ -695,9 +703,9 @@ mod tests {
         assert_eq!(utc.as_seconds(), expected_utc_s);
     }
 
-    /// 1998-12-31 → 1999-01-01: TAI-UTC с 31 → 32, GPS-UTC с 12 → 13.
-    ///
-    /// GPS перепрыгивает с ...011 на ...013 (нет ...012 в реальном UTC).
+    // 1998-12-31 → 1999-01-01: TAI-UTC с 31 → 32, GPS-UTC с 12 → 13.
+    //
+    // GPS перепрыгивает с ...011 на ...013 (нет ...012 в реальном UTC).
     #[test]
     fn test_leap_second_transition_1999_gps_jumps_by_2s() {
         let ls = LeapSeconds::builtin();
@@ -722,7 +730,7 @@ mod tests {
         assert_eq!(diff, 1, "GPS jumped 2s but UTC advanced 1s (leap second)");
     }
 
-    /// 2016-12-31 → 2017-01-01: TAI-UTC 36 → 37, GPS-UTC 17 → 18.
+    // 2016-12-31 → 2017-01-01: TAI-UTC 36 → 37, GPS-UTC 17 → 18.
     #[test]
     fn test_leap_second_transition_2017_gps_jumps_by_2s() {
         let ls = LeapSeconds::builtin();
