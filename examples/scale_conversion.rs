@@ -44,7 +44,7 @@ fn main() {
 
     assert_eq!(gps_instant, back_to_gps);
 
-    println!("\nRound-trip via TAI works: GPS → TAI → GPS");
+    println!("\nRound-trip via TAI works: GPS -> TAI -> GPS");
 
     // Пример переполнения: ГПС близко к MAX не может быть преобразован в TAI
     let almost_max = Time::<Gps>::from_nanos(u64::MAX - 19_000_000_000);
