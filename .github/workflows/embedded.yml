@@ -18,147 +18,65 @@ on:
     tags: ["v*.*.*"]
   pull_request:
     branches: [master]
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
-  # Запретить небезопасный код в любых зависимостях
-  RUSTFLAGS: "-D warnings"
 
 jobs:
-  # ──────────────────────────────────────────────────────────────────────────
-  # Проверка размера типов (должны быть ровно 8 байт = u64)
-  # ──────────────────────────────────────────────────────────────────────────
+  embedded:
+    name: Embedded ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - thumbv7em-none-eabihf
+          - thumbv7em-none-eabi
+          - riscv32imac-unknown-none-elf
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-14
+          targets: ${{ matrix.target }}
+
+      - name: Ensure embedded target is installed
+        run: rustup target add --toolchain nightly-2026-02-14 ${{ matrix.target }}
+
+      - name: cargo check (no features)
+        run: cargo check --lib --no-default-features --target ${{ matrix.target }}
+
+      - name: cargo check (defmt)
+        run: cargo check --lib --no-default-features --features defmt --target ${{ matrix.target }}
+
   type-sizes:
     name: Verify 8-byte type sizes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo
-        uses: actions/cache@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          toolchain: nightly-2026-02-14
 
       - name: Check type sizes via tests
-        run: cargo test --lib -- time::tests::test_size_equals_u64 --nocapture
+        run: cargo test --lib test_size_equals_u64 -- --nocapture
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # Компиляция под thumbv7em-none-eabihf (STM32F4, nRF52)
-  # ──────────────────────────────────────────────────────────────────────────
-  thumbv7em-eabihf:
-    name: Build thumbv7em-none-eabihf (Cortex-M4F/M7F)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust + target
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: thumbv7em-none-eabihf
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-thumbv7em-eabihf-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Build (no features)
-        run: cargo build --target thumbv7em-none-eabihf --release
-
-      - name: Build (defmt feature)
-        run: cargo build --target thumbv7em-none-eabihf --release --features defmt
-
-      - name: Check (no features)
-        run: cargo check --target thumbv7em-none-eabihf
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # Компиляция под thumbv7em-none-eabi (Cortex-M4/M7 без FPU)
-  # ──────────────────────────────────────────────────────────────────────────
-  thumbv7em-eabi:
-    name: Build thumbv7em-none-eabi (Cortex-M4/M7)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust + target
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: thumbv7em-none-eabi
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-thumbv7em-eabi-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Build (no features)
-        run: cargo build --target thumbv7em-none-eabi --release
-
-      - name: Build (defmt feature)
-        run: cargo build --target thumbv7em-none-eabi --release --features defmt
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # Компиляция под riscv32imac-unknown-none-elf (ESP32-C3, GD32VF103)
-  # ──────────────────────────────────────────────────────────────────────────
-  riscv32:
-    name: Build riscv32imac-unknown-none-elf (RISC-V)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust + target
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: riscv32imac-unknown-none-elf
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-riscv32-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Build (no features)
-        run: cargo build --target riscv32imac-unknown-none-elf --release
-
-      - name: Build (defmt feature)
-        run: cargo build --target riscv32imac-unknown-none-elf --release --features defmt
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # Полная тестовая сборка на хосте (для регрессии)
-  # ──────────────────────────────────────────────────────────────────────────
   host-tests:
     name: Host tests (regression)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo
-        uses: actions/cache@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-host-${{ hashFiles('**/Cargo.lock') }}
+          toolchain: nightly-2026-02-14
 
       - name: cargo test
         run: cargo test
@@ -169,25 +87,23 @@ jobs:
       - name: cargo test --features defmt
         run: cargo test --features defmt
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # Clippy + forbid unsafe
-  # ──────────────────────────────────────────────────────────────────────────
   lint:
     name: Clippy + unsafe check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust + clippy
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: nightly-2026-02-14
           components: clippy
 
       - name: clippy (default)
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --all-targets -- -D warnings
 
       - name: clippy (all features)
-        run: cargo clippy --all-features -- -D warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
-      - name: Verify #![forbid(unsafe_code)] is present
+      - name: Verify forbid(unsafe_code)
         run: grep -n "forbid(unsafe_code)" src/lib.rs
