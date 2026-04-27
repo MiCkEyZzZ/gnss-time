@@ -1,0 +1,40 @@
+name: Enhancement
+description: Suggest an improvement to existing gnss-time functionality
+labels: ["enhancement"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to propose an improvement to something that **already exists** in gnss-time.
+        For completely new functionality, use the **Feature Request** template instead.
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type of enhancement
+      multiple: true
+      options:
+        - Performance (throughput, latency, memory)
+        - API / interface improvement
+        - Time scale conversion efficiency
+        - Leap second handling
+        - Embedded / no_std compatibility
+        - Formatting / Display improvements
+        - Refactor / tech debt
+        - Testing improvements
+        - Documentation
+        - Other
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What does the enhancement do?
+      description: |
+        Give a high-level overview of how you suggest improving an existing feature or functionality.
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation ideas or challenges
+      description: Any thoughts on how to implement this, or potential difficulties.
