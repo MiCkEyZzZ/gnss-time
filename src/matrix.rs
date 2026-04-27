@@ -42,11 +42,21 @@ use crate::{
     Utc,
 };
 
+/// Смещение GPS относительно TAI в наносекундах (GPS = TAI - 19с)
 pub const TAI_OFFSET_GPS_NS: i64 = 19 * 1_000_000_000;
+
+/// Смещение Galileo относительно TAI в наносекундах (GAL = TAI - 19с)
 pub const TAI_OFFSET_GALILEO_NS: i64 = 19 * 1_000_000_000;
+
+/// Смещение BeiDou относительно TAI в наносекундах (BDT = TAI - 33с).
 pub const TAI_OFFSET_BEIDOU_NS: i64 = 33 * 1_000_000_000;
+
+/// Смещение TAI относительно себя (0 наносекунд).
 pub const TAI_OFFSET_TAI_NS: i64 = 0;
 
+/// Константный сдвиг эпох между GLONASS и UTC в наносекундах.
+/// Эпоха GLONASS (1996-01-01 00:00:00 UTC(SU)) отстоёт от эпохи UTC
+/// (1972-01-01) на 757_371_600 секунд (8766 дней - 3 часа).
 pub const GLONASS_UTC_EPOCH_SHIFT_NS: i64 = 757_371_600 * 1_000_000_000;
 
 /// Тип конверсии между двумя шкалами времени.
@@ -71,11 +81,22 @@ pub enum ConversionKind {
 /// Идентификатор шкалы времени (для runtime использования).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ScaleId {
+    /// Шкала времени GLONASS
     Glonass,
+
+    /// Шкала времени GPS
     Gps,
+
+    /// Шкала времени Galileo
     Galileo,
+
+    /// Шкала времени BeiDou
     Beidou,
+
+    /// Международное атомное время TAI
     Tai,
+
+    /// Всемирное координированное время UTC
     Utc,
 }
 
@@ -101,11 +122,19 @@ pub enum ScaleId {
 /// ```
 pub struct ConversionMatrix;
 
+/// Результат сквозной конверсии BeiDou -> GPS -> GLONASS -> UTC -> TAI
 #[derive(Debug)]
 pub struct ConversionChain {
-    pub gps: Time<Gps>,
+    /// GLONASS время
     pub glonass: Time<Glonass>,
+
+    /// GPS время
+    pub gps: Time<Gps>,
+
+    /// UTC время
     pub utc: Time<Utc>,
+
+    /// TAI время
     pub tai: Time<Tai>,
 }
 
@@ -132,6 +161,14 @@ impl ScaleId {
         }
     }
 
+    /// Определяет тип конверсии между текущей шкалой и целевой.
+    ///
+    /// # Параметры
+    /// - `target` - целевая шкала времени
+    ///
+    /// # Возвращает
+    /// Тип конверсии: фиксированная, тождественная, сдвиг эпохи,
+    /// контекстная или ту же шкалу.
     pub const fn conversion_kind(
         self,
         target: ScaleId,
@@ -190,6 +227,7 @@ impl ScaleId {
 }
 
 impl ConversionMatrix {
+    /// Создаёт новую матрицу конверсии.
     pub fn new() -> Self {
         ConversionMatrix
     }

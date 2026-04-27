@@ -1,0 +1,36 @@
+# gnss-time CODEOWNERS
+
+# Assigns ownership (responsibility) for different parts of the project.
+
+# ================================
+# Core code
+# ================================
+/src/ @MiCkEyZzZ
+
+# ================================
+# Fuzzing and tests
+# ================================
+/tests/ @MiCkEyZzZ
+/benches/ @MiCkEyZzZ
+
+# ================================
+# Examples
+# ================================
+/examples/ @MiCkEyZzZ
+
+# ================================
+# CI/CD and GitHub
+# ================================
+/.github/workflows/ @MiCkEyZzZ
+/.github/ISSUE_TEMPLATE/ @MiCkEyZzZ
+/.github/pull_request_template.md @MiCkEyZzZ
+
+# ================================
+# Documentation
+# ================================
+/docs/ @MiCkEyZzZ
+
+# ================================
+# Root files (fallback)
+# ================================
+* @MiCkEyZzZ

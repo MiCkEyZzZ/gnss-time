@@ -6,7 +6,7 @@
 dist
 tmp
 **/cargo-target
-Cargo.lock
+*.lock
 
 # Editor and IDE directories
 .idea/

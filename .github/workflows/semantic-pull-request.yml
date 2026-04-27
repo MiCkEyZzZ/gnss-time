@@ -1,0 +1,101 @@
+name: "Semantic Pull Request"
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - edited
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout base branch (trusted)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          fetch-depth: 1
+
+      - name: Validate PR title follows semantic format
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const prNumber = pr?.number;
+            const title = (pr?.title || "").trim();
+            const isDraft = !!pr?.draft;
+
+            if (isDraft) {
+              core.info("PR is a draft — skipping semantic check.");
+              return;
+            }
+
+            if (!prNumber) {
+              throw new Error("No pull request information available in context.");
+            }
+
+            /**
+             * Semantic pattern:
+             * type(scope?): description
+             *
+             * Examples scope for Gorka:
+             * bits, encoding, gnss, io, error, tests, ci, docs
+             */
+            const re = /^(feat|fix|docs|chore|perf|refactor|test|ci|build|style)(\([^)]+\))?:\s.+/i;
+
+            if (!title) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: [
+                  ":warning: PR title is empty.",
+                  "",
+                  "**Expected format:** `type(scope?): short description`",
+                  "",
+                  "**Example:**",
+                  "`feat(bits): add variable-length encoding`"
+                ].join("\n")
+              });
+
+              throw new Error("PR title is empty");
+            }
+
+            if (!re.test(title)) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: [
+                  ":x: PR title does not follow the semantic format.",
+                  "",
+                  "**Expected:** `type(scope?): short description`",
+                  "",
+                  "**Allowed types:**",
+                  "`feat`, `fix`, `docs`, `chore`, `perf`, `refactor`, `test`, `ci`, `build`, `style`",
+                  "",
+                  "**Suggested scopes for Gorka:**",
+                  "`bits`, `encoding`, `gnss`, `io`, `error`, `tests`, `ci`, `docs`",
+                  "",
+                  "**Examples:**",
+                  "- `feat(bits): add bit packing optimization`",
+                  "- `fix(gnss): correct glonass frame parsing`",
+                  "- `perf(encoding): reduce allocations in delta encoder`",
+                  "",
+                  "Please update the PR title."
+                ].join("\n")
+              });
+
+              throw new Error("PR title does not match semantic format");
+            }
+
+            core.info(`PR title OK: "${title}"`);
