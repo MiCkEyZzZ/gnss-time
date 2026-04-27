@@ -1,38 +1,64 @@
 # The gnss-time Dec Commands
 
-# Форматирование Rust-кода
+set shell := ["bash", "-ceu"]
+
+default:
+    just help
+
+help:
+    @just --list
+
+setup-embedded:
+    rustup target add thumbv7em-none-eabihf
+
 fmt:
     cargo fmt --all
 
-# форматирование всех Cargo.toml через Taplo
 fmt-toml:
     taplo fmt
 
-# Форматирование всего проекта (Rust + TOML)
 fmt-all: fmt fmt-toml
 
-# Проверка форматирования без изменения файлов (CI-safe)
 fmt-check:
     cargo fmt --all -- --check
     taplo fmt --check
 
-# Clippy: все таргеты и фичи, warnings -> errors
+check:
+    cargo check --all-targets
+
+check-std:
+    cargo check --lib --features std
+
+check-no-std: setup-embedded
+    cargo check --lib --no-default-features --target thumbv7em-none-eabihf
+
+check-no-std-defmt: setup-embedded
+    cargo check --lib --no-default-features --features defmt --target thumbv7em-none-eabihf
+
 lint:
     cargo clippy --all-targets --all-features -- -D warnings
 
-# Проверка no_std под embedded target
-no-std:
-    rustup target add thumbv7em-none-eabihf
-    cargo check --target thumbv7em-none-eabihf --no-default-features --features alloc --lib
+lint-no-std: setup-embedded
+    cargo clippy --lib --no-default-features --features defmt --target thumbv7em-none-eabihf -- -D warnings
 
-# Документация
 doc:
     RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
 
-# MSRV check
 msrv:
-    cargo +1.75.0 check --all-features
+    cargo +1.75.0 check --lib --no-default-features
+    cargo +1.75.0 check --lib --features std
+    cargo +1.75.0 check --lib --no-default-features --features defmt
 
-# Очистка
+hack:
+    cargo hack check --feature-powerset --no-dev-deps
+
+test-host:
+    cargo test
+
+test-no-std: setup-embedded
+    cargo check --lib --no-default-features --target thumbv7em-none-eabihf
+
+ci: fmt-check lint check check-std check-no-std check-no-std-defmt msrv doc hack
+
 clean:
     cargo clean
