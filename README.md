@@ -4,7 +4,7 @@
 ![no_std](https://img.shields.io/badge/no__std-yes-blue)
 [![docs.rs](https://docs.rs/gnss-time/badge.svg)](https://docs.rs/gnss-time)
 
-**Type-safe time handling for GNSS systems in Rust.**
+**Type-safe time handling for GNSS systems.**
 
 `gnss-time` is a minimal, zero-cost core library for working with time in satellite
 navigation systems such as GLONASS, GPS, Galileo, and BeiDou.
