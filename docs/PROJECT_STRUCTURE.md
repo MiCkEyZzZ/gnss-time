@@ -2,6 +2,15 @@
 
 ```text
 gnss-time
+├── .cargo
+│   └── config.toml
+├── .github
+│   ├── ISSUE_TEMPLATE
+│   ├── workflows
+│   │   ├── embedded.yml
+│   │   └── semantic-pull-request.yml
+│   ├── CODEOWNERS
+│   └── pull_request_template.md
 ├── benches
 │   └── time_bench.rs
 ├── docs
@@ -46,6 +55,7 @@ gnss-time
 │   └── time.rs
 ├── tests
 │   ├── glonass_test.rs
+│   ├── no_std_compact.rs
 │   ├── roundtrip_test.rs
 │   └── time_integration_test.rs
 ├── .editorconfig
