@@ -1,0 +1,109 @@
+# CI: кросс-компиляция и проверка no_std совместимости для embedded targets
+#
+# Проверяет:
+# - thumbv7em-none-eabihf  (STM32F4/F7, nRF52 — Cortex-M4F/M7F с FPU)
+# - thumbv7em-none-eabi    (Cortex-M4/M7 без FPU)
+# - riscv32imac-unknown-none-elf  (ESP32-C3, GD32VF103)
+#
+# Запускается:
+# - при push в main / develop
+# - при push тегов v*.*.*
+# - при pull request в main
+
+name: embedded no_std
+
+on:
+  push:
+    branches: [master, develop]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  embedded:
+    name: Embedded ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - thumbv7em-none-eabihf
+          - thumbv7em-none-eabi
+          - riscv32imac-unknown-none-elf
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-14
+          targets: ${{ matrix.target }}
+
+      - name: Ensure embedded target is installed
+        run: rustup target add --toolchain nightly-2026-02-14 ${{ matrix.target }}
+
+      - name: cargo check (no features)
+        run: cargo check --lib --no-default-features --target ${{ matrix.target }}
+
+      - name: cargo check (defmt)
+        run: cargo check --lib --no-default-features --features defmt --target ${{ matrix.target }}
+
+  type-sizes:
+    name: Verify 8-byte type sizes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-14
+
+      - name: Check type sizes via tests
+        run: cargo test --lib test_size_equals_u64 -- --nocapture
+
+  host-tests:
+    name: Host tests (regression)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-14
+
+      - name: cargo test
+        run: cargo test
+
+      - name: cargo test --features std
+        run: cargo test --features std
+
+      - name: cargo test --features defmt
+        run: cargo test --features defmt
+
+  lint:
+    name: Clippy + unsafe check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-14
+          components: clippy
+
+      - name: clippy (default)
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: clippy (all features)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Verify forbid(unsafe_code)
+        run: grep -n "forbid(unsafe_code)" src/lib.rs
