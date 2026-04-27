@@ -49,6 +49,13 @@ time.
 - **`no_std` by default**
   suitable for embedded and real-time systems
 
+## Quick Start
+
+Add to your Cargo.toml:
+
+[dependencies]
+gnss-time = "0.1.0"
+
 ## Example
 
 ```rust
