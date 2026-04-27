@@ -19,7 +19,7 @@ fn main() {
                 "✗ contextual"
             };
 
-            println!("{:?} → {:?} : {:?} ({})", from, to, kind, fixed);
+            println!("{:?} -> {:?} : {:?} ({})", from, to, kind, fixed);
         }
         println!();
     }

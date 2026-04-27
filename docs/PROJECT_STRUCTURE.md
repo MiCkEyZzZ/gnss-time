@@ -6,6 +6,8 @@ gnss-time
 │   └── config.toml
 ├── .github
 │   ├── ISSUE_TEMPLATE
+│   │   ├── bug_report.yml
+│   │   └── enhancement.yml
 │   ├── workflows
 │   │   ├── embedded.yml
 │   │   └── semantic-pull-request.yml
