@@ -51,10 +51,12 @@ time.
 
 ## Quick Start
 
-Add to your Cargo.toml:
+Add to your `Cargo.toml`:
 
+```toml
 [dependencies]
 gnss-time = "0.1.0"
+```
 
 ## Example
 
