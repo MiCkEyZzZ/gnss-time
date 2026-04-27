@@ -2,6 +2,100 @@
 
 All notable changes to **gnss-time** are documented in this file.
 
+## [Unreleased] — 00-00-0000
+
+### Added
+
+- **Добавлен файл `CODEOWNERS`** для автоматического назначения владельцев на разные
+  части репозитория.
+  - Определяет ответственность за код (`/src/`), тесты (`/tests/`), бенчмарки
+    (`/benches/`), примеры (`/examples/`), CI/CD (`/.github/workflows/`), документацию
+    (`/docs/`) и корневые файлы.
+  - Используется GitHub для автоматического ревью и назначения проверяющих на
+    Pull Request.
+
+- **Добавлен шаблон Pull Request** (`.github/pull_request_template.md`).
+  - Содержит структурированный чеклист для проверки изменений: указание scope,
+    описание изменений, способов тестирования.
+  - Включает обязательные проверки: `cargo fmt`, `taplo format`, `cargo clippy`,
+    `cargo test`, документацию и обновление CHANGELOG.
+
+- **CI: добавлен GitHub Actions workflow для проверки семантического формата
+  заголовков Pull Request** (`.github/workflows/semantic-pull-request.yml`).
+  - Автоматически проверяет заголовки PR на соответствие формату `type(scope?):
+описание`.
+  - Поддерживаемые типы: `feat`, `fix`, `docs`, `chore`, `perf`, `refactor`,
+    `test`, `ci`, `build`, `style`.
+  - Работает только для нечерновиков PR (draft-игнорируются).
+  - При некорректном заголовке автоматически оставляет комментарий с пояснением.
+
+- **.github/workflows**
+  - добавлен файл `embedded.yml` для проверки рамеров типов, сборка под
+    `thumbv7em-none-eabihf`, `thumbv7em-none-eabi`, `riscv32imac-unknown-none-elf`,
+    хостовые тесты, clippy.
+
+- **.cargo**
+  - добавлен файл с конфигурации `config.toml` для кросс-компиляции:
+    - `thumbv7em-none-eabihf`,
+    - `thumbv7em-none-eabi`,
+    - `thumbv6m-none-eabi`,
+    - `riscv32imac-unknown-none-elf`,
+    - `riscv32i-unknown-none-elf`,
+    - `opt-level=s` - минимальный размер для flash-ограниченных устройств
+    - `codegen-units=1` - лучшая оптимизация
+    - `-C link-arg=-Tlink.x` для Cortex-M (нужен linker script из `cortex-m-rt`)
+    - `-D warnings`- предупреждения как ошибки в embedded CI
+
+- **tests**
+  - добавлены тесты `no_std_compact.rs` проверяющие на отсутствие `Drop`, `Copy-семантика`,
+    `const fn` в static-контексте, 8-битовое выравнивание для DMA, без аллокаций
+    в conversion paths, `core::fmt` без std, проверка `#![forbid(unsafe_code)]`
+
+- **time.rs**
+  - добавлена имлементация `impl<S: TimeScale> defmt::Format for Time<S>` для
+    `#[cfg(feature = "defmt")]`
+
+- **error.rs**
+  - добавлена имплементация `impl defmt::Format for GnssTimeError` для
+    `#[cfg(feature = "defmt")]`
+
+### Changed
+
+- **Cargo.toml**
+  - обвновлена конфигурацию добавлена поддержка:
+    - `default = []` - по умолчанию, нет лишних зависимостей
+    - `std = []` - добавляет `std::error::Error` для `GnssTimeError`
+    - `defmt = ["dep:defmt"]` - активирует `defmt::Format` для всех типов через
+      `dep:` синтаксис (Cargo 1.60+), подтягивает `defmt = { version = "0.3", optional = true }`
+    - `[package.metadata.docs.rs]` - docs.rs собирает с `["std","defmt"]` и
+      показывает embedded targets
+
+- **justfile**
+  - улучшил конфигурацию команд добавлены новые команды:
+    - `help`
+    - `setup-embedded`
+    - `check`
+    - `check-std`
+    - `check-no-std`
+    - `check-no-std-defmt`
+    - `lint-no-std`
+    - `msrv`
+    - `hack`
+    - `test-host`
+    - `test-no-std`
+    - `ci`
+
+### Fixed
+
+- **leap.rs**: исправлена функция `LeapSeconds::builtin()` для совместимости с `no_std`.
+  - Раньше использовалась `const fn`, которая не может обращаться к статическим
+    данным.
+  - Теперь возвращает ссылку на статический экземпляр `BUILTIN_LEAP_SECONDS`, что
+    корректно работает в `no_std`-среде.
+
+- **time.rs**
+  - исправлена ф-я `as_seconds_f64` убрано ключевое слово `const`
+
 ## [v0.2.0] — 2026-04-26
 
 ### Added
