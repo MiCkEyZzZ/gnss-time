@@ -11,6 +11,16 @@
 //!
 //! assert_eq!(core::mem::size_of::<Time<Gps>>(), 8); // идентично u64
 //! ```
+//!
+//! # Дипазон значений
+//!
+//! `Time<S>` хранит наносекунды в `u64`, что покрывает **~584 лет** от эпохи
+//! шкалы.
+//!
+//! Для `Time<Gps>` (эпоха 1980-01-05) максимальное представляемое значение
+//! достигает **2554 лет**. При превышении этого предела операции с `+`
+//! запаникует, используйте `checked_add` / `saturating_add` для безопасной
+//! арифметики.
 
 use core::{
     fmt,
@@ -56,7 +66,10 @@ impl<S: TimeScale> Time<S> {
         _scale: PhantomData,
     };
 
-    /// Максимально представимое значение момента (~584 года от эпохи).
+    /// Минимальное представляемое значение (синоним EPOCH).
+    pub const MIN: Self = Self::EPOCH;
+
+    /// Максимально представляемое значение момента (~584 года от эпохи).
     pub const MAX: Self = Time {
         nanos: u64::MAX,
         _scale: PhantomData,
@@ -955,5 +968,20 @@ mod tests {
 
         assert_eq!(t.day(), 42);
         assert_eq!(t.tod_seconds(), 3600);
+    }
+
+    #[test]
+    fn test_time_max_behavior() {
+        let max = Time::<Gps>::MAX;
+        let one_ns = Duration::ONE_NANOSECOND;
+
+        // checked_add возвращает None при переполнении
+        assert!(max.checked_add(one_ns).is_none());
+
+        // saturating_add возвращает MAX
+        assert_eq!(max.saturating_add(one_ns), max);
+
+        // try_add возвращает ошибку
+        assert!(max.try_add(one_ns).is_err());
     }
 }
