@@ -2,7 +2,7 @@
 
 All notable changes to **gnss-time** are documented in this file.
 
-## [Unreleased] — 00-00-0000
+## [v0.3.0] — 00-00-0000
 
 ### Added
 
