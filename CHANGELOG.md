@@ -6,6 +6,13 @@ All notable changes to **gnss-time** are documented in this file.
 
 ### Added
 
+- **Бенчмарки (#TIME-12)**: добавлены `benches/arithmetic_bench.rs` и `benches/convert_bench.rs`.
+  - Доказывают zero-cost абстракции: `Time<Gps> + Duration` (512 ps) наравне с
+    `u64 + u64` (517 ps).
+  - Конверсии без leap seconds: ~0.8–0.9 нс.
+  - Конверсия `GPS → UTC` с leap seconds: ~9.5 нс (менее 10 нс).
+  - Используется `criterion` с HTML-отчётами.
+
 - **time.rs**: добавлена константа `Time::MIN` (синоним `EPOCH`) для симметрии
   с `MAX`.
 
