@@ -1,9 +1,8 @@
 //! # gnss-time
 //!
-//! **Типобезопасная шкала GNSS времени с нулевыми накладными расходами во время
-//! выполнения**.
+//! **A type-safe GNSS time scale library with zero runtime overhead.**
 //!
-//! ## Быстрый старт
+//! ## Quick start
 //!
 //! ```rust
 //! use gnss_time::prelude::*;

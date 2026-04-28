@@ -160,7 +160,6 @@ impl IntoScale<Glonass> for Time<Utc> {
 }
 
 impl IntoScaleWith<Glonass> for Time<Gps> {
-    /// GPS -> GLONASS через UTC.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
@@ -177,7 +176,6 @@ impl IntoScaleWith<Glonass> for Time<Gps> {
 }
 
 impl IntoScaleWith<Glonass> for Time<Galileo> {
-    /// Galileo → GLONASS через UTC.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
@@ -194,7 +192,6 @@ impl IntoScaleWith<Glonass> for Time<Galileo> {
 }
 
 impl IntoScaleWith<Glonass> for Time<Beidou> {
-    /// BeiDou -> GLONASS через UTC.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
@@ -215,7 +212,6 @@ impl IntoScaleWith<Glonass> for Time<Beidou> {
 ////////////////////////////////////////////////////////////////////////////////
 
 impl IntoScale<Gps> for Time<Galileo> {
-    /// Galileo -> GPS: тождественно на уровне наносекунд.
     #[inline]
     fn into_scale(self) -> Result<Time<Gps>, GnssTimeError> {
         self.try_convert::<Gps>()
@@ -240,7 +236,7 @@ impl IntoScale<Gps> for Time<Beidou> {
 }
 
 impl IntoScale<Gps> for Time<Tai> {
-    /// TAI -> GPS: вычитание 19 секунд.
+    /// TAI -> GPS: subtract 19 seconds.
     ///
     /// ```rust
     /// use gnss_time::{Gps, IntoScale, Tai, Time};
@@ -257,7 +253,7 @@ impl IntoScale<Gps> for Time<Tai> {
 }
 
 impl IntoScaleWith<Gps> for Time<Glonass> {
-    /// GLONASS -> GPS через UTC.
+    /// GLONASS -> GPS via UTC.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
@@ -274,7 +270,7 @@ impl IntoScaleWith<Gps> for Time<Glonass> {
 }
 
 impl IntoScaleWith<Gps> for Time<Utc> {
-    /// UTC -> GPS с учётом контекста leap seconds.
+    /// UTC -> GPS with leap-second context.
     ///
     /// ```rust
     /// use gnss_time::{Gps, IntoScale, IntoScaleWith, LeapSeconds, Time, Utc};
@@ -308,11 +304,10 @@ impl IntoScaleWith<Gps> for Time<Utc> {
 ////////////////////////////////////////////////////////////////////////////////
 
 impl IntoScale<Galileo> for Time<Gps> {
-    /// GPS -> Galileo: тождественно на уровне наносекунд (обе шкалы используют
-    /// `TAI − 19с`).
+    /// GPS -> Galileo: identical at nanosecond level (both use `TAI − 19s`).
     ///
-    /// GPS- и Galileo-времена с одинаковым числом наносекунд представляют
-    /// один и тот же физический момент.
+    /// GPS and Galileo timestamps with identical nanoseconds represent
+    /// the same physical instant.
     ///
     /// ```rust
     /// use gnss_time::{Galileo, Gps, IntoScale, Time};
@@ -331,7 +326,7 @@ impl IntoScale<Galileo> for Time<Gps> {
 }
 
 impl IntoScale<Galileo> for Time<Beidou> {
-    /// BeiDou -> Galileo через TAI.
+    /// BeiDou -> Galileo via TAI.
     #[inline]
     fn into_scale(self) -> Result<Time<Galileo>, GnssTimeError> {
         self.try_convert::<Galileo>()
@@ -339,7 +334,7 @@ impl IntoScale<Galileo> for Time<Beidou> {
 }
 
 impl IntoScaleWith<Galileo> for Time<Glonass> {
-    /// GLONASS -> Galileo через UTC.
+    /// GLONASS -> Galileo via UTC.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
@@ -356,7 +351,7 @@ impl IntoScaleWith<Galileo> for Time<Glonass> {
 }
 
 impl IntoScaleWith<Galileo> for Time<Utc> {
-    /// UTC -> Galileo через GPS.
+    /// UTC -> Galileo via GPS.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
@@ -377,8 +372,7 @@ impl IntoScaleWith<Galileo> for Time<Utc> {
 ////////////////////////////////////////////////////////////////////////////////
 
 impl IntoScale<Beidou> for Time<Gps> {
-    /// GPS -> BeiDou: `BDT = GPS - 14s` (via TAI: GPS + 19s TAI, BDT + 33s
-    /// TAI).
+    /// GPS -> BeiDou: `BDT = GPS - 14s`.
     ///
     /// ```rust
     /// use gnss_time::{Beidou, Gps, IntoScale, Time};
@@ -386,7 +380,7 @@ impl IntoScale<Beidou> for Time<Gps> {
     /// let gps = Time::<Gps>::from_seconds(100);
     /// let bdt: Time<Beidou> = gps.into_scale().unwrap();
     ///
-    /// assert_eq!(bdt.as_seconds(), 86); // 100 + 19 - 33 = 86
+    /// assert_eq!(bdt.as_seconds(), 86); // 100 - 14 = 86
     /// ```
     #[inline]
     fn into_scale(self) -> Result<Time<Beidou>, GnssTimeError> {
@@ -395,7 +389,7 @@ impl IntoScale<Beidou> for Time<Gps> {
 }
 
 impl IntoScale<Beidou> for Time<Galileo> {
-    /// Galileo -> BeiDou через TAI.
+    /// Galileo -> BeiDou via TAI.
     #[inline]
     fn into_scale(self) -> Result<Time<Beidou>, GnssTimeError> {
         self.try_convert::<Beidou>()
@@ -403,7 +397,7 @@ impl IntoScale<Beidou> for Time<Galileo> {
 }
 
 impl IntoScaleWith<Beidou> for Time<Utc> {
-    /// UTC → BeiDou через GPS.
+    /// UTC → BeiDou via GPS.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
@@ -419,7 +413,7 @@ impl IntoScaleWith<Beidou> for Time<Utc> {
 }
 
 impl IntoScaleWith<Beidou> for Time<Glonass> {
-    /// GLONASS -> BeiDou через UTC.
+    /// GLONASS -> BeiDou via UTC.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
@@ -440,21 +434,19 @@ impl IntoScaleWith<Beidou> for Time<Glonass> {
 ////////////////////////////////////////////////////////////////////////////////
 
 impl IntoScale<Utc> for Time<Glonass> {
-    /// GLONASS -> UTC: постоянный сдвиг эпохи (+757 371 600 с, без leap
-    /// seconds).
+    /// GLONASS -> UTC: fixed epoch shift.
     ///
-    /// GLONASS отслеживает UTC(SU) = UTC + 3 часа, включая вставки високосных
-    /// секунд. Поэтому преобразование к/из UTC выполняется как простой
-    /// сдвиг эпохи.
+    /// GLONASS tracks UTC(SU) = UTC + 3 hours including leap seconds.
+    /// Therefore conversion is a pure epoch offset.
     ///
     /// ```rust
     /// use gnss_time::{Glonass, IntoScale, Time, Utc};
     ///
-    /// let glo = Time::<Glonass>::from_day_tod(0, 0.0).unwrap(); // эпоха GLONASS
+    /// let glo = Time::<Glonass>::from_day_tod(0, 0.0).unwrap(); // GLONASS epoch
     /// let utc: Time<Utc> = glo.into_scale().unwrap();
     ///
-    /// // UTC в момент эпохи GLONASS:
-    /// // 1995-12-31 21:00:00 UTC = 757_371_600 с от 1972
+    /// // UTC at the GLONASS epoch:
+    /// // 1995-12-31 21:00:00 UTC = 757_371_600 s from 1972
     /// assert_eq!(utc.as_nanos(), 757_371_600_000_000_000);
     /// ```
     #[inline]
@@ -464,10 +456,10 @@ impl IntoScale<Utc> for Time<Glonass> {
 }
 
 impl IntoScaleWith<Utc> for Time<Gps> {
-    /// GPS -> UTC с учётом контекста leap seconds.
+    /// GPS -> UTC with leap-second context.
     ///
-    /// Круговая точность: `GPS -> UTC -> GPS` точна (< 1 нс) для всех моментов,
-    /// кроме 1-секундного окна вставки високосной секунды.
+    /// Round-trip consistency: `GPS -> UTC -> GPS` is exact (< 1 ns) for all
+    /// moments except the one-second leap-second insertion window.
     ///
     /// ```rust
     /// use gnss_time::{Gps, IntoScaleWith, LeapSeconds, Time, Utc};
@@ -478,7 +470,7 @@ impl IntoScaleWith<Utc> for Time<Gps> {
     ///
     /// let delta = gps.as_seconds() as i64 - utc.as_seconds() as i64 + 252_892_800_i64;
     ///
-    /// // GPS опережает UTC на 18 с → UTC на 18 с раньше
+    /// // GPS leads UTC by 18 s → UTC is 18 s earlier
     /// assert_eq!(delta, 18);
     /// ```
     #[inline]
@@ -522,7 +514,7 @@ impl IntoScaleWith<Utc> for Time<Gps> {
 }
 
 impl IntoScaleWith<Utc> for Time<Galileo> {
-    /// Galielo -> UTC через GPS (оба делят TAI-offset 19с)
+    /// Galileo -> UTC via GPS (both share the same TAI offset of 19s).
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
@@ -539,7 +531,7 @@ impl IntoScaleWith<Utc> for Time<Galileo> {
 }
 
 impl IntoScaleWith<Utc> for Time<Beidou> {
-    /// BeiDou -> UTC через GPS.
+    /// BeiDou -> UTC via GPS.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
@@ -560,7 +552,7 @@ impl IntoScaleWith<Utc> for Time<Beidou> {
 ////////////////////////////////////////////////////////////////////////////////
 
 impl IntoScale<Tai> for Time<Gps> {
-    /// GPS -> TAI: добавление 19 секунд (константа, без leap seconds).
+    /// GPS -> TAI: add 19 seconds (constant, no leap seconds).
     ///
     /// ```rust
     /// use gnss_time::{Gps, IntoScale, Tai, Time};

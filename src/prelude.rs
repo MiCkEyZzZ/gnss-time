@@ -1,4 +1,4 @@
-//! Prelude: удобные импорты для большинства сценариев использования.
+//! Prelude: convenient imports for most use cases.
 //!
 //! ```rust
 //! use gnss_time::prelude::*;
