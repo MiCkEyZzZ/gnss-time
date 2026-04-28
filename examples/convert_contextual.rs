@@ -1,5 +1,3 @@
-//! Demonstrates contextual conversions (GPS ↔ UTC) that require leap seconds.
-
 use gnss_time::{prelude::*, ConvertResult};
 
 fn main() {
