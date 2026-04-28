@@ -5,7 +5,7 @@ fn main() -> Result<(), GnssTimeError> {
     let to_scale = ScaleId::Galileo;
 
     if !from_scale.is_fixed(to_scale) {
-        eprintln!("Конверсия требует leap seconds, этот пример только для фиксированных.");
+        eprintln!("Conversion requires leap seconds; this example only supports fixed offsets.");
         return Ok(());
     }
 
@@ -16,10 +16,10 @@ fn main() -> Result<(), GnssTimeError> {
             let gal: Time<gnss_time::Galileo> = gps_time.into_scale()?;
             format!("{} → {}", gps_time, gal)
         }
-        _ => unimplemented!("Другие пары можно добавить по аналогии"),
+        _ => unimplemented!("Other scale pairs can be added in the same way"),
     };
 
-    println!("Динамическая конверсия: {}", result);
+    println!("Dynamic conversion: {}", result);
 
     Ok(())
 }
