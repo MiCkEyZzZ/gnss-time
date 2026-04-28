@@ -6,6 +6,13 @@ All notable changes to **gnss-time** are documented in this file.
 
 ### Added
 
+- **docs**
+  - добавил описание `ARCHITECTURE.md`
+  - добавил описание `EMBEDDED.md`
+  - добавил описание `GNSS_TIME_PRIMER.md`
+  - добавил описание `INVARIANTS.md`
+  - добавил описание `LEAP_SECONDS.md`
+
 - **README**
   - улучшил описание проекта, добавил дополнительные примеры
     показывающие принцип работы библиотеки
