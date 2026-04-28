@@ -874,7 +874,8 @@ mod tests {
 
     #[test]
     fn test_gps_galileo_identity_via_tai() {
-        // Same offset → same TAI value → converting GPS→GAL keeps nanos
+        // Одинаковое смещение → одинаковое значение TAI → преобразование GPS→GAL
+        // сохраняет наночастицы
         let gps = Time::<Gps>::from_seconds(12_345);
         let gal = gps.try_convert::<Galileo>().unwrap();
 
@@ -919,7 +920,7 @@ mod tests {
 
     #[test]
     fn test_from_tai_underflow() {
-        // TAI(0) - 19s offset → negative GPS value → overflow
+        // TAI(0) - смещение на 19с → отрицательное значение GPS → переполнение
         let tai = Time::<Tai>::from_nanos(0);
 
         assert!(matches!(
@@ -1199,8 +1200,8 @@ mod tests {
 
     #[test]
     fn test_checked_elapsed_overflows_when_gap_exceeds_i64() {
-        // MAX - EPOCH = u64::MAX nanos; i64 can hold ~half of that
-        // The diff u64::MAX fits into i128 but not i64 → None
+        // MAX - EPOCH = u64::MAX nanos; i64 может вместить примерно половину этого
+        // Разница u64::MAX помещается в i128, но не в i64 → None
         let result = Time::<Gps>::MAX.checked_elapsed(Time::<Gps>::EPOCH);
 
         assert!(result.is_none(), "gap exceeds i64::MAX so must return None");
