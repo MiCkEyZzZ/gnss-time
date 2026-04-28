@@ -6,18 +6,18 @@
 
 ```text
 src/
-├── lib.rs          — корень крейта, #![no_std], pub use реэкспорты
-├── scale.rs        — sealed-трейт TimeScale + 6 маркерных типов
-├── time.rs         — структура Time<S>, конструкторы, арифметика
+├── tables/
+│   └── leap_seconds.rs  — BUILTIN_TABLE (19 записей эпохи GPS)
+├── convert.rs      — трейты IntoScale / IntoScaleWith + все реализации
 ├── duration.rs     — Duration (знаковый интервал в наносекундах)
 ├── epoch.rs        — CivilDate, константные смещения эпох
 ├── error.rs        — GnssTimeError
 ├── leap.rs         — LeapSecondsProvider, LeapSeconds, все функции преобразований
-├── convert.rs      — трейты IntoScale / IntoScaleWith + все реализации
+├── lib.rs          — корень крейта, #![no_std], pub use реэкспорты
 ├── matrix.rs       — ConversionMatrix, ScaleId, ConversionKind
 ├── prelude.rs      — удобные re-export'ы
-└── tables/
-    └── leap_seconds.rs  — BUILTIN_TABLE (19 записей эпохи GPS)
+├── scale.rs        — sealed-трейт TimeScale + 6 маркерных типов
+└── time.rs         — структура Time<S>, конструкторы, арифметика
 ```
 
 ## Основной инвариант: TAI как универсальная опорная точка
