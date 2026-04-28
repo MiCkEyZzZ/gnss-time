@@ -1,17 +1,17 @@
 use crate::LeapEntry;
 
-// Источник: IERS Bulletin C
+// Source: IERS Bulletin C
 // https://hpiers.obspm.fr/iers/bul/bulc/Leap_Second.dat
 //
-// Каждая запись: (threshold_tai_nanos, TAI-UTC после этого момента)
+// Each entry: (threshold_tai_nanos, TAI-UTC after this moment)
 //
 // threshold_tai_nanos = (unix_timestamp_of_event - GPS_EPOCH_UNIX +
-// TAI_minus_UTC) * 1e9   где GPS_EPOCH_UNIX = 315_964_800
+// TAI_minus_UTC) * 1e9 where GPS_EPOCH_UNIX = 315_964_800
 //
-// Вычисления:
+// Calculations:
 //   1981-07-01 unix = 362_793_600   → (362793600  - 315964800 + 20) * 1e9 =
 // 46_828_820_000_000_000   1982-07-01 unix = 394_329_600   → (78364800   + 21)
-// * 1e9             =  78_364_821_000_000_000   1983-07-01 unix = 425_865_600
+// * 1e9             = 78_364_821_000_000_000   1983-07-01 unix = 425_865_600
 // → (109900800  + 22) * 1e9             = 109_900_822_000_000_000   1985-07-01
 // unix = 489_024_000   → (173059200  + 23) * 1e9             =
 // 173_059_223_000_000_000   1988-01-01 unix = 567_993_600   → (252028800  + 24)
