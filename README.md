@@ -14,6 +14,53 @@ This is **not** a GNSS engine and **not** an RTK library.
 It is a strictly typed time model designed to prevent domain-mixing bugs at compile
 time.
 
+## API in 2 minutes
+
+This is the simplest mental model of the library:
+
+```rust
+use gnss_time::prelude::*;
+
+// 1. Create GPS time
+let gps = Time::<Gps>::from_week_tow(2200, 0.0).unwrap();
+
+// 2. Get leap second table
+let ls = LeapSeconds::builtin();
+
+// 3. Convert to UTC safely
+match gps.into_scale_with_checked(ls).unwrap() {
+    ConvertResult::Exact(utc) => {
+        println!("UTC: {}", utc);
+    }
+    ConvertResult::AmbiguousLeapSecond(utc) => {
+        println!("Leap second ambiguity, UTC: {}", utc);
+    }
+}
+```
+
+Core idea:
+
+- every time scale is a **distinct type**
+- conversions are **explicit**
+- leap seconds are **never hidden**
+
+## GNSS Time Primer (short version)
+
+GNSS time systems are not identical:
+
+- **GPS / Galileo** → aligned to **TAI − 19s**
+- **BeiDou (BDT)** → aligned to **TAI − 33s**
+- **GLONASS** → aligned to **UTC(SU)** (leap-second dependent)
+- **TAI** → continuous atomic time (no leap seconds)
+- **UTC** → civil time with leap seconds
+
+Key consequence:
+
+> the same physical moment can have different numeric representations depending
+> on the scale
+
+That is why this library enforces type safety.
+
 ## Features
 
 - **Type-safe time scales**
@@ -58,7 +105,18 @@ Add to your `Cargo.toml`:
 gnss-time = "0.3.0"
 ```
 
-## Example
+## Example (basic conversion)
+
+```rust
+use gnss_time::prelude::*;
+
+let gps = Time::<Gps>::from_week_tow(2200, 0.0).unwrap();
+let gal: Time<Galileo> = gps.into_scale().unwrap();
+
+println!("GPS -> Galileo: {}", gal);
+```
+
+## Example (leap-second aware)
 
 ```rust
 use gnss_time::prelude::*;
@@ -66,12 +124,9 @@ use gnss_time::prelude::*;
 let gps = Time::<Gps>::from_week_tow(2200, 0.0).unwrap();
 let ls = LeapSeconds::builtin();
 
-match gps.into_scale_with_checked(ls).unwrap() {
-    ConvertResult::Exact(utc) => println!("UTC: {}", utc),
-    ConvertResult::AmbiguousLeapSecond(utc) => {
-        println!("Inside leap second, UTC value: {}", utc);
-    }
-}
+let utc = gps.into_scale_with(ls).unwrap();
+
+println!("UTC: {}", utc);
 ```
 
 ## Design Goals
