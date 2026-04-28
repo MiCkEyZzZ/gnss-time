@@ -17,6 +17,19 @@ All notable changes to **gnss-time** are documented in this file.
   - Все 18 исторических leap second transitions (1981–2017)
   - Строгое возрастание GPS−UTC разности на каждом переходе
 
+- **time.rs**:
+  - добавлены дополнительные тесты для проверки на:
+    - `Time<Gps>::MAX` must equal `u64::MAX` nanoseconds
+    - `NANOS_PER_YEAR` sanity: 365 days worth of nanoseconds
+    - `MAX` covers at least 500 years from the GPS epoch (1980-01-06)
+    - checked_add near `u64::MAX`
+    - checked_sub near `EPOCH`
+    - saturating_add
+    - saturating_sub_duration
+    - try_add / try_sub_duration
+    - Panicking operators panic on overflow
+    - checked_elapsed near i64 boundary
+
 ### Changed
 
 - **Бенчмарки**: обновлены `benches/arithmetic_bench.rs` и `benches/convert_bench.rs`:
