@@ -12,13 +12,14 @@ cargo bench
 Или отдельные группы:
 
 ```bash
-cargo bench --bench arithmetic_bench   # только арифметика
-cargo bench --bench convert_bench      # только конверсии
+cargo bench --bench arithmetic_bench
+cargo bench --bench convert_bench
+cargo bench --bench time_bench
 ```
 
 ## Результаты
 
-### Арифметика (`arithmetic_bench`)
+### Арифметика
 
 | Операция                            | Время    | Примечание                  |
 | ----------------------------------- | -------- | --------------------------- |
@@ -35,7 +36,7 @@ cargo bench --bench convert_bench      # только конверсии
 **Вывод:** паникующие операции не имеют измеримого оверхеда. Checked операции
 добавляют проверку (< 5 нс).
 
-### Конверсии (`convert_bench`)
+### Конверсии
 
 | Операция                                 | Время    | Цель       |
 | ---------------------------------------- | -------- | ---------- |

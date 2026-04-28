@@ -1,42 +1,45 @@
-# Примеры GNSS-времени
+# Examples
 
-Этот каталог содержит примеры, демонстрирующие, как использовать crate `gnss-time`.
+All examples compile and run with `cargo run --example <name>`.
 
-## Примеры
+## Getting started
 
-| Пример                        | Описание                                                             |
-| ----------------------------- | -------------------------------------------------------------------- |
-| `basic_usage.rs`              | Создание моментов времени, арифметика, разности, saturating-операции |
-| `gps_week_tow.rs`             | Конвертации номера недели GPS / времени недели (TOW)                 |
-| `glonass_day_tod.rs`          | Конвертации номера дня GLONASS / времени суток (TOD)                 |
-| `glonass_receiver.rs`         | Обработка времени GNSS-приёмника GLONASS в реальном формате          |
-| `receiver_timestamp.rs`       | Разбор timestamp от GNSS receiver (week + TOW + sub-ns)              |
-| `multi_constellation.rs`      | Работа с несколькими GNSS системами (GPS / GAL / BDT / GLONASS)      |
-| `scale_conversion.rs`         | Конвертация между шкалами времени через TAI pivot                    |
-| `sync_alignment.rs`           | Проверка синхронизации и выравнивания времени между системами        |
-| `log_stream.rs`               | Потоковая обработка GNSS временных логов                             |
-| `embedded_safe_arithmetic.rs` | Безопасная арифметика без переполнений для embedded                  |
-| `display_formats.rs`          | Различные форматы отображения для каждой шкалы времени               |
-| `no_domain_mixing.rs`         | Демонстрация запрета смешивания разных time domain на уровне типов   |
+| Example                                   | Description                                             |
+| ----------------------------------------- | ------------------------------------------------------- |
+| [`basic_usage`](basic_usage.rs)           | Create timestamps, add durations, compute deltas        |
+| [`gps_week_tow`](gps_week_tow.rs)         | GPS week + TOW constructor and accessors                |
+| [`glonass_day_tod`](glonass_day_tod.rs)   | GLONASS day + TOD constructor and accessors             |
+| [`display_formats`](display_formats.rs)   | All `Display` formats: `Week:TOW`, `Day:TOD`, `+Ss Nns` |
+| [`no_domain_mixing`](no_domain_mixing.rs) | Compile-time error: mixing GPS and GLONASS              |
 
-## Запуск примеров
+## Conversions
 
-```bash
-cargo run --example basic_usage
-cargo run --example gps_week_tow
-cargo run --example glonass_day_tod
-cargo run --example glonass_receiver
-cargo run --example receiver_timestamp
-cargo run --example multi_constellation
-cargo run --example scale_conversion
-cargo run --example sync_alignment
-cargo run --example log_stream
-cargo run --example embedded_safe_arithmetic
-cargo run --example display_formats
-cargo run --example no_domain_mixing
-cargo run --example convert_basic
-cargo run --example convert_contextual
-cargo run --example chain_conversion
-cargo run --example dynamic_conversion
-cargo run --example matrix_inspection
-```
+| Example                                         | Description                                                |
+| ----------------------------------------------- | ---------------------------------------------------------- |
+| [`convert_basic`](convert_basic.rs)             | Fixed-offset conversions: GPS→TAI, GPS→Galileo, GPS→BeiDou |
+| [`convert_contextual`](convert_contextual.rs)   | GPS↔UTC with leap second context, ambiguity detection      |
+| [`scale_conversion`](scale_conversion.rs)       | Full conversion tour including overflow handling           |
+| [`chain_conversion`](chain_conversion.rs)       | BeiDou→GPS→GLONASS→UTC→TAI in one call                     |
+| [`multi_constellation`](multi_constellation.rs) | Same physical moment in GPS, Galileo, BeiDou               |
+| [`sync_alignment`](sync_alignment.rs)           | Cross-scale alignment check                                |
+
+## Receiver integration
+
+| Example                                       | Description                       |
+| --------------------------------------------- | --------------------------------- |
+| [`receiver_timestamp`](receiver_timestamp.rs) | Parse u-blox GPS week+TOW output  |
+| [`glonass_receiver`](glonass_receiver.rs)     | Parse GLONASS ephemeris day+TOD   |
+| [`log_stream`](log_stream.rs)                 | Format a stream of GPS timestamps |
+
+## Embedded / safe arithmetic
+
+| Example                                                   | Description                     |
+| --------------------------------------------------------- | ------------------------------- |
+| [`embedded_safe_arithmetic`](embedded_safe_arithmetic.rs) | `saturating_add` — never panics |
+
+## Advanced
+
+| Example                                       | Description                                             |
+| --------------------------------------------- | ------------------------------------------------------- |
+| [`matrix_inspection`](matrix_inspection.rs)   | Runtime conversion graph: `ConversionMatrix`, `ScaleId` |
+| [`dynamic_conversion`](dynamic_conversion.rs) | Dispatch conversion at runtime via `ScaleId`            |
