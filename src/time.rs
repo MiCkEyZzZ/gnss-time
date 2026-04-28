@@ -1,26 +1,56 @@
-//! # `Time<S>` — основной тип временной метки.
+//! # `Time<S>` — the core timestamp type.
 //!
-//! Хранит **наносекунды с эпохи шкалы `S`** в `u64`.
-//! Фантомный параметр `S: TimeScale` обеспечивает корректность домена на этапе
-//! компиляции — нельзя вычесть GPS-время из GLONASS-времени.
+//! Stores **nanoseconds since the epoch of scale `S`** in a `u64`.
+//! The phantom `S: TimeScale` enforces domain correctness at compile time —
+//! you cannot subtract a GPS timestamp from a GLONASS timestamp.
 //!
-//! ## Гарантия размера
+//! ## Size guarantee
 //!
 //! ```rust
 //! # use gnss_time::{Time, scale::Gps};
-//!
-//! assert_eq!(core::mem::size_of::<Time<Gps>>(), 8); // идентично u64
+//! assert_eq!(core::mem::size_of::<Time<Gps>>(), 8); // identical to u64
 //! ```
 //!
-//! # Дипазон значений
+//! ## Representable range and overflow semantics
 //!
-//! `Time<S>` хранит наносекунды в `u64`, что покрывает **~584 лет** от эпохи
-//! шкалы.
+//! The internal representation is a `u64` counting **nanoseconds from the
+//! scale's epoch**.  `u64::MAX` nanoseconds ≈ **584.5 years**, so:
 //!
-//! Для `Time<Gps>` (эпоха 1980-01-05) максимальное представляемое значение
-//! достигает **2554 лет**. При превышении этого предела операции с `+`
-//! запаникует, используйте `checked_add` / `saturating_add` для безопасной
-//! арифметики.
+//! | Scale   | Epoch            | `Time::MAX` corresponds to |
+//! |---------|------------------|----------------------------|
+//! | GLONASS | 1996-01-01       | ≈ **2580-07-01**           |
+//! | GPS     | 1980-01-06       | ≈ **2564-07-04**           |
+//! | Galileo | 1999-08-22       | ≈ **2584-02-15**           |
+//! | BeiDou  | 2006-01-01       | ≈ **2590-07-02**           |
+//! | TAI     | 1958-01-01       | ≈ **2542-07-05**           |
+//! | UTC     | 1972-01-01       | ≈ **2556-07-03**           |
+//!
+//! All arithmetic is **checked by default** - panicking operators (`+`, `-`)
+//! are only suitable for cases you know cannot oberflow. Fo embedded code or
+//! long-running servers, prefer:
+//!
+//! ```rust
+//! use gnss_time::{scale::Gps, Duration, Time};
+//!
+//! let t = Time::<Gps>::MAX;
+//! let d = Duration::from_seconds(1);
+//!
+//! // Checked - returns None on overflow
+//! assert!(t.checked_add(d).is_none());
+//!
+//! // Saturating - clamps at MAX/EPOCH instead of panicking
+//! assert_eq!(t.saturating_add(d), Time::<Gps>::MAX);
+//!
+//! // Fallible - returns Err(GnssTimeError::Overflow)
+//! assert!(t.try_add(d).is_err());
+//! ```
+//!
+//! ## Lint: `arithmetic_overflow` is always an error
+//!
+//! This crate runs with `#[deny(arithmetic_overflow)]` in CI (via `clippy.toml`
+//! and `RUSTFLAGS=-D warnings`).  Do **not** add
+//! `#[allow(arithmetic_overflow)]` anywhere — instead use the
+//! checked/saturating/fallible variants above.
 
 use core::{
     fmt,
@@ -60,7 +90,10 @@ pub struct Time<S: TimeScale> {
 }
 
 impl<S: TimeScale> Time<S> {
-    /// Начало шкалы - 0 наносекунд.
+    /// The scale's epoch — 0 nanoseconds.
+    ///
+    /// Corresponds to the calendar date defined by [`TimeScale::EPOCH_CIVIL`]
+    /// (e.g. `1980-01-06` for GPS, `1996-01-01` for GLONASS).
     pub const EPOCH: Self = Time {
         nanos: 0,
         _scale: PhantomData,
@@ -69,13 +102,41 @@ impl<S: TimeScale> Time<S> {
     /// Минимальное представляемое значение (синоним EPOCH).
     pub const MIN: Self = Self::EPOCH;
 
-    /// Максимально представляемое значение момента (~584 года от эпохи).
+    /// Maximum representable instant.
+    ///
+    /// `u64::MAX` nanoseconds ≈ **584.5 years** past the scale's epoch.
+    ///
+    /// | Scale   | Epoch      | `MAX` ≈ calendar date |
+    /// |---------|------------|-----------------------|
+    /// | GLONASS | 1996-01-01 | 2580-07-01            |
+    /// | GPS     | 1980-01-06 | 2564-07-04            |
+    /// | Galileo | 1999-08-22 | 2584-02-15            |
+    /// | BeiDou  | 2006-01-01 | 2590-07-02            |
+    /// | TAI     | 1958-01-01 | 2542-07-05            |
+    /// | UTC     | 1972-01-01 | 2556-07-03            |
+    ///
+    /// Arithmetic near `MAX` **will** overflow — use
+    /// [`checked_add`](Self::checked_add),
+    /// [`saturating_add`](Self::saturating_add), or [`try_add`](Self::try_add).
     pub const MAX: Self = Time {
         nanos: u64::MAX,
         _scale: PhantomData,
     };
 
-    /// Создаёт из сырых наносекунд с момента эпохи этой шкалы.
+    /// Nanoseconds per non-leap year (365 days).
+    ///
+    /// Useful for sanity-checking that a value is within a reasonable range:
+    /// ```rust
+    /// use gnss_time::{scale::Gps, Time};
+    ///
+    /// // 50 years from GPS epoch
+    /// let fifty_years = Time::<Gps>::from_nanos(50 * Time::<Gps>::NANOS_PER_YEAR);
+    ///
+    /// assert!(fifty_years.as_nanos() > 0);
+    /// ```
+    pub const NANOS_PER_YEAR: u64 = 365 * 24 * 3_600 * 1_000_000_000;
+
+    /// Construct from raw nanoseconds since this scale's epoch.
     #[inline(always)]
     pub const fn from_nanos(nanos: u64) -> Self {
         Time {
@@ -84,13 +145,13 @@ impl<S: TimeScale> Time<S> {
         }
     }
 
-    /// Создаёт из целых секунд с момента эпохи этой шкалы.
+    /// Construct from whole seconds since this scale's epoch.
     #[inline]
     pub const fn from_seconds(secs: u64) -> Self {
         Time::from_nanos(secs * 1_000_000_000)
     }
 
-    /// Создаёт из целых секунд, возвращая `None` при переполнении.
+    /// Construct from whole seconds, returning `None` on overflow.
     #[inline]
     pub const fn checked_from_seconds(secs: u64) -> Option<Self> {
         match secs.checked_mul(1_000_000_000) {
@@ -101,20 +162,20 @@ impl<S: TimeScale> Time<S> {
 }
 
 impl<S: TimeScale> Time<S> {
-    /// Сырые наносекунды с момента эпохи этой шкалы.
+    /// Raw nanoseconds since this scale's epoch.
     #[inline(always)]
     pub const fn as_nanos(self) -> u64 {
         self.nanos
     }
 
-    /// Целые секунды с момента эпохи этой шкалы (усечение).
+    /// Whole seconds since this scale's epoch (truncated).
     #[inline]
     pub const fn as_seconds(self) -> u64 {
         self.nanos / 1_000_000_000
     }
 
-    /// Секунды в виде `f64`. Для больших временных значений теряется точность
-    /// меньше микросекунды.
+    /// Seconds as `f64`. For large timestamps, sub-microsecond precision is
+    /// lost.
     #[inline]
     pub fn as_seconds_f64(self) -> f64 {
         self.nanos as f64 / 1_000_000_000.0
@@ -122,10 +183,10 @@ impl<S: TimeScale> Time<S> {
 }
 
 impl<S: TimeScale> Time<S> {
-    /// Конвертация в TAI с использованием фиксированного смещения шкалы.
+    /// Convert to TAI using the scale's fixed offset.
     ///
-    /// Возвращает [`GnssTimeError::LeapSecondsRequired`] для контекстных шкал
-    /// (UTC, GLONASS) и [`GnssTimeError::Overflow`] при выходе за диапазон.
+    /// Returns [`GnssTimeError::LeapSecondsRequired`] for contextual scales
+    /// (UTC, GLONASS) and [`GnssTimeError::Overflow`] for out-of-range results.
     pub fn to_tai(self) -> Result<Time<Tai>, GnssTimeError> {
         match S::OFFSET_TO_TAI {
             OffsetToTai::Fixed(offset) => {
@@ -141,8 +202,7 @@ impl<S: TimeScale> Time<S> {
         }
     }
 
-    /// Создаёт `Time<S>` из TAI-времени, используя фиксированное смещение
-    /// шкалы.
+    /// Construct `Time<S>` from a TAI timestamp using the scale's fixed offset.
     pub fn from_tai(tai: Time<Tai>) -> Result<Self, GnssTimeError> {
         match S::OFFSET_TO_TAI {
             OffsetToTai::Fixed(offset) => {
@@ -158,8 +218,7 @@ impl<S: TimeScale> Time<S> {
         }
     }
 
-    /// Прямое преобразование между двумя шкалами с фиксированным смещением
-    /// через TAI.
+    /// Convert directly between two fixed-offset scales via TAI.
     pub fn try_convert<T: TimeScale>(self) -> Result<Time<T>, GnssTimeError> {
         let tai = self.to_tai()?;
 
@@ -168,8 +227,7 @@ impl<S: TimeScale> Time<S> {
 }
 
 impl<S: TimeScale> Time<S> {
-    /// Добавить `Duration`, возвращая `None` при переполнении или потере
-    /// диапазона.
+    /// Add a `Duration`, returning `None` on overflow or underflow.
     #[inline]
     pub fn checked_add(
         self,
@@ -184,8 +242,7 @@ impl<S: TimeScale> Time<S> {
         Some(Time::from_nanos(result as u64))
     }
 
-    /// Вычесть `Duration`, возвращая `None` при переполнении или потере
-    /// диапазона.
+    /// Subtract a `Duration`, returning `None` on overflow or underflow.
     #[inline]
     pub fn checked_sub_duration(
         self,
@@ -200,7 +257,7 @@ impl<S: TimeScale> Time<S> {
         Some(Time::from_nanos(result as u64))
     }
 
-    /// Сложение с насыщением (saturating) на границах `EPOCH` и `MAX`.
+    /// Add, saturating at `EPOCH` (below) and `MAX` (above).
     #[inline]
     pub fn saturating_add(
         self,
@@ -213,7 +270,7 @@ impl<S: TimeScale> Time<S> {
         })
     }
 
-    /// Вычитание с насыщением на границах.
+    /// Subtract duration, saturating at bounds.
     #[inline]
     pub fn saturating_sub_duration(
         self,
@@ -226,7 +283,7 @@ impl<S: TimeScale> Time<S> {
         })
     }
 
-    /// Fallible addition — возвращает [`GnssTimeError::Overflow`] при ошибке.
+    /// Fallible add — [`GnssTimeError::Overflow`] on failure.
     #[inline]
     pub fn try_add(
         self,
@@ -235,8 +292,7 @@ impl<S: TimeScale> Time<S> {
         self.checked_add(d).ok_or(GnssTimeError::Overflow)
     }
 
-    /// Fallible subtraction — возвращает [`GnssTimeError::Overflow`] при
-    /// ошибке.
+    /// Fallible subtract — [`GnssTimeError::Overflow`] on failure.
     #[inline]
     pub fn try_sub_duration(
         self,
@@ -247,8 +303,7 @@ impl<S: TimeScale> Time<S> {
 }
 
 impl<S: TimeScale> Time<S> {
-    /// Знаковый интервал `self − earlier`. Возвращает `None` при переполнении
-    /// `i64`.
+    /// Signed interval `self − earlier`. Returns `None` if it overflows `i64`.
     #[inline]
     pub const fn checked_elapsed(
         self,
@@ -324,14 +379,14 @@ impl<S: TimeScale> Sub<Time<S>> for Time<S> {
 }
 
 impl Time<Glonass> {
-    /// Создать из номера дня ГЛОНАСС и времени суток в секундах.
+    /// Construct from GLONASS **day number** and **time-of-day** in seconds.
     ///
-    /// - `day`: дни с эпохи ГЛОНАСС (1996-01-01 00:00:00 UTC(SU)).
-    /// - `tod_s`: время суток в секундах, должно быть в `[0, 86 400)`.
+    /// - `day`: days since GLONASS epoch (1996-01-01 00:00:00 UTC(SU)).
+    /// - `tod_s`: time of day in seconds, must be in `[0, 86 400)`.
     ///
-    /// # Ошибки
+    /// # Errors
     ///
-    /// [`GnssTimeError::InvalidInput`] если `tod_s ∉ [0, 86 400)`.
+    /// [`GnssTimeError::InvalidInput`] if `tod_s ∉ [0, 86 400)`.
     pub fn from_day_tod(
         day: u32,
         tod_s: f64,
@@ -349,53 +404,53 @@ impl Time<Glonass> {
         Ok(Time::from_nanos(total))
     }
 
-    /// Номер дня с эпохи ГЛОНАСС.
+    /// Day number since GLONASS epoch.
     #[inline]
     pub const fn day(self) -> u32 {
         (self.nanos / 86_400_000_000_000u64) as u32
     }
 
-    /// Время суток в целых секундах.
+    /// Time of day in whole seconds.
     #[inline]
     pub const fn tod_seconds(self) -> u32 {
         ((self.nanos % 86_400_000_000_000u64) / 1_000_000_000u64) as u32
     }
 
-    /// Наносекунды внутри текущей секунды (дробная часть).
+    /// Sub-second nanosecond remainder within the current second.
     #[inline]
     pub const fn sub_second_nanos(self) -> u32 {
         (self.nanos % 1_000_000_000u64) as u32
     }
 
-    /// День недели: **1 = понедельник .. 7 = воскресенье** (NavIC / ISO 8601).
+    /// Day of week: **1 = Monday … 7 = Sunday** (NavIC / ISO 8601 convention).
     ///
-    /// Эпоха ГЛОНАСС (1996-01-01) была **понедельником**, поэтому день 0 -> 1.
+    /// GLONASS epoch (1996-01-01) was a **Monday**, so day 0 → 1 (Monday).
     ///
-    /// Формула: `(day % 7) + 1`.
+    /// The formula is simply `(day % 7) + 1`.
     ///
-    /// # Примечание GLONASS ICD
+    /// # GLONASS ICD note
     ///
-    /// В GLONASS Interface Control Document используется "номер дня внутри
-    /// четырёхлетнего интервала" (`N_T`), начинающийся с 1, но для простоты
-    /// в этом крейте используется 0-базированный счёт дней от эпохи и
-    /// предоставляется ISO/NavIC-нумерация дня недели (1=Mon..7=Sun).
+    /// The GLONASS Interface Control Document defines the "day number within
+    /// the four-year interval" (`N_T`) starting from 1, but for simplicity
+    /// this crate uses 0-based day counts from the epoch and exposes the
+    /// ISO / NavIC weekday (1=Mon … 7=Sun) through this method.
     ///
-    /// # Примеры
+    /// # Examples
     ///
     /// ```rust
-    /// use gnss_time::{Glonass, Time};
+    /// use gnss_time::{scale::Glonass, Time};
     ///
-    /// // День 0 = 1996-01-01 = понедельник
+    /// // Day 0 = 1996-01-01 = Monday
     /// let t = Time::<Glonass>::from_day_tod(0, 0.0).unwrap();
     ///
     /// assert_eq!(t.day_of_week(), 1); // Monday
     ///
-    /// // День 6 = 1996-01-07 = воскресенье
+    /// // Day 6 = 1996-01-07 = Sunday
     /// let t2 = Time::<Glonass>::from_day_tod(6, 0.0).unwrap();
     ///
     /// assert_eq!(t2.day_of_week(), 7); // Sunday
     ///
-    /// // День 7 = 1996-01-08 = снова понедельник
+    /// // Day 7 = 1996-01-08 = Monday again
     /// let t3 = Time::<Glonass>::from_day_tod(7, 0.0).unwrap();
     ///
     /// assert_eq!(t3.day_of_week(), 1);
@@ -406,8 +461,7 @@ impl Time<Glonass> {
         (self.day() % 7) as u8 + 1
     }
 
-    /// Возвращает `true`, если текущий день недели — суббота (6) или
-    /// воскресенье (7).
+    /// Returns `true` if the current day-of-week is Saturday (6) or Sunday (7).
     #[inline]
     pub const fn is_weekend(self) -> bool {
         let d = self.day_of_week();
@@ -417,24 +471,23 @@ impl Time<Glonass> {
 }
 
 impl Time<Gps> {
-    /// Создать из номера GPS-недели и времени внутри недели в секундах.
+    /// Construct from GPS **week number** and **time-of-week** in seconds.
     ///
-    /// - `week`: номер GPS-недели (0 = 1980-01-06, без коррекции rollover; этот
-    ///   конструктор принимает "сырое" значение).
-    /// - `tow_s`: время внутри недели в секундах `[0, 604 800)`.
+    /// - `week`: GPS week (0 = 1980-01-06; no rollover correction applied).
+    /// - `tow_s`: time of week in seconds, must be in `[0, 604 800)`.
     ///
-    /// # Ошибки
+    /// # Errors
     ///
-    /// [`GnssTimeError::InvalidInput`] если `tow_s ∉ [0, 604 800)`.
-    /// [`GnssTimeError::Overflow`] если результат не помещается в `u64`
-    /// наносекунд.
+    /// [`GnssTimeError::InvalidInput`] if `tow_s ∉ [0, 604 800)`.
+    /// [`GnssTimeError::Overflow`] if the result exceeds `u64::MAX` ns.
     ///
-    /// # Пример
+    /// # Example
     ///
     /// ```rust
     /// use gnss_time::{scale::Gps, Time};
     ///
     /// let t = Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap();
+    ///
     /// assert_eq!(t.week(), 2345);
     /// assert_eq!(t.tow_seconds(), 432_000);
     /// ```
@@ -482,19 +535,19 @@ impl Time<Gps> {
         gps_to_utc(self, ls)
     }
 
-    /// Номер GPS-недели (целочисленное деление).
+    /// GPS week number.
     #[inline]
     pub const fn week(self) -> u32 {
         (self.nanos / 604_800_000_000_000u64) as u32
     }
 
-    /// Время внутри недели в целых секундах.
+    /// Time of week in whole seconds.
     #[inline]
     pub const fn tow_seconds(self) -> u32 {
         ((self.nanos % 604_800_000_000_000u64) / 1_000_000_000u64) as u32
     }
 
-    /// Наносекунды внутри текущей секунды (дробная часть).
+    /// Sub-second nanosecond remainder within the current second.
     #[inline]
     pub const fn sub_second_nanos(self) -> u32 {
         (self.nanos % 1_000_000_000u64) as u32
@@ -983,5 +1036,182 @@ mod tests {
 
         // try_add возвращает ошибку
         assert!(max.try_add(one_ns).is_err());
+    }
+
+    #[test]
+    fn test_max_is_u64_max() {
+        assert_eq!(Time::<Gps>::MAX.as_nanos(), u64::MAX);
+        assert_eq!(Time::<Glonass>::MAX.as_nanos(), u64::MAX);
+        assert_eq!(Time::<Galileo>::MAX.as_nanos(), u64::MAX);
+        assert_eq!(Time::<Beidou>::MAX.as_nanos(), u64::MAX);
+        assert_eq!(Time::<Tai>::MAX.as_nanos(), u64::MAX);
+        assert_eq!(Time::<Utc>::MAX.as_nanos(), u64::MAX);
+    }
+
+    #[test]
+    fn test_nanos_per_year_is_correct() {
+        let expected: u64 = 365 * 24 * 3_600 * 1_000_000_000;
+
+        assert_eq!(Time::<Gps>::NANOS_PER_YEAR, expected);
+    }
+
+    #[test]
+    fn test_max_covers_at_least_500_years() {
+        let years = Time::<Gps>::MAX.as_nanos() / Time::<Gps>::NANOS_PER_YEAR;
+
+        assert!(
+            years >= 500,
+            "MAX should cover at least 500 years, got {years}"
+        );
+    }
+
+    #[test]
+    fn test_checked_add_one_ns_before_max_succeeds() {
+        let t = Time::<Gps>::from_nanos(u64::MAX - 1);
+        let result = t.checked_add(Duration::from_nanos(1));
+
+        assert_eq!(result, Some(Time::<Gps>::MAX));
+    }
+
+    #[test]
+    fn test_checked_add_at_max_overflows() {
+        assert!(Time::<Gps>::MAX
+            .checked_add(Duration::from_nanos(1))
+            .is_none());
+    }
+
+    #[test]
+    fn test_checked_add_large_positive_overflows() {
+        let t = Time::<Gps>::from_nanos(u64::MAX - 100);
+
+        assert!(t.checked_add(Duration::from_seconds(1)).is_none());
+    }
+
+    #[test]
+    fn test_checked_sub_one_ns_after_epoch_succeeds() {
+        let t = Time::<Gps>::from_nanos(1);
+        let result = t.checked_sub_duration(Duration::from_nanos(1));
+
+        assert_eq!(result, Some(Time::<Gps>::EPOCH));
+    }
+
+    #[test]
+    fn test_checked_sub_at_epoch_underflows() {
+        assert!(Time::<Gps>::EPOCH
+            .checked_sub_duration(Duration::from_nanos(1))
+            .is_none());
+    }
+
+    #[test]
+    fn test_checked_sub_large_amount_underflows() {
+        let t = Time::<Gps>::from_nanos(50);
+
+        assert!(t.checked_sub_duration(Duration::from_seconds(1)).is_none());
+    }
+
+    #[test]
+    fn test_saturating_add_clamps_at_max() {
+        assert_eq!(
+            Time::<Gps>::MAX.saturating_add(Duration::from_nanos(1)),
+            Time::<Gps>::MAX
+        );
+        assert_eq!(
+            Time::<Gps>::MAX.saturating_add(Duration::from_seconds(9999)),
+            Time::<Gps>::MAX
+        );
+    }
+
+    #[test]
+    fn test_saturating_add_negative_clamps_at_epoch() {
+        assert_eq!(
+            Time::<Gps>::EPOCH.saturating_add(Duration::from_nanos(-1)),
+            Time::<Gps>::EPOCH
+        );
+    }
+
+    #[test]
+    fn test_saturating_add_normal_value_works() {
+        let t = Time::<Gps>::from_seconds(100);
+
+        assert_eq!(
+            t.saturating_add(Duration::from_seconds(50)),
+            Time::<Gps>::from_seconds(150)
+        );
+    }
+
+    #[test]
+    fn test_saturating_sub_clamps_at_epoch() {
+        assert_eq!(
+            Time::<Gps>::EPOCH.saturating_sub_duration(Duration::from_nanos(1)),
+            Time::<Gps>::EPOCH
+        );
+    }
+
+    #[test]
+    fn test_saturating_sub_normal_value_works() {
+        let t = Time::<Gps>::from_seconds(100);
+
+        assert_eq!(
+            t.saturating_sub_duration(Duration::from_seconds(30)),
+            Time::<Gps>::from_seconds(70)
+        );
+    }
+
+    #[test]
+    fn test_try_add_overflow_returns_err() {
+        let result = Time::<Gps>::MAX.try_add(Duration::from_nanos(1));
+
+        assert!(matches!(result, Err(GnssTimeError::Overflow)));
+    }
+
+    #[test]
+    fn test_try_sub_duration_underflow_returns_err() {
+        let result = Time::<Gps>::EPOCH.try_sub_duration(Duration::from_nanos(1));
+
+        assert!(matches!(result, Err(GnssTimeError::Overflow)));
+    }
+
+    #[test]
+    fn test_try_add_valid_value_works() {
+        let t = Time::<Gps>::from_seconds(1_000);
+        let result = t.try_add(Duration::from_seconds(500)).unwrap();
+
+        assert_eq!(result.as_seconds(), 1_500);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_add_operator_panics_at_max() {
+        let _ = Time::<Gps>::MAX + Duration::from_nanos(1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_sub_operator_panics_at_epoch() {
+        let _ = Time::<Gps>::EPOCH - Duration::from_nanos(1);
+    }
+
+    #[test]
+    fn test_checked_elapsed_zero_gives_zero_duration() {
+        let t = Time::<Gps>::from_seconds(1_000);
+        assert_eq!(t.checked_elapsed(t), Some(Duration::ZERO));
+    }
+
+    #[test]
+    fn test_checked_elapsed_overflows_when_gap_exceeds_i64() {
+        // MAX - EPOCH = u64::MAX nanos; i64 can hold ~half of that
+        // The diff u64::MAX fits into i128 but not i64 → None
+        let result = Time::<Gps>::MAX.checked_elapsed(Time::<Gps>::EPOCH);
+
+        assert!(result.is_none(), "gap exceeds i64::MAX so must return None");
+    }
+
+    #[test]
+    fn test_checked_elapsed_within_i64_range_works() {
+        let a = Time::<Gps>::from_seconds(1_000_000);
+        let b = Time::<Gps>::from_seconds(500_000);
+        let elapsed = a.checked_elapsed(b).unwrap();
+
+        assert_eq!(elapsed.as_seconds(), 500_000);
     }
 }
