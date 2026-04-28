@@ -2,7 +2,35 @@
 
 All notable changes to **gnss-time** are documented in this file.
 
-## [v0.3.0] — 00-00-0000
+## [Unreleased] — 00-00-0000
+
+### Added
+
+- **Property-based тесты (ручная реализация)**: добавлены `tests/prop_tests.rs`
+  с 9 property-тестами:
+  - Roundtrip GPS→UTC→GPS для всех выборок (границы, leap seconds, равномерные точки,
+    реальные эпохи)
+  - Roundtrip GPS→GAL→GPS, GPS→BDT→GPS, GPS→TAI→GPS
+  - Сортировка `Vec<Time<Gps>>` совпадает с сортировкой по внутреннему `u64`
+  - Монотонность GPS→UTC в интервалах между leap seconds
+  - Проверка GPS−UTC смещений на известных эпохах
+  - Все 18 исторических leap second transitions (1981–2017)
+  - Строгое возрастание GPS−UTC разности на каждом переходе
+
+### Changed
+
+- **Бенчмарки**: обновлены `benches/arithmetic_bench.rs` и `benches/convert_bench.rs`:
+  - Добавлены замеры `checked_add`, `checked_sub_duration`, `saturating_add`,
+    `Duration` операций
+  - Уточнены целевые показатели: паникующие операции ~514 ps, checked ~4.4 ns
+
+### Fixed
+
+- **time.rs**: исправлена опечатка "oberflow" → "overflow" в документации
+- **time.rs**: добавлены новые тесты граничных случаев (`test_checked_add_one_ns_before_max_succeeds`,
+  `test_saturating_add_negative_clamps_at_epoch`, и др.)
+
+## [v0.3.0] — 27-04-2026
 
 ### Added
 
