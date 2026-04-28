@@ -1,15 +1,15 @@
-# Бенчмарки gnss-time
+# Benchmarks for gnss-time
 
-В этой директории находятся бенчмарки для проверки zero-cost абстракций и
-производительности конверсий.
+This is directory contains benchmarks used to verify zero-cost abstractions and
+the performance of time conversions.
 
-## Запуск
+## Running
 
 ```bash
 cargo bench
 ```
 
-Или отдельные группы:
+Or run individual benchmark groups:
 
 ```bash
 cargo bench --bench arithmetic_bench
@@ -17,54 +17,55 @@ cargo bench --bench convert_bench
 cargo bench --bench time_bench
 ```
 
-## Результаты
+## Results
 
-### Арифметика
+### Arithmetic
 
-| Операция                            | Время    | Примечание                  |
-| ----------------------------------- | -------- | --------------------------- |
-| `Time<Gps> + Duration` (panicking)  | ~514 ps  | 0 нс оверхед                |
-| `u64 + u64` (baseline)              | ~514 ps  | базовое сложение            |
-| `Time<Gps> - Time<Gps>` (panicking) | ~514 ps  | 0 нс оверхед                |
-| `u64 - u64`                         | ~515 ps  | базовое вычитание           |
-| `Time<Gps>.checked_add`             | ~4.36 ns | с проверкой переполнения    |
-| `Time<Gps>.checked_sub_duration`    | ~4.37 ns | с проверкой underflow       |
-| `Time<Gps>.saturating_add`          | ~515 ps  | без дополнительных проверок |
-| `Duration + Duration`               | ~514 ps  | 0 нс оверхед                |
-| `Duration.checked_add`              | ~4.37 ns | с проверкой                 |
+| Operation                           | Time     | Note                    |
+| ----------------------------------- | -------- | ----------------------- |
+| `Time<Gps> + Duration` (panicking)  | ~514 ps  | 0 ns overhead           |
+| `u64 + u64` (baseline)              | ~514 ps  | baseline addition       |
+| `Time<Gps> - Time<Gps>` (panicking) | ~514 ps  | 0 ns overhead           |
+| `u64 - u64`                         | ~515 ps  | baseline subtraction    |
+| `Time<Gps>.checked_add`             | ~4.36 ns | with overflow checking  |
+| `Time<Gps>.checked_sub_duration`    | ~4.37 ns | with underflow checking |
+| `Time<Gps>.saturating_add`          | ~515 ps  | no extra checks         |
+| `Duration + Duration`               | ~514 ps  | 0 ns overhead           |
+| `Duration.checked_add`              | ~4.37 ns | with checking           |
 
-**Вывод:** паникующие операции не имеют измеримого оверхеда. Checked операции
-добавляют проверку (< 5 нс).
+**Conclusion:** panicking operations have no measurable overhead. Checked
+operations add a small cost (< 5 ns).
 
-### Конверсии
+### Conversions
 
-| Операция                                 | Время    | Цель       |
-| ---------------------------------------- | -------- | ---------- |
-| `GPS → TAI`                              | ~822 ps  | < 2 нс ✅  |
-| `GPS → Galileo`                          | ~782 ps  | < 2 нс ✅  |
-| `GPS → BeiDou`                           | ~926 ps  | < 2 нс ✅  |
-| `TAI → GPS`                              | ~791 ps  | < 2 нс ✅  |
-| `GPS → UTC` (таблица, 2020)              | ~9.8 ns  | < 10 нс ✅ |
-| `GPS → UTC` (эпоха GPS)                  | ~9.8 ns  | < 10 нс ✅ |
-| `UTC → GPS` (двухпроходный)              | ~22.4 ns | —          |
-| `GPS → UTC → GPS` (roundtrip)            | ~40.6 ns | —          |
-| `LeapSeconds` binary search (19 записей) | ~7.0 ns  | —          |
+| Operation                                | Time     | Target  |
+| ---------------------------------------- | -------- | ------- |
+| `GPS → TAI`                              | ~822 ps  | < 2 ns  |
+| `GPS → Galileo`                          | ~782 ps  | < 2 ns  |
+| `GPS → BeiDou`                           | ~926 ps  | < 2 ns  |
+| `TAI → GPS`                              | ~791 ps  | < 2 ns  |
+| `GPS → UTC` (table lookup, 2020)         | ~9.8 ns  | < 10 ns |
+| `GPS → UTC` (GPS epoch)                  | ~9.8 ns  | < 10 ns |
+| `UTC → GPS` (two-pass algorithm)         | ~22.4 ns | —       |
+| `GPS → UTC → GPS` (roundtrip)            | ~40.6 ns | —       |
+| `LeapSeconds` binary search (19 entries) | ~7.0 ns  | —       |
 
-**Вывод:** конверсии с фиксированным смещением практически бесплатны (~0.8–0.9 нс).
-Конверсии с leap seconds (< 10 нс для GPS -> UTC) подходят для embedded и
-высоконагруженных систем.
+**Conclusion:** fixed-offset conversions are effectively free (~0.8–0.9 ns).
+Leap-second-aware conversions (< 10 ns for GPS → UTC) are suitable for
+embedded and high-throughput systems.
 
-## Проверка zero-cost абстракций
+## Zero-cost abstraction check
 
-Бенчмарки показывают, что `Time<Gps> + Duration` компилируется в те же инструкции,
-что и `u64 + u64`:
+The benchmarks show that `Time<Gps> + Duration` compiles to the same
+instructions as `u64 + u64`:
 
-- Паникующие операции: **514 ps** vs **514 ps** (0 нс разницы)
-- `saturating_add`: **515 ps** (clamp без дополнительных проверок)
-- Checked операции дороже (~4.4 нс), но это ожидаемо (один branch + overflow check)
+- Panicking operations: **514 ps** vs **514 ps** (0 ns difference)
+- `saturating_add`: **515 ps** (clamp without extra checks)
+- Checked operations are more expensive (~4.4 ns), but that is expected
+  (one branch + overflow check)
 
 ## CI
 
-Бенчмарки не запускаются автоматически в CI (требуют много времени и стабильного
-окружения). Запускайте их локально перед релизом и при рефакторинге критических
-путей.
+Benchmarks are not run automatically in CI (they take time and require a stable
+environment). Run them locally before a release and when refactoring critical
+paths.
