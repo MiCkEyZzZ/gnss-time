@@ -1,16 +1,16 @@
-//! # Маркерные типы временных шкал
+//! # GNSS time scale marker types
 //!
-//! Каждая GNSS-система работает в собственной шкале времени с фиксированным
-//! соотношением относительно TAI (Международного атомного времени).
+//! Each GNSS system operates on its own time scale with a fixed relationship
+//! to TAI (International Atomic Time).
 //!
-//! ## Запечатанный (sealed) трейит
+//! ## Sealed trait
 //!
-//! [`TimeScale`] нельзя реализовать вне этого crate — паттерн sealed
-//! предотвращает случайное добавление пользовательских шкал времени.
+//! [`TimeScale`] cannot be implemented outside this crate — the sealed pattern
+//! prevents accidental addition of custom time scales.
 //!
-//! ## Форматы отображения
+//! ## Display formats
 //!
-//! | Шкала   | Пример формата              |
+//! | Scale   | Example format              |
 //! |---------|-----------------------------|
 //! | GLONASS | `"GLO 10512:43200.000"`     |
 //! | GPS     | `"GPS 2345:432000.000"`     |
@@ -52,75 +52,77 @@ macro_rules! define_scale {
 
 pub(crate) const NANOS_PER_SECOND: i64 = 1_000_000_000;
 
-/// Связь временной шкалы с TAI.
+/// Relationship between a time scale and TAI.
 ///
-/// Контракт (строгий):
+/// Strict contract:
 ///     T_tai = T_self + offset
 ///
-/// Это должно быть согласовано для всех шкал.
-/// Нарушение ломает межшкальные преобразования.
+/// This must be consistent for all scales.
+/// Violating it breaks cross-scale conversions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OffsetToTai {
-    /// Фиксированное смещение (не требует leap seconds)
+    /// Fixed offset (does not require leap seconds)
     Fixed(i64),
 
-    /// Зависит от внешнего контекста (UTC, GLONASS)
+    /// Depends on external context (UTC, GLONASS)
     Contextual,
 }
 
-/// Управляет тем, как [`crate::Time`]`<S>` форматируется через
+/// Controls how [`crate::Time`]`<S>` is formatted via
 /// [`core::fmt::Display`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DisplayStyle {
-    /// `"NAME WWW:SSSSSS.mm"` - неделя : время недели (GPS, Galileo, BeiDou)
+    /// `"NAME WWW:SSSSSS.mm"` — week : time-of-week (GPS, Galileo, BeiDou)
     ///
-    /// TOW seconds fields is always zero-padded to **6 digits** (max 604 799 s)
+    /// The TOW seconds field is always zero-padded to **6 digits**
+    /// (maximum 604_799 s).
     WeekTow,
 
-    /// `"NAME DDDDD:SSSSS.mmm"` - день : время суток (GLONASS)
+    /// `"NAME DDDDD:SSSSS.mmm"` — day : time-of-day (GLONASS)
     ///
-    /// TOD seconds field is always zero-padded to **5 digits** (max 86 399 s)
+    /// The TOD seconds field is always zero-padded to **5 digits**
+    /// (maximum 86_399 s).
     DayTod,
 
-    /// `"NAME +Ss Nns"` - простой формат наносекунд для (TAI, UTC)
+    /// `"NAME +Ss Nns"` — simple nanosecond format for (TAI, UTC)
     Simple,
 }
 
-/// Маркерный трейит для GNSS / атомных шкал времени.
+/// Marker trait for GNSS / atomic time scales.
 ///
-/// Этот трейит является **sealed** и не может быть реализован вне crate.
+/// This trait is **sealed** and cannot be implemented outside this crate.
 ///
-/// Каждая шкала определяет:
-/// - [`TimeScale::NAME`] — короткое имя
-/// - [`TimeScale::OFFSET_TO_TAI`] — преобразование в TAI
+/// Each scale defines:
+/// - [`TimeScale::NAME`] — short name
+/// - [`TimeScale::OFFSET_TO_TAI`] — conversion to TAI
 pub trait TimeScale: private::Sealed + Copy + Clone + Eq + PartialEq + core::fmt::Debug {
-    /// Короткое имя шкалы (ASCII) используется в Display/debug
+    /// Short ASCII name of the scale, used in Display/debug output.
     const NAME: &'static str;
 
-    /// Смещение относительно TAI:
+    /// Offset relative to TAI:
     ///
     /// STRICT CONTRACT:
     ///     T_tai = T_self + offset
     ///
-    /// Для контекстных шкал (UTC, GLONASS)
-    /// требуется учёт leap seconds.
+    /// For contextual scales (UTC, GLONASS),
+    /// leap-second handling is required.
     const OFFSET_TO_TAI: OffsetToTai;
 
-    /// Календарная дата эпохи шкалы
-    /// (где `Time<S>::EPOCH == 0 ns`)
+    /// Civil date of the scale's epoch
+    /// (where `Time<S>::EPOCH == 0 ns`)
     const EPOCH_CIVIL: CivilDate;
 
-    /// Формат отображения времени
+    /// Time display format
     const DISPLAY_STYLE: DisplayStyle;
 }
 
 define_scale!(
-    /// GLONASS — российская система времени (UTC(SU) + 3 часа)
+    /// GLONASS — Russian time system (UTC(SU) + 3 hours)
     ///
-    /// - Эпоха: 1996-01-01 00:00:00 UTC(SU)
-    /// - Работает относительно UTC(SU)
-    /// - Требует учёта високосных секунд
-    /// - Формат: `"GLO 10512:43200.000"`
+    /// - Epoch: 1996-01-01 00:00:00 UTC(SU)
+    /// - Operates relative to UTC(SU)
+    /// - Requires leap-second handling
+    /// - Format: `"GLO 10512:43200.000"`
     Glonass,
     display = "GLO",
     offset = OffsetToTai::Contextual,
@@ -129,12 +131,12 @@ define_scale!(
 );
 
 define_scale!(
-    /// GPS — американская система позиционирования
+    /// GPS — American Global Positioning System
     ///
-    /// - Эпоха: 1980-01-06 UTC
-    /// - GPS = TAI − 19 секунд
-    /// - Без leap seconds (фиксированное смещение)
-    /// - Формат: `"GPS 2345:432000.000"`
+    /// - Epoch: 1980-01-06 UTC
+    /// - GPS = TAI − 19 seconds
+    /// - No leap seconds (fixed offset)
+    /// - Format: `"GPS 2345:432000.000"`
     Gps,
     display = "GPS",
     offset  = OffsetToTai::Fixed(19 * NANOS_PER_SECOND),
@@ -143,12 +145,12 @@ define_scale!(
 );
 
 define_scale!(
-    /// Galileo — европейская система навигации (GST)
+    /// Galileo — European navigation system (GST)
     ///
-    /// - Эпоха: 1999-08-22 UTC
-    /// - Совпадает по смещению с GPS (TAI − 19 s)
-    /// - Одновременные значения = один и тот же момент времени
-    /// - Формат: `"GAL 1303:432000.000"`
+    /// - Epoch: 1999-08-22 UTC
+    /// - Same offset as GPS (TAI − 19 s)
+    /// - Equal numeric values represent the same physical instant
+    /// - Format: `"GAL 1303:432000.000"`
     Galileo,
     display = "GAL",
     offset = OffsetToTai::Fixed(19 * NANOS_PER_SECOND),
@@ -157,12 +159,12 @@ define_scale!(
 );
 
 define_scale!(
-    /// BeiDou — китайская навигационная система (BDT)
+    /// BeiDou — Chinese navigation system (BDT)
     ///
-    /// - Эпоха: 2006-01-01 UTC
-    /// - BDT = TAI − 33 секунды
-    /// - BDT = GPS − 14 секунд
-    /// - Формат: `"BDT 960:432000.000"`
+    /// - Epoch: 2006-01-01 UTC
+    /// - BDT = TAI − 33 seconds
+    /// - BDT = GPS − 14 seconds
+    /// - Format: `"BDT 960:432000.000"`
     Beidou,
     display = "BDT",
     offset = OffsetToTai::Fixed(33 * NANOS_PER_SECOND),
@@ -171,17 +173,17 @@ define_scale!(
 );
 
 define_scale!(
-    /// TAI — Международное атомное время
+    /// TAI — International Atomic Time
     ///
-    /// - Эпоха: 1958-01-01
-    /// - Базовая шкала для всех преобразований
+    /// - Epoch: 1958-01-01
+    /// - Base scale for all conversions
     /// - TAI = TAI + 0
-    /// - Формат: `"TAI +Ss Nns"`
+    /// - Format: `"TAI +Ss Nns"`
     ///
-    /// # Важно
+    /// # Important
     ///
-    /// Внутри crate TAI используется как pivot для конверсий,
-    /// а не как абсолютная шкала от 1958 года (это планируется отдельно).
+    /// Inside this crate, TAI is used as the pivot for conversions,
+    /// not as an absolute scale from 1958 onward (this is planned separately).
     Tai,
     display = "TAI",
     offset = OffsetToTai::Fixed(0),
@@ -190,11 +192,11 @@ define_scale!(
 );
 
 define_scale!(
-    /// UTC — координированное всемирное время
+    /// UTC — Coordinated Universal Time
     ///
     /// - UTC = TAI − LS(t)
-    /// - Требует runtime leap-second таблицы
-    /// - Формат: `"UTC +Ss Nns"`
+    /// - Requires a runtime leap-second table
+    /// - Format: `"UTC +Ss Nns"`
     Utc,
     display = "UTC",
     offset = OffsetToTai::Contextual,
@@ -203,7 +205,7 @@ define_scale!(
 );
 
 impl OffsetToTai {
-    /// Возвращает фиксированное смещение в наносекундах
+    /// Returns the fixed offset in nanoseconds.
     #[inline(always)]
     pub const fn fixed(self) -> Option<i64> {
         match self {
@@ -212,8 +214,7 @@ impl OffsetToTai {
         }
     }
 
-    /// Возвращает `true` для шкал, требующих контекста времени выполнения (UTC,
-    /// GLONASS).
+    /// Returns `true` for scales that require runtime context (UTC, GLONASS).
     #[inline(always)]
     pub const fn is_contextual(self) -> bool {
         matches!(self, OffsetToTai::Contextual)
