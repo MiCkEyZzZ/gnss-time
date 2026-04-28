@@ -1,21 +1,7 @@
-//! # Benchmark: арифметика `Time<S>` vs голый `u64`
-//!
-//! Цель: доказать **zero-cost abstraction** — `Time<Gps> + Duration`
-//! компилируется в те же инструкции, что и `u64 + u64`.
-//!
-//! Ожидаемые результаты:
-//! - `time_add`  ≈ `raw_u64_add`  (0 нс разницы)
-//! - `time_sub`  ≈ `raw_u64_sub`  (0 нс разницы)
-//! - Checked-варианты — один дополнительный branch, < 1 нс
-//! - Saturating-варианты — аналогично checked
-
 use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use gnss_time::{Duration, Gps, Time};
-
-// ── Panicking operators (должны быть идентичны u64 add/sub)
-// ───────────────────
 
 fn bench_time_add(c: &mut Criterion) {
     let t = black_box(Time::<Gps>::from_seconds(1_000_000));
@@ -51,9 +37,6 @@ fn bench_raw_u64_sub(c: &mut Criterion) {
     });
 }
 
-// ── Checked variants
-// ──────────────────────────────────────────────────────────
-
 fn bench_checked_add(c: &mut Criterion) {
     let t = black_box(Time::<Gps>::from_seconds(1_000_000));
     let d = black_box(Duration::from_seconds(1));
@@ -72,9 +55,6 @@ fn bench_checked_sub(c: &mut Criterion) {
     });
 }
 
-// ── Saturating variants
-// ───────────────────────────────────────────────────────
-
 fn bench_saturating_add(c: &mut Criterion) {
     let t = black_box(Time::<Gps>::from_seconds(1_000_000));
     let d = black_box(Duration::from_seconds(1));
@@ -92,9 +72,6 @@ fn bench_saturating_add_at_max(c: &mut Criterion) {
         b.iter(|| black_box(t.saturating_add(d)))
     });
 }
-
-// ── Duration arithmetic
-// ───────────────────────────────────────────────────────
 
 fn bench_duration_add(c: &mut Criterion) {
     let a = black_box(Duration::from_seconds(1_000));

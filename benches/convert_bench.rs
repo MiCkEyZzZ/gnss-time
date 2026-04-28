@@ -1,21 +1,7 @@
-//! # Benchmark: конверсии шкал времени
-//!
-//! Цель: показать стоимость различных conversion paths.
-//!
-//! Ожидаемые результаты:
-//! - `gps_to_tai`     — 0 нс (просто u64 + константа, inlined)
-//! - `gps_to_galileo` — 0 нс (identity conversion)
-//! - `gps_to_beidou`  — ~1 нс (два сложения через TAI)
-//! - `gps_to_utc`     — < 10 нс (binary search в таблице из 19 записей)
-//! - `utc_to_gps`     — < 15 нс (двухпроходный алгоритм)
-//! - `gps_to_glonass` — < 15 нс (GPS→UTC→GLONASS chain)
-
 use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use gnss_time::{gps_to_utc, utc_to_gps, Beidou, Galileo, Gps, IntoScale, LeapSeconds, Tai, Time};
-
-// ── Fixed-offset conversions (должны быть ~0 нс) ─────────────────────────────
 
 fn bench_gps_to_tai(c: &mut Criterion) {
     let gps = black_box(Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap());
@@ -63,9 +49,6 @@ fn bench_tai_to_gps(c: &mut Criterion) {
     });
 }
 
-// ── Contextual conversions (leap second table lookup)
-// ─────────────────────────
-
 fn bench_gps_to_utc(c: &mut Criterion) {
     let gps = black_box(Time::<Gps>::from_week_tow(2086, 0.0).unwrap());
     let ls = LeapSeconds::builtin();
@@ -95,7 +78,6 @@ fn bench_utc_to_gps(c: &mut Criterion) {
     });
 }
 
-/// Roundtrip GPS → UTC → GPS measures the full contextual pipeline.
 fn bench_gps_utc_roundtrip(c: &mut Criterion) {
     let gps = black_box(Time::<Gps>::from_week_tow(2086, 0.0).unwrap());
     let ls = LeapSeconds::builtin();
@@ -109,7 +91,6 @@ fn bench_gps_utc_roundtrip(c: &mut Criterion) {
     });
 }
 
-/// Leap second lookup only (binary search in 19 entries).
 fn bench_leap_second_lookup(c: &mut Criterion) {
     use gnss_time::{leap::LeapSecondsProvider, scale::Tai, Time};
 
