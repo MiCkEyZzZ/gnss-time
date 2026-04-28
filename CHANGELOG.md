@@ -6,6 +6,13 @@ All notable changes to **gnss-time** are documented in this file.
 
 ### Added
 
+- **README**
+  - улучшил описание проекта, добавил дополнительные примеры
+    показывающие принцип работы библиотеки
+
+- **convert**
+  - улучшил документацию по коду
+
 - **Property-based тесты (ручная реализация)**: добавлены `tests/prop_tests.rs`
   с 9 property-тестами:
   - Roundtrip GPS→UTC→GPS для всех выборок (границы, leap seconds, равномерные точки,
