@@ -1,11 +1,11 @@
-//! # Матрица конверсий: полный граф поддерживаемых преобразований
+//! # Conversion matrix: the full graph of supported transformations
 //!
-//! Этот модуль документирует и проверяет **полную матрицу** допустимых
-//! конверсий между шкалами времени, а также предоставляет
-//! [`crate::matrix::ConversionMatrix`]
-//! - тип для runtime проверки совместимости шкал.
+//! This module documents and validates the **complete matrix** of allowed
+//! conversions between time scales, and also provides
+//! [`crate::matrix::ConversionMatrix`],
+//! a runtime type for checking scale compatibility.
 //!
-//! ## Таблица оффсетов (источники: ICD-GLONASS, IS-GPS-200, OS-SIS-ICD Galileo, BDS-SIS-ICD)
+//! ## Offset table (sources: ICD-GLONASS, IS-GPS-200, OS-SIS-ICD Galileo, BDS-SIS-ICD)
 //!
 //! | From \ To  | GLONASS     | GPS        | Galileo    | BeiDou     | TAI        | UTC         |
 //! |------------|-------------|------------|------------|------------|------------|-------------|
@@ -16,23 +16,25 @@
 //! | **TAI**    | no (ctx)    | −19c       | −19c       | −33c       | —          | via LS      |
 //! | **UTC**    | +757371600s | via LS     | via LS     | via LS     | via LS     | —           |
 //!
-//! Обозначения:
-//! - `identity` - одинаковые наносекунды (GPS и Galileo делят TAI-offset 19с)
-//! - `+N s` - фиксированное смещение, нет leap seconds
-//! - `via UTC+LS` - требует явный [`LeapSecondsProvider`]
-//! - `via LS` - требует явный [`LeapSecondsProvider`]
-//! - `+757371600s` - константный сдвиг эпох GLONASS..UTC без leap seconds
-//! - `no (ctx)` - невозможно без leap second контекста (contextual scale)
+//! Definitions:
+//! - `identity` — equal nanosecond values (GPS and Galileo share the same TAI
+//!   offset of 19 s)
+//! - `+N s` — fixed offset, no leap seconds involved
+//! - `via UTC+LS` — requires an explicit [`LeapSecondsProvider`]
+//! - `via LS` — requires an explicit [`LeapSecondsProvider`]
+//! - `+757371600s` — constant epoch shift between GLONASS and UTC, no leap
+//!   seconds required
+//! - `no (ctx)` — impossible without leap-second context (contextual scale)
 //!
-//! ## Категории конверсий
+//! ## Conversion categories
 //!
-//! ### Фиксированные (без контекста)
-//! Используют [`IntoScale`]:
+//! ### Fixed conversions (no context)
+//! Use [`IntoScale`].
 //! - GLONASS <-> UTC
 //! - GPS <-> TAI, GPS <-> Galileo <-> GPS <-> BeiDou
 //! - Galileo <-> BeiDou, Galileo <-> TAI, BeiDou <-> TAI
 //!
-//! ### Константные (требует LeapSecondsProvider)
+//! ### Contextual conversions (require `LeapSecondsProvider`)
 //! - GPS <-> UTC, GPS <-> GLONASS
 //! - Galileo <-> UTC, Galileo <-> GLONASS
 //! - BeiDou <-> UTC, BeiDou <-> GLONASS
@@ -42,104 +44,104 @@ use crate::{
     Utc,
 };
 
-/// Смещение GPS относительно TAI в наносекундах (GPS = TAI - 19с)
+/// GPS offset relative to TAI in nanoseconds (GPS = TAI - 19 s).
 pub const TAI_OFFSET_GPS_NS: i64 = 19 * 1_000_000_000;
 
-/// Смещение Galileo относительно TAI в наносекундах (GAL = TAI - 19с)
+/// Galileo offset relative to TAI in nanoseconds (GAL = TAI - 19 s).
 pub const TAI_OFFSET_GALILEO_NS: i64 = 19 * 1_000_000_000;
 
-/// Смещение BeiDou относительно TAI в наносекундах (BDT = TAI - 33с).
+/// BeiDou offset relative to TAI in nanoseconds (BDT = TAI - 33 s).
 pub const TAI_OFFSET_BEIDOU_NS: i64 = 33 * 1_000_000_000;
 
-/// Смещение TAI относительно себя (0 наносекунд).
+/// TAI offset relative to itself (0 nanoseconds).
 pub const TAI_OFFSET_TAI_NS: i64 = 0;
 
-/// Константный сдвиг эпох между GLONASS и UTC в наносекундах.
-/// Эпоха GLONASS (1996-01-01 00:00:00 UTC(SU)) отстоёт от эпохи UTC
-/// (1972-01-01) на 757_371_600 секунд (8766 дней - 3 часа).
+/// Constant epoch shift between GLONASS and UTC in nanoseconds.
+/// GLONASS epoch (1996-01-01 00:00:00 UTC(SU)) is 757_371_600 seconds ahead
+/// of the UTC epoch (1972-01-01).
 pub const GLONASS_UTC_EPOCH_SHIFT_NS: i64 = 757_371_600 * 1_000_000_000;
 
-/// Тип конверсии между двумя шкалами времени.
+/// Conversion kind between two time scales.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConversionKind {
-    /// Фиксированное смещение - конверсии без контекста
+    /// Fixed offset — no context required.
     Fixed,
 
-    /// Тождественное отображение (GPS <-> Galileo: одинаковые наносекунды)
+    /// Identity mapping (GPS <-> Galileo: same nanoseconds).
     Identity,
 
-    /// Константный сдвиг эпох без leap second контекста (GLONASS <-> UTC).
+    /// Constant epoch shift without leap-second context (GLONASS <-> UTC).
     EpochShift,
 
-    /// Требует [`LeapSecondsProvider`]
+    /// Requires [`LeapSecondsProvider`].
     Contextual,
 
-    /// Конверсия в себе (не нужна)
+    /// Same scale (no conversion needed).
     SameScale,
 }
 
-/// Идентификатор шкалы времени (для runtime использования).
+/// Runtime time-scale identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ScaleId {
-    /// Шкала времени GLONASS
+    /// GLONASS time scale.
     Glonass,
 
-    /// Шкала времени GPS
+    /// GPS time scale.
     Gps,
 
-    /// Шкала времени Galileo
+    /// Galileo time scale.
     Galileo,
 
-    /// Шкала времени BeiDou
+    /// BeiDou time scale.
     Beidou,
 
-    /// Международное атомное время TAI
+    /// International Atomic Time.
     Tai,
 
-    /// Всемирное координированное время UTC
+    /// Coordinated Universal Time.
     Utc,
 }
 
-/// Матрица конверсий: документирует и проверяет допустимые маршруты между всеми
-/// шкалами времени.
+/// Conversion matrix: documents and validates all allowed routes between the
+/// supported time scales.
 ///
-/// # Пример
+/// # Example
 ///
 /// ```rust
 /// use gnss_time::{ConversionMatrix, ScaleId};
 ///
-/// // Проверка что GPS <-> Galileo - fixed конверсия
+/// // Check that GPS <-> Galileo is a fixed conversion
 /// assert!(ScaleId::Gps.is_fixed(ScaleId::Galileo));
 ///
-/// // Проверка что GPS <-> UTC требует leap seconds
+/// // Check that GPS <-> UTC requires leap seconds
 /// assert!(ScaleId::Gps.needs_leap_seconds(ScaleId::Utc));
 ///
-/// // Полная матрица 6х6
+/// // Full 6x6 matrix
 /// let matrix = ConversionMatrix::new();
 ///
-/// assert_eq!(matrix.path_count(false), 14); // фиксированных путей
-/// assert_eq!(matrix.path_count(true), 16); // контекстных путей
+/// assert_eq!(matrix.path_count(false), 14); // fixed paths
+/// assert_eq!(matrix.path_count(true), 16); // contextual paths
 /// ```
 pub struct ConversionMatrix;
 
-/// Результат сквозной конверсии BeiDou -> GPS -> GLONASS -> UTC -> TAI
+/// Result of the end-to-end conversion BeiDou -> GPS -> GLONASS -> UTC -> TAI.
 #[derive(Debug)]
 pub struct ConversionChain {
-    /// GLONASS время
+    /// GLONASS time.
     pub glonass: Time<Glonass>,
 
-    /// GPS время
+    /// GPS time.
     pub gps: Time<Gps>,
 
-    /// UTC время
+    /// UTC time.
     pub utc: Time<Utc>,
 
-    /// TAI время
+    /// TAI time.
     pub tai: Time<Tai>,
 }
 
 impl ScaleId {
-    /// Все поддерживаемые шкалы.
+    /// All supported scales.
     pub const ALL: [ScaleId; 6] = [
         ScaleId::Glonass,
         ScaleId::Gps,
@@ -149,7 +151,7 @@ impl ScaleId {
         ScaleId::Utc,
     ];
 
-    /// ASCII имя шкалы.
+    /// Returns the ASCII name of the scale.
     pub const fn name(self) -> &'static str {
         match self {
             ScaleId::Glonass => "GLO",
@@ -161,14 +163,15 @@ impl ScaleId {
         }
     }
 
-    /// Определяет тип конверсии между текущей шкалой и целевой.
+    /// Determines the conversion kind between the current scale and a target
+    /// scale.
     ///
-    /// # Параметры
-    /// - `target` - целевая шкала времени
+    /// # Parameters
+    /// - `target` — target time scale
     ///
-    /// # Возвращает
-    /// Тип конверсии: фиксированная, тождественная, сдвиг эпохи,
-    /// контекстная или ту же шкалу.
+    /// # Returns
+    /// The conversion kind: fixed, identity, epoch shift, contextual, or same
+    /// scale.
     pub const fn conversion_kind(
         self,
         target: ScaleId,
@@ -183,7 +186,7 @@ impl ScaleId {
             (Gps, Galileo) | (Galileo, Gps) => Identity,
             // GPS <-> BeiDou: фиксированное ±14 секунд
             (Gps, Beidou) | (Beidou, Gps) => Fixed,
-            // Galileo ↔ BeiDou: фиксированное (как и GPS <-> BeiDou)
+            // Galileo <-> BeiDou: фиксированное (как и GPS <-> BeiDou)
             (Galileo, Beidou) | (Beidou, Galileo) => Fixed,
             // Galileo <-> TAI, BeiDou <-> TAI
             (Galileo, Tai) | (Tai, Galileo) => Fixed,
@@ -205,8 +208,8 @@ impl ScaleId {
         }
     }
 
-    /// Возвращает `true` если конверсия `self -> target` не требует leap second
-    /// контекста.
+    /// Returns `true` if the conversion `self -> target` does not require leap
+    /// second context.
     pub const fn is_fixed(
         self,
         target: ScaleId,
@@ -217,7 +220,7 @@ impl ScaleId {
         )
     }
 
-    /// Возвращает `true` если конверсия требует [`LeapSecondsProvider`].
+    /// Returns `true` if the conversion requires a [`LeapSecondsProvider`].
     pub const fn needs_leap_seconds(
         self,
         target: ScaleId,
@@ -227,12 +230,12 @@ impl ScaleId {
 }
 
 impl ConversionMatrix {
-    /// Создаёт новую матрицу конверсии.
+    /// Creates a new conversion matrix.
     pub fn new() -> Self {
         ConversionMatrix
     }
 
-    /// Кол-во путей заданного типа (fixed или contextual)
+    /// Returns the number of paths of the requested type (fixed or contextual).
     pub fn path_count(
         &self,
         contextual: bool,
@@ -255,7 +258,7 @@ impl ConversionMatrix {
         count
     }
 
-    /// Тип конверсии `from -> to`.
+    /// Returns the conversion kind for `from -> to`.
     pub fn kind(
         &self,
         from: ScaleId,
@@ -271,7 +274,7 @@ impl Default for ConversionMatrix {
     }
 }
 
-/// Выполнить конверсию GPS -> BeiDou -> GLONASS -> UTC -> TAI за один вызов.
+/// Performs the conversion GPS -> BeiDou -> GLONASS -> UTC -> TAI in one call.
 pub fn beidou_via_gps_to_glonass_via_utc<P: LeapSecondsProvider>(
     bdt: Time<Beidou>,
     ls: &P,
