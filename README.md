@@ -48,9 +48,9 @@ Core idea:
 
 GNSS time systems are not identical:
 
+- **GLONASS** → aligned to **UTC(SU)** (leap-second dependent)
 - **GPS / Galileo** → aligned to **TAI − 19s**
 - **BeiDou (BDT)** → aligned to **TAI − 33s**
-- **GLONASS** → aligned to **UTC(SU)** (leap-second dependent)
 - **TAI** → continuous atomic time (no leap seconds)
 - **UTC** → civil time with leap seconds
 
