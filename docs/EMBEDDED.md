@@ -7,10 +7,10 @@
 ```toml
 # Cargo.toml
 [dependencies]
-gnss-time = { version = "0.2", default-features = false }
+gnss-time = { version = "0.3", default-features = false }
 
 # Для embedded-логирования через probe-rs:
-gnss-time = { version = "0.2", features = ["defmt"] }
+gnss-time = { version = "0.3", features = ["defmt"] }
 defmt      = "0.3"
 ```
 
@@ -78,7 +78,7 @@ let fallible: Result<Time<Gps>, _> = t.try_add(d);
 Ключевые типы поддерживают `const`-конструирование для использования в `static`:
 
 ```rust
-use gnss_time::{Time, Duration, scale::Gps};
+use gnss_time::{Time, Duration, Gps};
 
 static REFERENCE_EPOCH: Time<Gps> = Time::<Gps>::EPOCH;
 static WINDOW: Duration = Duration::from_seconds(30);
@@ -90,7 +90,7 @@ const FIVE_MINUTES: Duration = Duration::from_seconds(300);
 Включите фичу `defmt` и добавьте `defmt = "0.3"` в зависимости:
 
 ```rust
-use gnss_time::{Time, scale::Gps};
+use gnss_time::{Time, Gps};
 
 let t = Time::<Gps>::from_week_tow(2345, 0.0).unwrap();
 defmt::info!("GPS timestamp: {}", t);
@@ -125,7 +125,7 @@ rustup target add riscv32imac-unknown-none-elf
 Пример: извлечение `Time<Gps>` из бинарного пакета u-blox UBX.
 
 ```rust
-use gnss_time::{GnssTimeError, Time, scale::Gps};
+use gnss_time::{GnssTimeError, Time, Gps};
 
 /// Парсит GPS-время из payload UBX NAV-TIMEGPS (28 байт).
 /// Возвращает Err, если флаги валидности времени не установлены.
@@ -154,10 +154,10 @@ pub fn parse_ubx_nav_timegps(payload: &[u8; 28]) -> Result<Time<Gps>, GnssTimeEr
 ## Пример для приёмника GLONASS
 
 ```rust
-use gnss_time::{Time, scale::Glonass};
+use gnss_time::{GnssTimeError, Time, Glonass};
 
 /// Парсит время GLONASS из эфемерид ICD-GLONASS.
-pub fn from_glonass_icd(nt: u32, tod_s: f64) -> Result<Time<Glonass>, gnss_time::GnssTimeError> {
+pub fn from_glonass_icd(nt: u32, tod_s: f64) -> Result<Time<Glonass>, GnssTimeError> {
     // N_T — номер дня в 4-летнем интервале, начиная с последнего
     // 1 января високосного года. Для простоты считаем как смещение дней от эпохи.
     Time::<Glonass>::from_day_tod(nt, tod_s)
@@ -167,7 +167,7 @@ pub fn from_glonass_icd(nt: u32, tod_s: f64) -> Result<Time<Glonass>, gnss_time:
 ## Паттерн memory-mapped регистров
 
 ```rust
-use gnss_time::{Duration, Time, scale::Gps};
+use gnss_time::{Duration, Time, Gps};
 
 // Хранение GPS-метки времени в 64-битном регистре или ячейке FRAM.
 fn write_timestamp(reg: &mut u64, t: Time<Gps>) {
