@@ -1,7 +1,3 @@
-//! Demonstrates fixed-offset conversions (no leap seconds needed).
-//!
-//! These conversions are compile-time constant and never ambiguous.
-
 use gnss_time::prelude::*;
 
 fn main() {

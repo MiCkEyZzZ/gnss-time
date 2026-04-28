@@ -21,6 +21,7 @@ fn main() {
 
             println!("{:?} -> {:?} : {:?} ({})", from, to, kind, fixed);
         }
+
         println!();
     }
 

@@ -19,10 +19,14 @@ gnss-time
 │   ├── README.md
 │   └── time_bench.rs
 ├── docs
+│   ├── ARCHITECTURE.md
 │   ├── duration.txt
+│   ├── EMBEDDED.md
 │   ├── epoch.txt
 │   ├── GNSS_TIME_PRIMER.md
+│   ├── INVARIANTS.md
 │   ├── leap.txt
+│   ├── LEAP_SECONDS.md
 │   ├── PROJECT_STRUCTURE.md
 │   ├── README.txt
 │   ├── ROADMAP.md
