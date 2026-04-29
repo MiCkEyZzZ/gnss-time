@@ -100,6 +100,7 @@ jobs:
           - "std"
           - "defmt"
           - "std,defmt"
+
     steps:
       - uses: actions/checkout@v4
 
@@ -108,6 +109,13 @@ jobs:
         with:
           toolchain: nightly-2026-02-14
 
+      - name: Normalize features for cache key
+        id: normalize
+        run: |
+          FEATURES="${{ matrix.features }}"
+          FEATURES="${FEATURES//,/-}"
+          echo "features=$FEATURES" >> $GITHUB_OUTPUT
+
       - name: Cache cargo
         uses: actions/cache@v4
         with:
@@ -115,7 +123,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-test-${{ matrix.features }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-test-${{ steps.normalize.outputs.features }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: cargo test
         run: |
