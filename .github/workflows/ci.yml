@@ -1,16 +1,14 @@
-# ci.yml
-#
-# Основной CI пайплайн: качество кода, тесты, документация, MSRV, аудит.
-# Запускается при каждом push и PR.
+# Main CI pipeline: code quality, tests, docs, MSRV, audit.
+# Runs on evry push and PR.
 #
 # Jobs:
-#   fmt      — форматирование (cargo fmt + taplo)
-#   clippy   — статический анализ, все feature-комбинации
+#   fmt      — formating (cargo fmt + taplo)
+#   clippy   — static analisis, all feature combinations
 #   test     — cargo test (default, std, defmt, std+defmt)
-#   docs     — cargo doc без предупреждений
-#   deny     — аудит лицензий и CVE (cargo deny)
-#   msrv     — проверка MSRV = Rust 1.75
-#   embedded — вызывает embedded.yml как reusable workflow
+#   docs     — cargo doc with no warnings
+#   deny     — licenses and CVE audit (cargo deny)
+#   msrv     — MSRV check = Rust 1.75
+#   embedded — invokes embedded.yml as a reusable workflow
 
 name: CI
 
@@ -26,7 +24,6 @@ env:
   RUSTFLAGS: "-D warnings"
 
 jobs:
-  # ── Форматирование ────────────────────────────────────────────────────────────
   fmt:
     name: Format
     runs-on: ubuntu-latest
@@ -50,7 +47,6 @@ jobs:
       - name: taplo fmt --check (TOML файлы)
         run: taplo fmt --check
 
-  # ── Clippy ────────────────────────────────────────────────────────────────────
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
@@ -134,7 +130,6 @@ jobs:
             cargo test --features "$FEATURES"
           fi
 
-  # ── Документация ──────────────────────────────────────────────────────────────
   docs:
     name: Docs
     runs-on: ubuntu-latest
@@ -149,7 +144,6 @@ jobs:
       - name: cargo doc — all features, -D warnings
         run: RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
 
-  # ── Аудит лицензий и уязвимостей ─────────────────────────────────────────────
   deny:
     name: Cargo deny
     runs-on: ubuntu-latest
@@ -163,7 +157,6 @@ jobs:
           command: check
           arguments: --all-features
 
-  # ── MSRV: минимальная поддерживаемая версия Rust (1.75) ─────────────────────
   msrv:
     name: MSRV 1.75
     runs-on: ubuntu-latest
@@ -184,10 +177,9 @@ jobs:
       - name: cargo check — defmt feature
         run: cargo check --lib --no-default-features --features defmt
 
-  # ── Embedded (reusable) ───────────────────────────────────────────────────────
-  # Вызывает embedded.yml как reusable workflow.
-  # Не дублирует логику — embedded.yml остаётся единым источником правды.
+  # Invokes embedded.yml as a reusable workflow.
+  # Does not duplicate logic - embedded.yml remains the single source of truth.
   embedded:
     name: Embedded
-    needs: [fmt, clippy] # запускать только если базовые проверки прошли
+    needs: [fmt, clippy] # run only if basic checks have passed
     uses: ./.github/workflows/embedded.yml

@@ -1,36 +1,33 @@
-# publish.yml
+# Publishing to crates.io.
 #
-# Публикация на crates.io.
-#
-# КОГДА запускается:
-#   Только при создании тега v*.*.* (push tag).
-#   Тег ставится вручную после мерджа в master:
+# WHEN if runs:
+#   Only when a tag v*.*.* created (push tag).
+#   The tah is created manually after merging into master:
 #
 #     git tag v0.3.1
 #     git push origin v0.3.1
 #
-# ЧТО делает:
-#   1. Ждёт прохождения основного CI (ci.yml) на том же коммите.
-#   2. Проверяет что версия в Cargo.toml совпадает с тегом.
-#   3. cargo publish --dry-run (smoke test перед реальной публикацией).
-#   4. cargo publish (реальная публикация с CARGO_REGISTRY_TOKEN).
+# WHAT it does:
+#   1. Waits for the match main CI (ci.yml) on the same cpmmite.
+#   2. Verifies that the version in Cargo.toml matches the tag.
+#   3. cargo publish --dry-run (smoke test before actual publishing).
+#   4. cargo publish (actual publish using CARGO_REGISTRY_TOKEN).
 #
-# СЕКРЕТ:
-#   CARGO_REGISTRY_TOKEN — API-токен crates.io.
-#   Добавить: GitHub → Settings → Secrets → Actions → New repository secret.
+# SECRET:
+#   CARGO_REGISTRY_TOKEN — crates.io API token.
+#   Add: GitHub → Settings → Secrets → Actions → New repository secret.
 
 name: Publish
 
 on:
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+" # только семантические теги: v0.3.0, v1.0.0, etc.
+      - "v[0-9]+.[0-9]+.[0-9]+" # only semantic tags: v0.3.0, v1.0.0, etc.
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # ── Проверка: CI должен пройти на том же коммите ─────────────────────────────
   wait-ci:
     name: Wait for CI
     runs-on: ubuntu-latest
@@ -39,11 +36,10 @@ jobs:
         uses: lewagon/wait-on-check-action@v1.3.4
         with:
           ref: ${{ github.sha }}
-          check-name: "CI" # имя workflow из ci.yml (name: CI)
+          check-name: "CI" # workflow name from ci.yml (name: CI)
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 20 # опрашивать каждые 20 секунд
+          wait-interval: 20 # poll ebery 20 seconds
 
-  # ── Проверка версии ───────────────────────────────────────────────────────────
   check-version:
     name: Check version matches tag
     runs-on: ubuntu-latest
@@ -74,7 +70,6 @@ jobs:
           fi
           echo "Version OK: $TAG"
 
-  # ── Dry run (smoke test) ──────────────────────────────────────────────────────
   dry-run:
     name: cargo publish --dry-run
     runs-on: ubuntu-latest
@@ -90,12 +85,11 @@ jobs:
       - name: cargo publish --dry-run
         run: cargo publish --dry-run --allow-dirty
 
-  # ── Публикация на crates.io ───────────────────────────────────────────────────
   publish:
     name: cargo publish
     runs-on: ubuntu-latest
     needs: dry-run
-    environment: crates-io # GitHub Environment с защитой (требует ревью)
+    environment: crates-io # GitHub Environment with protection (requires review)
     steps:
       - uses: actions/checkout@v4
 
