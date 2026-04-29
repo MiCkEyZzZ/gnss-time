@@ -9,55 +9,35 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
-- **docs**
-  - добавил описание `ARCHITECTURE.md`
-  - добавил описание `EMBEDDED.md`
-  - добавил описание `GNSS_TIME_PRIMER.md`
-  - добавил описание `INVARIANTS.md`
-  - добавил описание `LEAP_SECONDS.md`
-
-- **README**
-  - улучшил описание проекта, добавил дополнительные примеры
-    показывающие принцип работы библиотеки
-
-- **convert**
-  - улучшил документацию по коду
-
-- **Property-based тесты (ручная реализация)**: добавлены `tests/prop_tests.rs`
-  с 9 property-тестами:
-  - Roundtrip GPS→UTC→GPS для всех выборок (границы, leap seconds, равномерные точки,
-    реальные эпохи)
+- `docs/ARCHITECTURE.md` — internal design, module layout, TAI pivot, feature flags
+- `docs/EMBEDDED.md` — embedded usage guide with UBX/GLONASS parsing examples,
+  benchmark table
+- `docs/GNSS_TIME_PRIMER.md` — GPS/GLONASS/UTC/TAI explained for developers
+- `docs/INVARIANTS.md` — type-level, arithmetic, conversion and memory invariants
+- `docs/LEAP_SECONDS.md` — full leap second table reference with source citations
+- `examples/README.md` — examples index with benchmark results
+- Property-based tests `tests/prop_tests.rs` (9 tests):
+  - Roundtrip GPS→UTC→GPS (256 sample points, all leap second boundaries, real
+    IGS epochs)
   - Roundtrip GPS→GAL→GPS, GPS→BDT→GPS, GPS→TAI→GPS
-  - Сортировка `Vec<Time<Gps>>` совпадает с сортировкой по внутреннему `u64`
-  - Монотонность GPS→UTC в интервалах между leap seconds
-  - Проверка GPS−UTC смещений на известных эпохах
-  - Все 18 исторических leap second transitions (1981–2017)
-  - Строгое возрастание GPS−UTC разности на каждом переходе
-
-- **time.rs**:
-  - добавлены дополнительные тесты для проверки на:
-    - `Time<Gps>::MAX` must equal `u64::MAX` nanoseconds
-    - `NANOS_PER_YEAR` sanity: 365 days worth of nanoseconds
-    - `MAX` covers at least 500 years from the GPS epoch (1980-01-06)
-    - checked_add near `u64::MAX`
-    - checked_sub near `EPOCH`
-    - saturating_add
-    - saturating_sub_duration
-    - try_add / try_sub_duration
-    - Panicking operators panic on overflow
-    - checked_elapsed near i64 boundary
+  - Sort order `Vec<Time<Gps>>` matches internal `u64` order
+  - GPS→UTC monotonicity between leap second events
+  - GPS−UTC offset verification at known epochs
+  - All 18 historical leap second transitions (1981–2017)
+  - Strict GPS−UTC offset increase at each transition
+- `Time::NANOS_PER_YEAR` constant (365 × 24 × 3600 × 10⁹ ns)
+- Overflow boundary tests in `src/time.rs`:
+  `checked_add` / `checked_sub` near `u64::MAX` and `EPOCH`,
+  `saturating_add` / `saturating_sub_duration`,
+  `try_add` / `try_sub_duration`,
+  panicking operators panic on overflow,
+  `checked_elapsed` near `i64` boundary
 
 ### Changed
 
 - `benches/arithmetic_bench.rs`: added `checked_add`, `checked_sub_duration`,
   `saturating_add`, `Duration` benchmarks; updated target figures
 - `benches/convert_bench.rs`: added `leap_second_lookup` microbenchmark
-
-### Fixed
-
-- **time.rs**: исправлена опечатка "oberflow" → "overflow" в документации
-- **time.rs**: добавлены новые тесты граничных случаев (`test_checked_add_one_ns_before_max_succeeds`,
-  `test_saturating_add_negative_clamps_at_epoch`, и др.)
 
 ## [0.3.0] — 2026-04-27
 
@@ -142,45 +122,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
-- **Cargo.toml**
-  - обвновлена конфигурацию добавлена поддержка:
-    - `default = []` - по умолчанию, нет лишних зависимостей
-    - `std = []` - добавляет `std::error::Error` для `GnssTimeError`
-    - `defmt = ["dep:defmt"]` - активирует `defmt::Format` для всех типов через
-      `dep:` синтаксис (Cargo 1.60+), подтягивает `defmt = { version = "0.3", optional = true }`
-    - `[package.metadata.docs.rs]` - docs.rs собирает с `["std","defmt"]` и
-      показывает embedded targets
-
-- **justfile**
-  - улучшил конфигурацию команд добавлены новые команды:
-    - `help`
-    - `setup-embedded`
-    - `check`
-    - `check-std`
-    - `check-no-std`
-    - `check-no-std-defmt`
-    - `lint-no-std`
-    - `msrv`
-    - `hack`
-    - `test-host`
-    - `test-no-std`
-    - `ci`
+- `Cargo.toml`: bumped to `0.3.0`; added `defmt = ["dep:defmt"]` with
+  `dep:` syntax (Cargo 1.60+); added `[package.metadata.docs.rs]` for
+  docs.rs targets and features.
+- `justfile`: added `setup-embedded`, `check-std`, `check-no-std`,
+  `check-no-std-defmt`, `lint-no-std`, `msrv`, `hack`, `test-host`,
+  `test-no-std`, `ci` commands.
 
 ### Fixed
 
-- **time.rs**: исправлена опечатка в документации "Дипазон значений" → "Диапазон
-  значений".
-
-- **time.rs**: убран `const` у метода `as_seconds_f64` (совместимость с `no_std`).
-
-- **leap.rs**: исправлена функция `LeapSeconds::builtin()` для совместимости с `no_std`.
-  - Раньше использовалась `const fn`, которая не может обращаться к статическим
-    данным.
-  - Теперь возвращает ссылку на статический экземпляр `BUILTIN_LEAP_SECONDS`, что
-    корректно работает в `no_std`-среде.
-
-- **time.rs**
-  - исправлена ф-я `as_seconds_f64` убрано ключевое слово `const`
+- `leap.rs`: `LeapSeconds::builtin()` now returns `&'static LeapSeconds`
+  (was `const fn` — incompatible with `no_std` static data access).
+- `time.rs`: removed `const` from `as_seconds_f64` (floating-point ops
+  are not `const` in stable Rust 1.75).
 
 ## [0.2.0] — 2026-04-26
 
@@ -254,12 +208,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
-- **Исправлен алгоритм `utc_to_gps`** — заменён однопроходный приближённый lookup
-  на двухпроходный.
-  Раньше на границе leap second обратная конверсия `GPS → UTC → GPS` давала ошибку
-  в 1 секунду.
-  Теперь roundtrip точен с погрешностью менее 1 наносекунды (фундаментальная
-  неоднозначность остаётся только в самой секунде вставки).
+- `utc_to_gps`: replaced single-pass approximation with a two-pass algorithm.
+  Roundtrip `GPS → UTC → GPS` is now exact (< 1 ns) at all 18 GPS-era
+  leap second boundaries.
 
 ### Documentation
 
@@ -339,18 +290,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - **Тесты** — покрытие всех ключевых функций, включая проверки на переполнение,
   граничные случаи leap seconds, round-trip конверсии.
-
-### Changed
-
-- Нет (первый выпуск).
-
-### Fixed
-
-- Нет (первый выпуск).
-
-### Removed
-
-- Нет.
 
 ### Documentation
 

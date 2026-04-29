@@ -1,9 +1,11 @@
 # gnss-time
 
-[![Build Status](https://github.com/MiCkEyZzZ/gnss-time/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/MiCkEyZzZ/gnss-time/actions/workflows/ci.yml)
+[![CI](https://github.com/MiCkEyZzZ/gnss-time/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/MiCkEyZzZ/gnss-time/actions/workflows/ci.yml)
 ![Crates.io](https://img.shields.io/crates/v/gnss-time)
 ![no_std](https://img.shields.io/badge/no__std-yes-blue)
 [![docs.rs](https://docs.rs/gnss-time/badge.svg)](https://docs.rs/gnss-time)
+![MSRV](https://img.shields.io/badge/MSRV-1.75-blue)
+![Embedded](https://img.shields.io/badge/embedded-friendly-green)
 
 **Type-safe time handling for GNSS systems.**
 
