@@ -1,50 +1,50 @@
-## Taplo конфигурация форматирования TOML файлов для проекта Gorka
-## Назначение: обеспечить единый стиль всех Cargo.toml файлов в workspace
-## Применение: taplo fmt  — для форматирования
-## Документация: https://taplo.tamasfe.dev/configuration/file.html
+## Taplo configuration for formatting TOML files in the Gorka project
+## Purpose: enforce a consistent style across all Cargo.toml files in the workspace
+## Usage: taplo fmt — to format files
+## Documentation: https://taplo.tamasfe.dev/configuration/file.html
 
-# Какие файлы включать для форматирования.
-# Форматировать нужно все Cargo.toml во всём workspace.
+# Which files to include for formatting.
+# We format all Cargo.toml files across the entire workspace.
 include = ["**/Cargo.toml"]
 
 [formatting]
-# Максимальная ширина строки (после которой Taplo может переносить элементы).
+# Maximum line width (beyond which Taplo may wrap elements).
 column_width = 100
-# Максимальная ширина строки (после которой Taplo может переносить элементы).
+# Allow arrays to expand automatically when needed.
 array_auto_expand = true
-# Не схлопывать массивы в одну строку (true = разрешить схлопывание, здесь — выключено).
+# Do not collapse arrays into a single line (false = keep expanded for readability).
 array_auto_collapse = false
-# Делать компактные массивы (убирает лишние пробелы).
+# Use compact array formatting (removes unnecessary whitespace).
 compact_arrays = true
-# Не схлопывать inline-таблицы в одну строку (оставлять читабельными).
+# Do not compact inline tables into a single line (keep them readable).
 compact_inline_tables = false
-# Добавлять запятую после последнего элемента массива (trailing comma).
+# Add trailing comma after last array element.
 array_trailing_comma = true
-# Строка отступа — 4 пробела.
+# Indentation style — 4 spaces.
 indent_string = "    "
-# Добавлять пустую строку в конце файла.
+# Ensure newline at end of file.
 trailing_newline = true
-# Выровнять комментарии по колонке.
+# Align comments to a fixed column.
 align_comments = true
-# Не выравнивать ключи и значения (оставлять как есть).
+# Do not align key-value entries (preserve natural structure).
 align_entries = false
-# Не объединять несколько пар ключ=значение в одну строку.
+# Do not compact multiple key-value pairs into a single line.
 compact_entries = false
-# Разворачивать inline-таблицы (например, { key = "value" }) в многострочный вид при необходимости.
+# Expand inline tables (e.g. { key = "value" }) into multi-line form when needed.
 inline_table_expand = true
-# Использовать UNIX-разделитель строк (LF), а не Windows (CRLF).
+# Use Unix line endings (LF) instead of CRLF.
 crlf = false
 
-# Не сортировать ключи по умолчанию.
+# Do not reorder keys globally.
 reorder_keys = false
-# Не сортировать элементы в массивах.
+# Do not reorder array elements.
 reorder_arrays = false
-# Не сортировать inline-таблицы.
+# Do not reorder inline tables.
 reorder_inline_tables = false
 
 [[rule]]
-# Для секций зависимостей — сортировать ключи по алфавиту.
-# Это помогает держать Cargo.toml аккуратным и читаемым.
+# For dependency sections — sort keys alphabetically.
+# Keeps Cargo.toml clean and consistent.
 keys = [
   "build-dependencies",
   "dependencies",
@@ -54,14 +54,14 @@ keys = [
 formatting = { reorder_keys = true }
 
 [[rule]]
-# Для секций package (основные метаданные проекта) — порядок ключей сохраняется.
-# Это важно, т.к. разработчики часто придерживаются логического порядка:
-# name → version → edition → authors → license → description и т.п.
+# For package metadata sections — preserve key order.
+# Important because logical ordering is usually intentional:
+# name → version → edition → authors → license → description, etc.
 keys = ["package", "workspace.package"]
 formatting = { reorder_keys = false }
 
-# Файлы и папки, которые Taplo не должен форматировать.
-# Пути указываются относительно корня workspace.
+# Files and directories excluded from formatting.
+# Paths are relative to the workspace root.
 exclude = [
   "target/**",
   "docs/**",

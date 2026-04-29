@@ -1,46 +1,46 @@
-# rustfmt.toml — настройки форматирования для проекта Gorka.
-# Примечание: некоторые опции (format_macro_bodies, format_macro_matchers, unstable_features)
-# требуют nightly rustfmt.
+# rustfmt.toml — formatting configuration for the Gorka project.
+# Note: some options (format_macro_bodies, format_macro_matchers, unstable_features)
+# require nightly rustfmt.
 
 edition = "2021" # Rust edition.
-max_width = 100  # Желательная максимальная ширина строки.
+max_width = 100  # Preferred maximum line width.
 
-hard_tabs = false                  # false => используем пробелы (обычно 4 пробела).
-comment_width = 80                 # Ширина при переносе комментариев.
-wrap_comments = true               # Переносить длинные комментарии автоматически.
-format_code_in_doc_comments = true # Форматировать код внутри doc-комментариев.
+hard_tabs = false                  # false => use spaces (typically 4 spaces).
+comment_width = 80                 # Wrap comments at this width.
+wrap_comments = true               # Automatically wrap long comments.
+format_code_in_doc_comments = true # Format code inside doc comments.
 
-# Макросы — форматирование тел и matchers (требует nightly rustfmt)
+# Macros — formatting macro bodies and matchers (requires nightly rustfmt)
 format_macro_bodies = true
 format_macro_matchers = true
 
-# Нормализация комментариев и doc-атрибутов
+# Comment and doc attribute normalization
 normalize_comments = true
 normalize_doc_attributes = true
 
-# Конденсация wildcard-суффиксов в импортах (устаревшие/упрощающие формы)
+# Condense wildcard suffixes in imports (legacy / simplification)
 condense_wildcard_suffixes = true
 
-newline_style = "Unix" # Использовать LF (Unix) для переводов строк.
+newline_style = "Unix" # Use LF line endings.
 
-# Удобные шорткаты
-use_field_init_shorthand = true # s{x} при инициализации вместо x: x
-use_try_shorthand = true        # prefer ?/try shorthands
+# Convenience shorthands
+use_field_init_shorthand = true # x instead of x: x in struct initialization
+use_try_shorthand = true        # prefer ? / try shorthand
 
-# Включаем экспериментальные фичи rustfmt (требует nightly)
+# Enable experimental rustfmt features (requires nightly)
 unstable_features = true
 
-# Запятая после последнего элемента в многострочных литералах (git-friendly)
+# Trailing comma style for multi-line lists (git-friendly)
 trailing_comma = "Vertical"
 
-# Импорт/группировка use-выражений
-imports_granularity = "Crate"      # "Crate" группирует внутри crate::..., "Preserve" — не трогать
-imports_layout = "Mixed"           # Расположение/внешний вид групп импортов
-group_imports = "StdExternalCrate" # Сначала std, затем внешние крейты, затем crate/local
+# Import grouping configuration
+imports_granularity = "Crate"      # Group within crate::..., "Preserve" leaves as-is
+imports_layout = "Mixed"           # Layout style of grouped imports
+group_imports = "StdExternalCrate" # std first, then external crates, then local
 
-# Стиль размещения скобок
-brace_style = "SameLineWhere"          # Где ставить '{' для where/impl и т.д.
-control_brace_style = "AlwaysSameLine" # '{' для if/for/while — на той же строке
+# Brace placement style
+brace_style = "SameLineWhere"          # Opening brace placement for where/impl
+control_brace_style = "AlwaysSameLine" # Opening brace for if/for/while
 
-# Расположение параметров функции: каждый параметр на новой строке (очень "вертикально")
+# Function parameter layout: each parameter on a new line (very vertical style)
 fn_params_layout = "Vertical"

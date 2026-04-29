@@ -2,33 +2,38 @@
 .DS_Store
 
 # Rust build artifacts
-/target
-dist
-tmp
-**/cargo-target
+/target/
+**/target/
+dist/
+tmp/
 *.lock
 
-# Editor and IDE directories
+# IDE / editor files
 .idea/
 .vscode/
 .zed/
-.trunk
+.trunk/
 *.iml
 out/
 .devcontainer/
-
-# Environment files and secrets
-.env
-
-# VS Code workspace configuration
 *.code-workspace
+
+# Environment / secrets
+.env
+.env.*
 
 # WebAssembly build outputs
 *.wasm
 
+# OS / binaries (optional, usually unnecessary)
+*.exe
 *.dll
+*.so
+*.dylib
 
-/target
+# Optional local artifacts
+*.log
 
+# other
 ROADMAP.md
 **.txt

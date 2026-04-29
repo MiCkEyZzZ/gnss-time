@@ -15,7 +15,7 @@ authors = ["<zedmfix@gmail.com>"]
 # Minimum supported Rust version
 rust-version = "1.75"
 
-# Список файлов, включаемых в пакет crates.io (исключает dev-файлы)
+# List of files included in the crates.io package (excludes dev files)
 include = [
     "src/**/*",
     "Cargo.toml",
@@ -26,30 +26,30 @@ include = [
 ]
 
 [features]
-# Список feature-флагов по умолчанию — пустой.
-# Crate компилируется в no_std среде без каких-либо флагов.
+# Default feature set is empty.
+# The crate compiles in no_std environments with no flags enabled.
 default = []
 
-# std: добавляет impl std::error::Error for GnssTimeError.
-# Нужен только если потребитель использует Box<dyn Error> или anyhow.
-# Не включайте если собираете под embedded!
+# std: adds impl std::error::Error for GnssTimeError.
+# Only needed if the consumer uses Box<dyn Error> or anyhow.
+# Do NOT enable for embedded builds!
 std = []
 
-# defmt: добавляет impl defmt::Format для всех публичных типов.
-# Используется для структурированного логирования через probe-rs / defmt-rtt.
+# defmt: adds impl defmt::Format for all public types.
+# Used for structured logging via probe-rs / defmt-rtt.
 #
-# Использование в потребительском Cargo.toml:
+# Usage in Cargo.toml:
 #   [dependencies]
 #   gnss-time = { version = "0.2", features = ["defmt"] }
 #   defmt     = "0.3"
 #
-# Версии defmt: https://crates.io/crates/defmt
+# defmt versions: https://crates.io/crates/defmt
 defmt = ["dep:defmt"]
 
 [dependencies]
-# defmt — опциональная зависимость для embedded logging.
-# Активируется через features = ["defmt"].
-# Pin-версия 0.3 для совместимости с defmt-rtt 0.4+.
+# defmt — optional dependency for embedded logging.
+# Enabled via features = ["defmt"].
+# Pinned to 0.3 for compatibility with defmt-rtt 0.4+.
 defmt = { version = "0.3", optional = true }
 
 [dev-dependencies]
@@ -104,7 +104,7 @@ name = "matrix_inspection"
 path = "examples/matrix_inspection.rs"
 
 [package.metadata.docs.rs]
-# docs.rs собирает с features = ["std", "defmt"] чтобы показать все API
+# docs.rs builds with features = ["std", "defmt"] to expose full API
 features = ["std", "defmt"]
-# Указываем targets для которых показываем docs
+# Targets for documentation builds
 targets = ["x86_64-unknown-linux-gnu", "thumbv7em-none-eabihf"]

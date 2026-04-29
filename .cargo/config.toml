@@ -1,33 +1,33 @@
-# Конфигурация кросс-компиляции для embedded targets.
+# Cross-compilation configuration for embedded targets.
 #
-# Локальная сборка под конкретный таргет:
+# Local builds for a specific target:
 #   cargo build --target thumbv7em-none-eabihf
 #   cargo build --target riscv32imac-unknown-none-elf
 #
-# Проверка без std:
+# No-std verification:
 #   cargo check --target thumbv7em-none-eabihf
 #
-# Установка таргетов (однократно):
+# One-time target installation:
 #   rustup target add thumbv7em-none-eabihf
 #   rustup target add thumbv7em-none-eabi
 #   rustup target add riscv32imac-unknown-none-elf
 
 [build]
-# Хостовый таргет по умолчанию.
-# CI переопределяет через CARGO_BUILD_TARGET или --target.
+# Default host target.
+# CI overrides this via CARGO_BUILD_TARGET or --target.
 
-# Cortex-M4F / M7F с FPU (STM32F4xx, STM32F7xx, nRF52840)
+# Cortex-M4F / M7F with FPU (STM32F4xx, STM32F7xx, nRF52840)
 [target.thumbv7em-none-eabihf]
-# opt-level=s — минимальный размер бинарника (важно для flash-ограничений)
-# codegen-units=1 — лучшая оптимизация через единый кодогенератор
+# opt-level=s — minimize binary size (important for flash constraints)
+# codegen-units=1 — better optimization via single codegen unit
 rustflags = [
     "-C", "opt-level=s",
     "-C", "codegen-units=1",
-    "-C", "link-arg=-Tlink.x",   # linker script от cortex-m-rt (если используется)
+    "-C", "link-arg=-Tlink.x",    # linker script from cortex-m-rt (if used)
     "-D", "warnings",
 ]
 
-# Cortex-M4 / M7 без FPU (STM32F3xx)
+# Cortex-M4 / M7 without FPU (STM32F3xx)
 [target.thumbv7em-none-eabi]
 rustflags = [
     "-C", "opt-level=s",
@@ -43,7 +43,7 @@ rustflags = [
     "-D", "warnings",
 ]
 
-# RISC-V 32-bit (ESP32-C3, GD32VF103, CH32V)
+# 32-bit RISC-V (ESP32-C3, GD32VF103, CH32V)
 [target.riscv32imac-unknown-none-elf]
 rustflags = [
     "-C", "opt-level=s",
@@ -51,7 +51,7 @@ rustflags = [
     "-D", "warnings",
 ]
 
-# RISC-V 32-bit без atomic (ESP32-C2)
+# 32-bit RISC-V without atomic support (ESP32-C2)
 [target.riscv32i-unknown-none-elf]
 rustflags = [
     "-C", "opt-level=s",
