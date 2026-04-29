@@ -457,7 +457,7 @@ impl Time<Glonass> {
     /// ```
     #[inline]
     pub const fn day_of_week(self) -> u8 {
-        // Эпоха ГЛОНАСС = понедельник → день 0 соответствует 1
+        // GLONASS epoch starts on Monday → day 0 corresponds to 1
         (self.day() % 7) as u8 + 1
     }
 
@@ -874,8 +874,7 @@ mod tests {
 
     #[test]
     fn test_gps_galileo_identity_via_tai() {
-        // Одинаковое смещение → одинаковое значение TAI → преобразование GPS→GAL
-        // сохраняет наночастицы
+        // Same TAI offset → identical TAI instant → GPS→Galileo preserves nanoseconds
         let gps = Time::<Gps>::from_seconds(12_345);
         let gal = gps.try_convert::<Galileo>().unwrap();
 
@@ -920,7 +919,7 @@ mod tests {
 
     #[test]
     fn test_from_tai_underflow() {
-        // TAI(0) - смещение на 19с → отрицательное значение GPS → переполнение
+        // TAI(0) - 19s offset → negative GPS time → overflow
         let tai = Time::<Tai>::from_nanos(0);
 
         assert!(matches!(
@@ -945,7 +944,7 @@ mod tests {
 
     #[test]
     fn test_gps_display_tow_zero_padded() {
-        // TOW = 1 секунда → должно отображаться как 000001
+        // TOW = 1 second → should be displayed as 000001
         let t = Time::<Gps>::from_week_tow(1, 1.0).unwrap();
 
         assert_eq!(t.to_string(), "GPS 1:000001.000");
@@ -1029,13 +1028,13 @@ mod tests {
         let max = Time::<Gps>::MAX;
         let one_ns = Duration::ONE_NANOSECOND;
 
-        // checked_add возвращает None при переполнении
+        // checked_add returns None on overflow
         assert!(max.checked_add(one_ns).is_none());
 
-        // saturating_add возвращает MAX
+        // saturating_add clamps at MAX
         assert_eq!(max.saturating_add(one_ns), max);
 
-        // try_add возвращает ошибку
+        // try_add returns error on overflow
         assert!(max.try_add(one_ns).is_err());
     }
 
@@ -1200,8 +1199,8 @@ mod tests {
 
     #[test]
     fn test_checked_elapsed_overflows_when_gap_exceeds_i64() {
-        // MAX - EPOCH = u64::MAX nanos; i64 может вместить примерно половину этого
-        // Разница u64::MAX помещается в i128, но не в i64 → None
+        // MAX - EPOCH = u64::MAX nanoseconds; i64 can hold roughly half of this range
+        // The difference u64::MAX fits into i128, but not into i64 → None
         let result = Time::<Gps>::MAX.checked_elapsed(Time::<Gps>::EPOCH);
 
         assert!(result.is_none(), "gap exceeds i64::MAX so must return None");

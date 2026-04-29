@@ -124,20 +124,19 @@ const fn days_from_unix_impl(
     m: i32,
     d: i32,
 ) -> i64 {
-    // Сдвигаем январь/февраль так, чтобы они стали 11/12 месяцами
-    // предыдущего года. Это гарантирует, что високосный день (29 февраля)
-    // всегда оказывается в конце "года".
+    // Shift January/February so they become months 11/12 of the previous year.
+    // This ensures the leap day (Feb 29) always falls at the end of the "year".
     let (y, m) = if m <= 2 { (y - 1, m + 9) } else { (y, m - 3) };
     let y = y as i64;
-    // 400-летняя эра, содержащая год y
+    // 400-year era containing year y
     let era = if y >= 0 { y / 400 } else { (y - 399) / 400 };
     let yoe = (y - era * 400) as u64; // год внутри эры [0, 399]
 
-    // День года в сдвинутой системе месяцев [0, 365]
+    // Day of year in shifted month system [0, 365]
     let doy = ((153 * m as i64 + 2) / 5 + d as i64 - 1) as u64;
-    // День внутри 400-летней эры [0, 146096]
+    // Day within 400-year era [0, 146096]
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    // Дни от 1970-01-01 (719468 = смещение от начала 400-летней эры до 1970)
+    // Days since 1970-01-01 (719468 = offset from start of 400-year era to 1970)
     era * 146_097 + doe as i64 - 719_468
 }
 
@@ -274,7 +273,7 @@ mod tests {
 
     #[test]
     fn galileo_epoch_days_from_unix() {
-        // 1999-08-22: хорошо известное значение
+        // 1999-08-22: well-known reference value
         assert_eq!(GALILEO_EPOCH.days_from_unix(), 10825);
     }
 
@@ -317,7 +316,7 @@ mod tests {
 
     #[test]
     fn glonass_minus_gps_is_505123200_seconds() {
-        // 5839 дней * 86_400 = 504_921_600 секунд
+        // 5839 days * 86_400 = 504_921_600 seconds
         let expected = 5839_i64 * 86_400;
 
         assert_eq!(GPS_EPOCH.seconds_until(GLONASS_EPOCH), expected);
@@ -338,7 +337,7 @@ mod tests {
 
     #[test]
     fn year_2000_is_leap_year() {
-        // 2000-02-29 — валидная дата; 2000-03-01 = 2000-02-29 + 1
+        // 2000-02-29 is a valid date; 2000-03-01 = 2000-02-29 + 1 day
         let feb29 = CivilDate::new(2000, 2, 29);
         let mar01 = CivilDate::new(2000, 3, 1);
 
@@ -347,7 +346,7 @@ mod tests {
 
     #[test]
     fn year_1900_is_not_leap_year() {
-        // 1900 делится на 100, но не на 400 → не високосный год
+        // 1900 is divisible by 100 but not by 400 → not a leap year
         let feb28 = CivilDate::new(1900, 2, 28);
         let mar01 = CivilDate::new(1900, 3, 1);
 
@@ -367,7 +366,7 @@ mod tests {
 
     #[test]
     fn leap_seconds_at_epochs_match_official_values() {
-        // Историческая таблица високосных секунд IERS
+        // Historical IERS leap second table
         assert_eq!(LEAP_SECONDS_AT_GPS_EPOCH, 19);
         assert_eq!(LEAP_SECONDS_AT_GLONASS_EPOCH, 30);
         assert_eq!(LEAP_SECONDS_AT_BEIDOU_EPOCH, 33);
