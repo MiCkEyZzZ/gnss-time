@@ -1,22 +1,22 @@
 use gnss_time::prelude::*;
 
 fn main() {
-    // Создаём из исходных наносекунд с начала эпохи GPS (1980-01-06)
+    // Crate from raw nanoseconds since the GPS epoch (1980-01-06)
     let epoch = Time::<Gps>::EPOCH;
 
     println!("GPS epoch: {epoch}");
 
-    // Создание из секунд (вспомогательный конструктор)
+    // Crate from second (helper constructor)
     let one_hour = Time::<Gps>::from_seconds(3600);
 
     println!("One hour after GPS epoch start: {one_hour}");
 
-    // Добавляем продолжительность
+    // Add a duration
     let two_hours = one_hour + Duration::from_seconds(3600);
 
     println!("Two hours: {two_hours}");
 
-    // Разница между двумя моментами времени
+    // Diference between two points in time
     let diff = two_hours - epoch;
 
     println!(
@@ -25,11 +25,11 @@ fn main() {
         diff.as_nanos()
     );
 
-    // Проверяем знак и нулевое значение
+    // Check sign and zero value
     assert!(diff.is_positive());
     assert!(Duration::ZERO.is_zero());
 
-    // Арифметика с насыщением (никогда не вызывает панику)
+    // Saturating arithmetic (never panic)
     let max_safe = Time::<Gps>::MAX.saturating_add(Duration::ONE_NANOSECOND);
 
     assert_eq!(max_safe, Time::<Gps>::MAX);

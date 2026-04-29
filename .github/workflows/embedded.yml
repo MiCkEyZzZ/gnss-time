@@ -1,15 +1,13 @@
-# embedded.yml
-#
-# Проверка no_std совместимости и кросс-компиляция под embedded targets.
+# Check no_std compatibility and cross-compilation for embedded targets.
 #
 # Targets:
 #   thumbv7em-none-eabihf          — STM32F4/F7, nRF52 (Cortex-M4F/M7F с FPU)
 #   thumbv7em-none-eabi            — Cortex-M4/M7 без FPU
 #   riscv32imac-unknown-none-elf   — ESP32-C3, GD32VF103
 #
-# Запускается:
-#   - автономно при push/PR в master/develop и на тегах v*.*.*
-#   - как reusable workflow — вызывается из ci.yml через workflow_call
+# Runs:
+#   - syandalone on push/PR to master/develop and on tags v*.*.*
+#   - as a reusable workflow — invoked from ci.yml via workflow_call
 
 name: embedded no_std
 
@@ -20,13 +18,12 @@ on:
   pull_request:
     branches: [master]
   workflow_dispatch:
-  workflow_call: # reusable: ci.yml вызывает этот workflow
+  workflow_call: # reusable: ci.yml invokes this workflow
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # ── Кросс-компиляция ──────────────────────────────────────────────────────────
   cross-compile:
     name: ${{ matrix.target }}
     runs-on: ubuntu-latest
@@ -67,7 +64,6 @@ jobs:
           --no-default-features --features defmt
           --target ${{ matrix.target }}
 
-  # ── Проверка размеров типов (Time<S> = 8 байт) ───────────────────────────────
   type-sizes:
     name: Type sizes = 8 bytes
     runs-on: ubuntu-latest

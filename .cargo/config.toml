@@ -16,7 +16,7 @@
 # Хостовый таргет по умолчанию.
 # CI переопределяет через CARGO_BUILD_TARGET или --target.
 
-# ── Cortex-M4F / M7F с FPU (STM32F4xx, STM32F7xx, nRF52840) ─────────────────
+# Cortex-M4F / M7F с FPU (STM32F4xx, STM32F7xx, nRF52840)
 [target.thumbv7em-none-eabihf]
 # opt-level=s — минимальный размер бинарника (важно для flash-ограничений)
 # codegen-units=1 — лучшая оптимизация через единый кодогенератор
@@ -27,7 +27,7 @@ rustflags = [
     "-D", "warnings",
 ]
 
-# ── Cortex-M4 / M7 без FPU (STM32F3xx) ───────────────────────────────────────
+# Cortex-M4 / M7 без FPU (STM32F3xx)
 [target.thumbv7em-none-eabi]
 rustflags = [
     "-C", "opt-level=s",
@@ -35,7 +35,7 @@ rustflags = [
     "-D", "warnings",
 ]
 
-# ── Cortex-M0 / M0+ (STM32F0xx, nRF51) ───────────────────────────────────────
+# Cortex-M0 / M0+ (STM32F0xx, nRF51)
 [target.thumbv6m-none-eabi]
 rustflags = [
     "-C", "opt-level=s",
@@ -43,7 +43,7 @@ rustflags = [
     "-D", "warnings",
 ]
 
-# ── RISC-V 32-bit (ESP32-C3, GD32VF103, CH32V) ───────────────────────────────
+# RISC-V 32-bit (ESP32-C3, GD32VF103, CH32V)
 [target.riscv32imac-unknown-none-elf]
 rustflags = [
     "-C", "opt-level=s",
@@ -51,7 +51,7 @@ rustflags = [
     "-D", "warnings",
 ]
 
-# ── RISC-V 32-bit без atomic (ESP32-C2) ───────────────────────────────────────
+# RISC-V 32-bit без atomic (ESP32-C2)
 [target.riscv32i-unknown-none-elf]
 rustflags = [
     "-C", "opt-level=s",

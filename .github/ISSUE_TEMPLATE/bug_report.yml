@@ -15,7 +15,7 @@ body:
     attributes:
       label: What went wrong?
       description: Describe the bug in detail. Include unexpected behavior, crashes, panics, or wrong time conversions.
-      placeholder: e.g. `Time<Gps>::from_week_tow` panics on valid input, or GPS→UTC conversion produces incorrect result
+      placeholder: e.g. `Time<Gps>::from_week_tow` panics on valid input, or GPS -> UTC conversion produces incorrect result
 
   - type: input
     id: steps
