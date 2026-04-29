@@ -2,7 +2,7 @@ use gnss_time::{matrix::beidou_via_gps_to_glonass_via_utc, Beidou, LeapSeconds, 
 
 fn main() {
     let ls = LeapSeconds::builtin();
-    let bdt = Time::<Beidou>::from_seconds(2_000_000_000); // достаточно большое значение
+    let bdt = Time::<Beidou>::from_seconds(2_000_000_000); // sufficiently large value
 
     match beidou_via_gps_to_glonass_via_utc(bdt, &ls) {
         Ok(chain) => {
