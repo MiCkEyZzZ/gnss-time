@@ -3,9 +3,9 @@ use gnss_time::{scale::Gps, Duration, GnssTimeError, Time};
 fn main() {
     println!("=== Embedded-safe arithmetic demo ===\n");
 
-    // Насыщение — ограничение на MAX/EPOCH, никогда не паникует
+    // Saturating — clamps to MAX/EPOCH, never panic
     let t = Time::<Gps>::MAX;
-    let safe = t.saturating_add(Duration::from_seconds(1)); // никогда не паникуем
+    let safe = t.saturating_add(Duration::from_seconds(1)); // never panic
 
     assert_eq!(t, safe);
 
@@ -18,7 +18,7 @@ fn main() {
 
     println!("saturating_sub: EPOCH - 1ns = EPOCH (clamped) ✓");
 
-    // Проверено — возвращает None при переполнении
+    // Checked — returns None on overflow
     let t2 = Time::<Gps>::from_seconds(1_000_000);
     match t2.checked_add(Duration::from_seconds(500)) {
         Some(result) => println!("checked_add: {} + 500s = {} ✓", t2, result),
@@ -30,14 +30,14 @@ fn main() {
         None => println!("checked_add: MAX + 1ns = None (overflow detected) ✓"),
     }
 
-    // Fallible — возвращает GnssTimeError::Overflow
+    // Fallible — returns GnssTimeError::Overflow
     match Time::<Gps>::MAX.try_add(Duration::from_seconds(1)) {
         Ok(_) => unreachable!(),
         Err(GnssTimeError::Overflow) => println!("try_add: MAX + 1s = Overflow ✓"),
         Err(e) => panic!("unexpected error: {e}"),
     }
 
-    // Статический инициализатор (безопасен в no_std)
+    // Static initializer (safe in no_std)
     static REFERENCE: Time<Gps> = Time::<Gps>::EPOCH;
     static WINDOW: Duration = Duration::from_seconds(30);
 
@@ -46,10 +46,9 @@ fn main() {
         WINDOW.as_seconds()
     );
 
-    // Обычная арифметика — вызывает панику при переполнении, нормально, если
-    // известны границы
+    // Regular arithmetic — panic on overflow, fine when bounds are known
     let gps = Time::<Gps>::from_week_tow(2345, 0.0).unwrap();
-    let later = gps + Duration::from_seconds(3600); // Безопасно — не переполнится
+    let later = gps + Duration::from_seconds(3600); // Safe — no overflow
 
     println!("\nPanicking add (safe): {gps} + 1h = {later} ✓");
 
