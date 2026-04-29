@@ -20,7 +20,7 @@
 #[cfg(any(feature = "std", test))]
 extern crate std;
 
-// Основные модули
+// Core modules
 pub mod convert;
 pub mod duration;
 pub mod epoch;
@@ -30,10 +30,10 @@ pub mod matrix;
 pub mod scale;
 pub mod time;
 
-// Внутренние таблицы (не публичные)
+// Internal tables (not public API)
 mod tables;
 
-// Публичные реэкспорты
+// Public re-exports
 pub use convert::*;
 pub use duration::*;
 pub use epoch::*;
@@ -43,5 +43,5 @@ pub use matrix::*;
 pub use scale::*;
 pub use time::*;
 
-// Prelude для удобных импортов
+// Prelude for convenient imports
 pub mod prelude;

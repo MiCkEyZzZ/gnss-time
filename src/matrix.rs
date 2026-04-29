@@ -179,31 +179,32 @@ impl ScaleId {
         use ConversionKind::*;
         use ScaleId::*;
         match (self, target) {
+            // Same scale → no conversion needed
             (a, b) if a as u8 == b as u8 => SameScale,
             // GPS <-> TAI
             (Gps, Tai) | (Tai, Gps) => Fixed,
-            // GPS <-> Galileo: идентичность (одинаковый TAI-офсет)
+            // GPS <-> Galileo: identical TAI offset (19 s)
             (Gps, Galileo) | (Galileo, Gps) => Identity,
-            // GPS <-> BeiDou: фиксированное ±14 секунд
+            // GPS <-> BeiDou: fixed ±14 seconds offset
             (Gps, Beidou) | (Beidou, Gps) => Fixed,
-            // Galileo <-> BeiDou: фиксированное (как и GPS <-> BeiDou)
+            // Galileo <-> BeiDou: same fixed relationship via TAI
             (Galileo, Beidou) | (Beidou, Galileo) => Fixed,
             // Galileo <-> TAI, BeiDou <-> TAI
             (Galileo, Tai) | (Tai, Galileo) => Fixed,
             (Beidou, Tai) | (Tai, Beidou) => Fixed,
-            // GLONASS <-> UTC: сдвиг эпохи, без високосных секунд
+            // GLONASS <-> UTC: epoch shift, no leap-second handling
             (Glonass, Utc) | (Utc, Glonass) => EpochShift,
-            // Все преобразования через границу UTC требуют учёта високосных секунд
+            // All conversions involving UTC require leap-second context
             (Gps, Utc) | (Utc, Gps) => Contextual,
             (Gps, Glonass) | (Glonass, Gps) => Contextual,
             (Galileo, Utc) | (Utc, Galileo) => Contextual,
             (Galileo, Glonass) | (Glonass, Galileo) => Contextual,
             (Beidou, Utc) | (Utc, Beidou) => Contextual,
             (Beidou, Glonass) | (Glonass, Beidou) => Contextual,
-            // TAI <-> UTC и TAI <-> GLONASS: контекстуально
+            // TAI <-> UTC and TAI <-> GLONASS: context-dependent (leap seconds / epoch)
             (Tai, Utc) | (Utc, Tai) => Contextual,
             (Tai, Glonass) | (Glonass, Tai) => Contextual,
-            // Обработка всех будущих шкал по умолчанию
+            // Default for future or unknown scales
             _ => Contextual,
         }
     }
@@ -422,19 +423,21 @@ mod tests {
     #[test]
     fn test_matrix_counts_are_correct() {
         let m = ConversionMatrix::new();
-        // 6×6 матрица − 6 диагональных элементов = 30 внедиагональных ячеек
-        // Fixed+Identity+EpochShift: симметрично, поэтому учитываем пары
-        // GPS↔TAI(2) + GPS↔GAL(2) + GPS↔BDT(2) + GAL↔BDT(2) + GAL↔TAI(2) + BDT↔TAI(2) +
-        // GLO↔UTC(2) = 14
+        // 6×6 matrix → 6 diagonal elements → 30 off-diagonal cells
+        //
+        // Fixed/Identity/EpochShift paths are symmetric pairs:
+        // GPS↔TAI(2) + GPS↔GAL(2) + GPS↔BDT(2)
+        // GAL↔BDT(2) + GAL↔TAI(2) + BDT↔TAI(2)
+        // GLO↔UTC(2) = 14 total fixed paths
         assert_eq!(m.path_count(false), 14, "14 fixed paths");
-        // Оставшиеся 30 − 14 = 16 путей являются контекстуальными
+        // Remaining 30 − 14 = 16 are contextual conversions
         assert_eq!(m.path_count(true), 16, "16 contextual paths");
     }
 
     #[test]
     fn test_all_off_diagonal_cells_are_classified() {
-        // Проверяем каждую пару (от, до) как фиксированную/идентичную/сдвиг эпохи или
-        // контекстную.
+        // Check that every off-diagonal conversion is properly classified
+        // as Fixed / Identity / EpochShift / Contextual (never SameScale).
         for &from in &ScaleId::ALL {
             for &to in &ScaleId::ALL {
                 if from != to {
@@ -453,8 +456,7 @@ mod tests {
 
     #[test]
     fn test_matrix_is_symmetric_in_kind_category() {
-        // Для каждой пары классификация фиксированный против контекстуального должна
-        // быть симметричной.
+        // For every pair, the "fixed vs contextual" classification must be symmetric.
         for &from in &ScaleId::ALL {
             for &to in &ScaleId::ALL {
                 if from != to {
