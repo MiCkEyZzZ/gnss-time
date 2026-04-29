@@ -2,7 +2,10 @@
 
 All notable changes to **gnss-time** are documented in this file.
 
-## [Unreleased] — 00-00-0000
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
 
 ### Added
 
@@ -46,10 +49,9 @@ All notable changes to **gnss-time** are documented in this file.
 
 ### Changed
 
-- **Бенчмарки**: обновлены `benches/arithmetic_bench.rs` и `benches/convert_bench.rs`:
-  - Добавлены замеры `checked_add`, `checked_sub_duration`, `saturating_add`,
-    `Duration` операций
-  - Уточнены целевые показатели: паникующие операции ~514 ps, checked ~4.4 ns
+- `benches/arithmetic_bench.rs`: added `checked_add`, `checked_sub_duration`,
+  `saturating_add`, `Duration` benchmarks; updated target figures
+- `benches/convert_bench.rs`: added `leap_second_lookup` microbenchmark
 
 ### Fixed
 
@@ -57,7 +59,7 @@ All notable changes to **gnss-time** are documented in this file.
 - **time.rs**: добавлены новые тесты граничных случаев (`test_checked_add_one_ns_before_max_succeeds`,
   `test_saturating_add_negative_clamps_at_epoch`, и др.)
 
-## [v0.3.0] — 27-04-2026
+## [0.3.0] — 2026-04-27
 
 ### Added
 
@@ -180,7 +182,7 @@ All notable changes to **gnss-time** are documented in this file.
 - **time.rs**
   - исправлена ф-я `as_seconds_f64` убрано ключевое слово `const`
 
-## [v0.2.0] — 2026-04-26
+## [0.2.0] — 2026-04-26
 
 ### Added
 
@@ -265,7 +267,7 @@ All notable changes to **gnss-time** are documented in this file.
   и примерами.
 - Добавлен `prelude` для удобного импорта.
 
-## [v0.1.0] — 2026-04-21
+## [0.1.0] — 2026-04-21
 
 - **Тип `Duration`** — знаковый интервал времени в наносекундах (`i64`).
   - Конструкторы: `from_nanos`, `from_micros`, `from_millis`, `from_seconds`,
@@ -363,3 +365,8 @@ All notable changes to **gnss-time** are documented in this file.
 - `Time<S>` и `Duration` — `repr(transparent)`.
 - Конверсии через TAI используют целочисленную арифметику без аллокаций.
 - Поиск в таблице leap seconds — бинарный поиск по `&'static` слайсу.
+
+[Unreleased]: https://github.com/MiCkEyZzZ/gnss-time/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/MiCkEyZzZ/gnss-time/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/MiCkEyZzZ/gnss-time/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/MiCkEyZzZ/gnss-time/releases/tag/v0.1.0
