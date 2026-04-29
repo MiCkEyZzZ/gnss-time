@@ -9,6 +9,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Full CI/CD pipeline:
+  - `ci.yml` — formatting, clippy (all feature sets), tests, docs, MSRV, cargo-deny
+  - `embedded.yml` — cross-compilation for embedded targets (Cortex-M, RISC-V)
+    with `no_std` validation
+  - reusable workflow integration (`workflow_call`)
+- `publish.yml` — automated crates.io release pipeline:
+  - waits for CI to succeed on tagged commit
+  - verifies tag ↔ Cargo.toml version consistency
+  - `cargo publish --dry-run` (preflight validation)
+  - `cargo publish` with protected environment
+  - automatic GitHub Release generation
 - `docs/ARCHITECTURE.md` — internal design, module layout, TAI pivot, feature flags
 - `docs/EMBEDDED.md` — embedded usage guide with UBX/GLONASS parsing examples,
   benchmark table
@@ -35,6 +46,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- CI architecture:
+  - embedded checks extracted into reusable workflow (`embedded.yml`)
+  - improved caching strategy (feature-aware cache keys)
+  - stricter validation (`-D warnings`, clippy on all feature combinations)
 - `benches/arithmetic_bench.rs`: added `checked_add`, `checked_sub_duration`,
   `saturating_add`, `Duration` benchmarks; updated target figures
 - `benches/convert_bench.rs`: added `leap_second_lookup` microbenchmark
