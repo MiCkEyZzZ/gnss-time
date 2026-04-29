@@ -293,8 +293,8 @@ impl IntoScaleWith<Gps> for Time<Utc> {
         self,
         ls: P,
     ) -> Result<ConvertResult<Time<Gps>>, GnssTimeError> {
-        // UTC -> GPS однозначно: каждая UTC-наносекунда соответствует
-        // ровно одной GPS-наносекунде (у GPS нет пропусков или повторяющихся секунд).
+        // UTC -> GPS is unambiguous: each UTC nanosecond corresponds to
+        // exactly one GPS nanosecond (GPS has no skipped or repeated seconds).
         Ok(ConvertResult::Exact(utc_to_gps(self, &ls)?))
     }
 }
@@ -319,8 +319,8 @@ impl IntoScale<Galileo> for Time<Gps> {
     /// ```
     #[inline]
     fn into_scale(self) -> Result<Time<Galileo>, GnssTimeError> {
-        // GPS и Galileo используют одинаковое смещение относительно TAI (19 с)
-        // → преобразование туда и обратно через TAI сохраняет наносекунды без изменений
+        // GPS and Galileo use the same offset relative to TAI (19 s)
+        // → converting via TAI preserves nanoseconds exactly
         self.try_convert::<Galileo>()
     }
 }
@@ -487,14 +487,13 @@ impl IntoScaleWith<Utc> for Time<Gps> {
     ) -> Result<ConvertResult<Time<Utc>>, GnssTimeError> {
         let utc = gps_to_utc(self, &ls)?;
 
-        // Обнаружение окна високосной секунды: вычисляем TAI в этой GPS-метке времени
-        // и сравниваем количество leap seconds до и после.
-        // Если значения различаются — мы находимся внутри (или сразу после)
-        // границы високосной секунды.
+        // Detect leap-second window: compute TAI at this GPS timestamp
+        // and compare leap-second offsets before and after.
+        // If values differ — we are inside (or adjacent to) a leap-second boundary.
         let tai = self.to_tai()?;
         let n_at = ls.tai_minus_utc_at(tai);
 
-        // Проверяем 1 секунду назад для детектирования входа в leap second
+        // Check 1 second back to detect entry into leap second
         let tai_prev = if tai.as_nanos() >= 1_000_000_000 {
             Time::<Tai>::from_nanos(tai.as_nanos() - 1_000_000_000)
         } else {
@@ -503,9 +502,8 @@ impl IntoScaleWith<Utc> for Time<Gps> {
         let n_before = ls.tai_minus_utc_at(tai_prev);
 
         if n_at != n_before {
-            // Мы пересекли границу високосной секунды в пределах последней секунды.
-            // GPS-секунда, соответствующая n_before (старому значению), является
-            // неоднозначной.
+            // We crossed a leap-second boundary within the last second.
+            // The GPS second corresponding to the old offset is ambiguous.
             Ok(ConvertResult::AmbiguousLeapSecond(utc))
         } else {
             Ok(ConvertResult::Exact(utc))
@@ -606,7 +604,7 @@ mod tests {
 
     #[test]
     fn test_tai_to_gps_underflow_at_tai_zero() {
-        // TAI(0) − 19 с → отрицательное GPS-время → переполнение
+        // TAI(0) − 19 s → negative GPS time → overflow
         let tai = Time::<Tai>::EPOCH;
         let result: Result<Time<Gps>, _> = tai.into_scale();
 
@@ -678,7 +676,7 @@ mod tests {
         let glo = Time::<Glonass>::EPOCH;
         let utc: Time<Utc> = glo.into_scale().unwrap();
 
-        // Эпоха ГЛОНАСС = 1995-12-31 21:00:00 UTC = 757_371_600 с от 1972 года
+        // GLONASS epoch = 1995-12-31 21:00:00 UTC = 757_371_600 seconds from 1972
         assert_eq!(utc.as_nanos(), 757_371_600_000_000_000);
     }
 
@@ -730,21 +728,22 @@ mod tests {
     #[test]
     fn test_gps_utc_roundtrip_exact_at_nanosecond_level() {
         let ls = LeapSeconds::builtin();
-        // Использум временную метку с ненулевой нанosekundной частью
+        // Use a timestamp with a non-zero nanosecond component
         let gps = Time::<Gps>::from_nanos(1_167_264_100_123_456_789);
         let utc: Time<Utc> = gps.into_scale_with(ls).unwrap();
         let back: Time<Gps> = utc.into_scale_with(ls).unwrap();
 
-        assert_eq!(gps, back); // точно, без округления
+        assert_eq!(gps, back); // exact, no rounding
     }
 
     #[test]
     fn test_gps_leads_utc_by_18s_at_2017_01_01() {
         let ls = LeapSeconds::builtin();
-        // 2017-01-01 UTC: 16437 дней * 86400 с от 1972-01-01
+        // 2017-01-01 UTC: 16,437 days * 86,400 s from 1972-01-01
         let expected_utc_s: u64 = 16_437 * 86_400;
-        // GPS-секунды для этого UTC момента: GPS = UTC - epoch_offset + (n - 19)
-        // где n = 37, epoch_offset = 252_892_800 с
+        // GPS seconds for this UTC moment:
+        // GPS = UTC - epoch_offset + (n - 19)
+        // where n = 37, epoch_offset = 252,892,800 s
         let gps_s: u64 = 1_167_264_000 + 18; // pre-verified
         let gps = Time::<Gps>::from_seconds(gps_s);
         let utc: Time<Utc> = gps.into_scale_with(ls).unwrap();

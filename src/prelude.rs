@@ -8,13 +8,13 @@
 //! ```
 
 pub use crate::{
-    // Трейты преобразования
+    // Conversion traits
     convert::{IntoScale, IntoScaleWith},
-    // Високосные секунды
+    // Leap seconds
     leap::LeapSeconds,
-    // Шкалы времени
+    // Time scales
     scale::{Beidou, Galileo, Glonass, Gps, Tai, Utc},
-    // Базовые типы
+    // Core types
     Duration,
     GnssTimeError,
     Time,
