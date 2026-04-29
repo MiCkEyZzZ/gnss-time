@@ -7,11 +7,15 @@ gnss-time
 ├── .github
 │   ├── ISSUE_TEMPLATE
 │   │   ├── bug_report.yml
+│   │   ├── config.yml
 │   │   └── enhancement.yml
 │   ├── workflows
+│   │   ├── ci.yml
 │   │   ├── embedded.yml
 │   │   └── semantic-pull-request.yml
 │   ├── CODEOWNERS
+│   ├── dependabot.yml
+│   ├── FUNDING.yml
 │   └── pull_request_template.md
 ├── benches
 │   ├── arithmetic_bench.rs
