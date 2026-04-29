@@ -36,7 +36,7 @@ use crate::LeapEntry;
 // 1_167_264_037_000_000_000
 
 pub static BUILTIN_TABLE: [LeapEntry; 19] = [
-    // Базовое значение: TAI-UTC = 19 на GPS-эпохе и во всём 1980 году
+    // Base value: TAI-UTC = 19 at GPS epoch and throughout 1980
     LeapEntry::new(0, 19),
     // 1981-07-01: TAI-UTC → 20
     LeapEntry::new(46_828_820_000_000_000, 20),
@@ -72,6 +72,6 @@ pub static BUILTIN_TABLE: [LeapEntry; 19] = [
     LeapEntry::new(1_025_136_035_000_000_000, 35),
     // 2015-07-01: TAI-UTC → 36
     LeapEntry::new(1_119_744_036_000_000_000, 36),
-    // 2017-01-01: TAI-UTC → 37  (последний известный, актуален по 2025)
+    // 2017-01-01: TAI-UTC → 37 (latest known, valid through 2025)
     LeapEntry::new(1_167_264_037_000_000_000, 37),
 ];

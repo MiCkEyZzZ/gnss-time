@@ -21,7 +21,7 @@
 
 use crate::epoch::CivilDate;
 
-// sealed-паттерн — запрещает внешние реализации
+// Sealed pattern — prevents external implementations
 mod private {
     pub trait Sealed {}
 }
@@ -277,7 +277,7 @@ mod tests {
 
     #[test]
     fn test_gps_and_galileo_are_aligned() {
-        // одинаковое смещение TAI → синхронные (совпадающие по времени) моменты
+        // Same TAI offset → synchronous (time-aligned) instants
         assert_eq!(Gps::OFFSET_TO_TAI, Galileo::OFFSET_TO_TAI);
     }
 

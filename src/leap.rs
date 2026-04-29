@@ -53,9 +53,9 @@ const GLONASS_FROM_UTC_EPOCH_NS: i64 = {
     // от UTC-epoch до 1996-01-01 00:00:00 UTC
     let to_1996 = CivilDate::new(1972, 1, 1).nanos_until(CivilDate::new(1996, 1, 1));
 
-    // минус 3 часа: ГЛОНАСС epoch = 3ч раньше в UTC
+    // minus 3 hours: GLONASS epoch = 3 hours earlier in UTC
     to_1996 - 3 * 3_600 * 1_000_000_000_i64
-    // = 8766 дней * 86400 * 1e9 - 10800 * 1e9
+    // = 8766 days * 86400 * 1e9 - 10800 * 1e9
     // = 757_382_400_000_000_000 - 10_800_000_000_000 = 757_371_600_000_000_000
 };
 
@@ -74,7 +74,7 @@ const _VERIFY_GLONASS_OFFSET: () = {
 /// `UTC_nanos_from_1972 = GPS_nanos_from_1980 - (TAI_minus_UTC - 19) * 1e9 +
 /// THIS`
 const UTC_TO_GPS_EPOCH_NS: i64 = CivilDate::new(1972, 1, 1).nanos_until(CivilDate::new(1980, 1, 6));
-// = 2927 дней * 86400 * 1e9 = 252_892_800_000_000_000 ns
+// = 2927 days * 86400 * 1e9 = 252_892_800_000_000_000 ns
 
 const _VERIFY_UTC_GPS_OFFSET: () = {
     let s = UTC_TO_GPS_EPOCH_NS / 1_000_000_000;
@@ -154,7 +154,7 @@ pub struct LeapEntry {
 /// // GPS leads UTC by 18 seconds in this period
 /// ```
 pub struct LeapSeconds {
-    entries: &'static [LeapEntry], // (Unix секунды, TAI-UTC)
+    entries: &'static [LeapEntry], // (Unix seconds, TAI-UTC)
 }
 
 impl LeapEntry {
@@ -222,23 +222,23 @@ impl LeapSecondsProvider for LeapSeconds {
         let entries = self.entries;
 
         if entries.is_empty() {
-            return 19; // безопасный fallback значение на GPS-эпоху
+            return 19; // safe fallback value at GPS epoch
         }
 
-        // Находим последнюю запись с tai_nanos <= nanos
+        // Find the last entry with tai_nanos <= nanos
         match entries.binary_search_by_key(&nanos, |e| e.tai_nanos) {
-            // Точное совпадение: взять найденную запись
+            // Exact match: use found entry
             Ok(i) => entries[i].tai_minus_utc,
-            // nanos меньше первой записи: вернуть первое значение
+            // nanos is before first entry: return initial value
             Err(0) => entries[0].tai_minus_utc,
-            // Стандартный случай: запись перед точкой вставки
+            // Standard case: entry before insertion point
             Err(i) => entries[i - 1].tai_minus_utc,
         }
     }
 }
 
-// Общая реализация: &P автоматически реализует LeapSecondsProvider, если P это
-// делает. Это позволяет напрямую передавать &LeapSeconds::builtin().
+// Generic implementation: &P automatically implements LeapSecondsProvider if P
+// does. This allows passing &LeapSeconds::builtin() directly.
 impl<P: LeapSecondsProvider> LeapSecondsProvider for &P {
     fn tai_minus_utc_at(
         &self,
@@ -379,7 +379,8 @@ pub fn galileo_to_utc<P: LeapSecondsProvider>(
     gal: Time<Galileo>,
     ls: &P,
 ) -> Result<Time<Utc>, GnssTimeError> {
-    // Galileo и GPS делят TAI-offset, конвертируем через GPS как промежуточный шаг.
+    // Galileo and GPS share the same TAI offset, so we convert via GPS as an
+    // intermediate step.
     let gps = gal.try_convert::<Gps>()?;
 
     gps_to_utc(gps, ls)
@@ -458,11 +459,11 @@ pub fn utc_to_gps<P: LeapSecondsProvider>(
     utc: Time<Utc>,
     ls: &P,
 ) -> Result<Time<Gps>, GnssTimeError> {
-    // Двухпроходный расчёт для корректной обработки границ leap second.
+    // Two-pass computation for correct leap-second boundary handling.
     //
-    // Проход 1: Приближённый расчёт TAI, предполагая GPS-UTC = 0.
-    // Это занижает значение TAI максимум на (текущий GPS-UTC) секунд
-    // вблизи границы.
+    // Pass 1: approximate TAI assuming GPS-UTC = 0.
+    // This underestimates TAI by at most (current GPS-UTC) seconds
+    // near boundary conditions.
     let approx_tai_ns =
         (utc.as_nanos() as i128) - (UTC_TO_GPS_EPOCH_NS as i128) + 19_000_000_000_i128;
 
@@ -474,7 +475,7 @@ pub fn utc_to_gps<P: LeapSecondsProvider>(
 
     let n1 = ls.tai_minus_utc_at(tai1);
 
-    // Проход 2: Уточнение с использованием n1, устраняющее неоднозначность границы.
+    // Pass 2: refinement using n1, resolving boundary ambiguity.
     let refined_tai_ns = (utc.as_nanos() as i128) - (UTC_TO_GPS_EPOCH_NS as i128)
         + (n1 as i128 * 1_000_000_000_i128);
 
@@ -598,7 +599,7 @@ mod tests {
     #[test]
     fn test_lookup_at_exact_2017_threshold_returns_37() {
         let ls = LeapSeconds::builtin();
-        // Пороговое значение TAI для 2017-01-01 = 1_167_264_037_000_000_000
+        // Threshold TAI value for 2017-01-01 = 1_167_264_037_000_000_000
         let tai = Time::<Tai>::from_nanos(1_167_264_037_000_000_000);
 
         assert_eq!(ls.tai_minus_utc_at(tai), 37);
@@ -615,7 +616,7 @@ mod tests {
     #[test]
     fn test_lookup_at_1999_threshold_returns_32() {
         let ls = LeapSeconds::builtin();
-        // Пороговое значение TAI для 1999-01-01 = 599_184_032_000_000_000
+        // Threshold TAI value for 1999-01-01 = 599_184_032_000_000_000
         let tai = Time::<Tai>::from_nanos(599_184_032_000_000_000);
 
         assert_eq!(ls.tai_minus_utc_at(tai), 32);
@@ -642,7 +643,7 @@ mod tests {
     #[test]
     fn test_gps_utc_gps_roundtrip_at_2020() {
         let ls = LeapSeconds::builtin();
-        // GPS 2020-01-01 ≈ неделя 2086
+        // GPS 2020-01-01 ≈ week 2086
         let gps = Time::<Gps>::from_week_tow(2086, 0.0).unwrap();
         let utc = gps_to_utc(gps, &ls).unwrap();
         let back = utc_to_gps(utc, &ls).unwrap();
@@ -653,36 +654,36 @@ mod tests {
     #[test]
     fn test_gps_epoch_utc_is_correct_offset_from_utc_epoch() {
         let ls = LeapSeconds::builtin();
-        // На эпохе GPS (1980-01-06) TAI-UTC = 19, GPS-UTC = 0
-        // Наносекунды UTC = GPS_nanos - 0 + UTC_TO_GPS_EPOCH_NS = 0 +
+        // At GPS epoch (1980-01-06) TAI-UTC = 19, GPS-UTC = 0
+        // UTC nanos = GPS nanos + UTC_TO_GPS_EPOCH_NS = 0 +
         // 252_892_800_000_000_000
         let utc = gps_to_utc(Time::<Gps>::EPOCH, &ls).unwrap();
 
         assert_eq!(utc.as_nanos(), 252_892_800_000_000_000);
     }
 
-    // Проверяем GPS-UTC = 18 на 2017-01-01 00:00:00 UTC.
+    // Checking GPS-UTC = 18 at 2017-01-01 00:00:00 UTC.
     //
-    // GPS на 2017-01-01 (unix=1483228800):
-    //   GPS_s = (1483228800 - 315964800) + (37-19) = 1167264000 + 18 =
-    // 1167264018 UTC nanos от UTC_epoch = 16437 дней * 86400 * 1e9 =
+    // GPS at 2017-01-01 (unix=1483228800):
+    //   GPS_s = (1483228800 - 315964800) + (37-19) = 1167264000 + 18 = 1167264018
+    // UTC nanos from UTC_epoch = 16437 days * 86400 * 1e9 =
     // 1_420_156_800_000_000_000
     #[test]
     fn test_gps_minus_utc_is_18s_at_2017_01_01() {
         let ls = LeapSeconds::builtin();
-        // GPS-секунды для 2017-01-01 00:00:00 UTC
+        // GPS seconds for 2017-01-01 00:00:00 UTC
         // = (unix - GPS_EPOCH_UNIX) + (TAI-UTC - 19) = (1483228800 - 315964800) + 18
         let gps_s: u64 = 1_167_264_000 + 18;
         let gps = Time::<Gps>::from_seconds(gps_s);
         let utc = gps_to_utc(gps, &ls).unwrap();
 
-        // Наносекунды UTC для 2017-01-01 = 16437 дней * 86400 * 1e9
+        // UTC nanos for 2017-01-01 = 16437 days * 86400 * 1e9
         let expected_utc_ns: u64 = 16_437 * 86_400 * 1_000_000_000;
 
         assert_eq!(utc.as_nanos(), expected_utc_ns);
     }
 
-    /// Проверяем GPS-UTC = 13 на 1999-01-01 00:00:00 UTC.
+    // Check GPS-UTC = 13 on 1999-01-01 00:00:00 UTC.
     #[test]
     fn test_gps_minus_utc_is_13s_at_1999_01_01() {
         let ls = LeapSeconds::builtin();
@@ -690,37 +691,37 @@ mod tests {
         let gps = Time::<Gps>::from_seconds(599_184_013);
         let utc = gps_to_utc(gps, &ls).unwrap();
 
-        // UTC от эпохи UTC до 1999-01-01:
+        // UTC from UTC epoch to 1999-01-01:
         // days_from_unix(1999-01-01) - days_from_unix(1972-01-01)
-        // = 10592 - 730 = 9862 дней (проверено ниже)
+        // = 10592 - 730 = 9862 days (verified below)
         // UTC_s = 9862 * 86400 = 851_948_800
         let expected_utc_s: u64 = 9_862 * 86_400;
 
         assert_eq!(utc.as_seconds(), expected_utc_s);
     }
 
-    // 1998-12-31 → 1999-01-01: TAI-UTC с 31 → 32, GPS-UTC с 12 → 13.
+    // 1998-12-31 → 1999-01-01: TAI-UTC changes 31 → 32, GPS-UTC 12 → 13.
     //
-    // GPS перепрыгивает с ...011 на ...013 (нет ...012 в реальном UTC).
+    // GPS jumps from ...011 to ...013 (there is no ...012 in real UTC time).
     #[test]
     fn test_leap_second_transition_1999_gps_jumps_by_2s() {
         let ls = LeapSeconds::builtin();
 
-        // 1 секунда до перехода: 1998-12-31 23:59:59 UTC
-        // unix = 915148799, TAI-UTC = 31 (ещё старое значение)
+        // 1 second before transition: 1998-12-31 23:59:59 UTC
+        // unix = 915148799, TAI-UTC = 31 (old value)
         // GPS_s = (915148799 - 315964800) + 12 = 599183999 + 12 = 599184011
         let gps_before = Time::<Gps>::from_seconds(599_184_011);
 
-        // Сразу после: 1999-01-01 00:00:00 UTC
-        // unix = 915148800, TAI-UTC = 32 (новое значение)
+        // Immediately after: 1999-01-01 00:00:00 UTC
+        // unix = 915148800, TAI-UTC = 32 (new value)
         // GPS_s = (915148800 - 315964800) + 13 = 599184000 + 13 = 599184013
         let gps_after = Time::<Gps>::from_seconds(599_184_013);
 
-        // Оба должны конвертироваться корректно
+        // Both should convert correctly
         let utc_before = gps_to_utc(gps_before, &ls).unwrap();
         let utc_after = gps_to_utc(gps_after, &ls).unwrap();
 
-        // UTC-after - UTC-before = 1 секунда (вставка leap second выровняла счёт)
+        // UTC-after - UTC-before = 1 second (leap second insertion adjusts the scale)
         let diff = (utc_after - utc_before).as_seconds();
 
         assert_eq!(diff, 1, "GPS jumped 2s but UTC advanced 1s (leap second)");
@@ -730,9 +731,11 @@ mod tests {
     #[test]
     fn test_leap_second_transition_2017_gps_jumps_by_2s() {
         let ls = LeapSeconds::builtin();
-        // 1 секунда до: unix = 1483228799, GPS_s = (1483228799 - 315964800) + 17
+        // 1 second before: unix = 1483228799,
+        // GPS_s = (1483228799 - 315964800) + 17
         let gps_before = Time::<Gps>::from_seconds(1_167_263_999 + 17);
-        // Сразу после: unix = 1483228800, GPS_s = (1483228800 - 315964800) + 18
+        // Immediately after: unix = 1483228800,
+        // GPS_s = (1483228800 - 315964800) + 18
         let gps_after = Time::<Gps>::from_seconds(1_167_264_000 + 18);
         let utc_before = gps_to_utc(gps_before, &ls).unwrap();
         let utc_after = gps_to_utc(gps_after, &ls).unwrap();
@@ -743,9 +746,12 @@ mod tests {
 
     #[test]
     fn test_glonass_epoch_to_utc_gives_correct_nanos() {
-        // Эпоха GLO = 1996-01-01 00:00:00 UTC(SU) = 1995-12-31 21:00:00 UTC
-        // UTC от эпохи UTC: (дни до 1995-12-31) * 86400 + 21*3600 = ...
-        // Проверяем через константу GLONASS_FROM_UTC_EPOCH_NS
+        // GLONASS epoch = 1996-01-01 00:00:00 UTC(SU)
+        // which corresponds to 1995-12-31 21:00:00 UTC
+        //
+        // UTC offset from UTC epoch:
+        // (days to 1995-12-31) * 86400 + 21h * 3600 = ...
+        // Verified via GLONASS_FROM_UTC_EPOCH_NS constant
         let utc = glonass_to_utc(Time::<Glonass>::EPOCH).unwrap();
 
         assert_eq!(utc.as_nanos(), GLONASS_FROM_UTC_EPOCH_NS as u64);
@@ -770,8 +776,8 @@ mod tests {
 
     #[test]
     fn test_utc_before_glonass_epoch_returns_error() {
-        // Эпоха UTC (1972-01-01) < эпохи ГЛОНАСС (1996), поэтому UTC = 0 → происходит
-        // underflow
+        // UTC epoch (1972-01-01) is earlier than GLONASS epoch (1996),
+        // so conversion results in underflow/overflow
         let utc = Time::<Utc>::EPOCH;
 
         assert!(matches!(utc_to_glonass(utc), Err(GnssTimeError::Overflow)));
@@ -779,8 +785,8 @@ mod tests {
 
     #[test]
     fn test_glonass_offset_is_exactly_3_hours_less_than_day_boundary() {
-        // Смещение = 8766 дней * 86400 - 3*3600 (ровно 3 часа до полуночи 1996-01-01
-        // UTC)
+        // Offset = 8766 days * 86400 - 3*3600 (exactly 3 hours before midnight
+        // 1996-01-01 UTC)
         let three_hours_ns: i64 = 3 * 3_600 * 1_000_000_000;
         let days_ns: i64 = 8766 * 86_400 * 1_000_000_000;
 
@@ -790,7 +796,7 @@ mod tests {
     #[test]
     fn test_gps_to_glonass_to_gps_roundtrip() {
         let ls = LeapSeconds::builtin();
-        // GPS в 2020 году (после последнего leap second 2017)
+        // GPS time in 2020 (after the last leap second in 2017)
         let gps = Time::<Gps>::from_week_tow(2100, 86400.0).unwrap();
         let glo = gps_to_glonass(gps, &ls).unwrap();
         let back = glonass_to_gps(glo, &ls).unwrap();
