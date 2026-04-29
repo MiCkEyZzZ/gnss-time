@@ -1,0 +1,61 @@
+# cargo deny configuration
+# Documentation: https://embarkstudios.github.io/cargo-deny/
+#
+# Run: cargo deny check
+# In CI: uses EmbarkStudios/cargo-deny-action@v1
+#
+# # Advisories
+[advisories]
+## Database: https://github.com/RustSec/advisory-db
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/RustSec/advisory-db"]
+
+# Unmaintained packages — warning (not error)
+unmaintained = "workspace"
+
+# Yanked versions — error
+yanked = "deny"
+
+# Ignore specific advisory-ids (when there is no alternative)
+ignore = []
+
+[licenses]
+# Permitted licenses for all dependencies.
+# gnss-time: MIT OR Apache-2.0
+# defmt: MIT OR Apache-2.0
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Unicode-DFS-2016",
+  "CC0-1.0",
+  "0BSD",
+]
+unused-allowed-license = "allow"
+
+# Confidence threshold for automatic license detection (0.0–1.0)
+confidence-threshold = 0.8
+
+[sources]
+# Only crates.io as an official source
+unknown-registry = "deny"
+unknown-git = "deny"
+
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+
+[bans]
+# Multiple versions of the same package - warning
+multiple-versions = "warn"
+
+# Forbidden packages (insecure time-crate from RUSTSEC-2020-0071)
+deny = [
+# time < 0.2.23 — unsafe on Unix (RUSTSEC-2020-0071)
+    { name = "time", version = "<0.2.23" },
+]
+
+# Allowed duplicates (inevitable in the ecosystem)
+skip = []
+skip-tree = []
