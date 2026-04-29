@@ -1,21 +1,12 @@
-# root = true указывает на то, что это корень настроек.
+# EditorConfig root
 root = true
 
-# Все файлы по умолчанию.
+# Global settings
 [*]
 charset = utf-8
 end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
-
-# Go
-[*.go]
-indent_style = tab
-indent_size = 1       # таб = 1 "таба" (Go-гайд)
-tab_width    = 4      # отображение таба как 4 пробела
-max_line_length = 120
-
-# сортируем импорты по gofmt/goimports, без пробелов вокруг кода
 
 # Rust
 [*.rs]
@@ -24,17 +15,33 @@ indent_size = 4
 tab_width    = 4
 max_line_length = 100
 
-# JSON, YAML, TOML, Markdown
-[*.{json,yml,yaml,toml,md}]
+# Data formats (JSON/YAML/TOML)
+[*.json]
 indent_style = space
 indent_size = 2
-tab_width    = 2
 
-# Shell scripts, Makefile
-[*.{sh,mak,Makefile}]
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+[*.toml]
+indent_style = space
+indent_size = 2
+
+# Markdown
+[*.md]
+indent_style = space
+indent_size = 2
+
+# Shell scripts
+[*.sh]
 indent_style = tab
-indent_size = 1
-tab_width    = 4
+tab_width = 4
+
+# Makefile
+[Makefile]
+indent_style = tab
+tab_width = 4
 
 # Docker, Kubernetes
 [Dockerfile]
@@ -45,7 +52,7 @@ indent_size = 2
 indent_style = space
 indent_size = 2
 
-# Configuration files
+# Config files
 [*.{ini,conf,env,properties}]
 indent_style = space
 indent_size = 2
