@@ -9,7 +9,7 @@
 #   embedded  — кросс-компиляция под embedded targets
 #   publish   — cargo publish --dry-run (только на тегах v*.*.*)
 
-name: CI
+name: Ci
 
 on:
   push:
