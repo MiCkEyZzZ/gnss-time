@@ -1,14 +1,15 @@
-# CI: кросс-компиляция и проверка no_std совместимости для embedded targets
+# embedded.yml
 #
-# Проверяет:
-# - thumbv7em-none-eabihf  (STM32F4/F7, nRF52 — Cortex-M4F/M7F с FPU)
-# - thumbv7em-none-eabi    (Cortex-M4/M7 без FPU)
-# - riscv32imac-unknown-none-elf  (ESP32-C3, GD32VF103)
+# Проверка no_std совместимости и кросс-компиляция под embedded targets.
+#
+# Targets:
+#   thumbv7em-none-eabihf          — STM32F4/F7, nRF52 (Cortex-M4F/M7F с FPU)
+#   thumbv7em-none-eabi            — Cortex-M4/M7 без FPU
+#   riscv32imac-unknown-none-elf   — ESP32-C3, GD32VF103
 #
 # Запускается:
-# - при push в main / develop
-# - при push тегов v*.*.*
-# - при pull request в main
+#   - автономно при push/PR в master/develop и на тегах v*.*.*
+#   - как reusable workflow — вызывается из ci.yml через workflow_call
 
 name: embedded no_std
 
@@ -19,13 +20,15 @@ on:
   pull_request:
     branches: [master]
   workflow_dispatch:
+  workflow_call: # reusable: ci.yml вызывает этот workflow
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  embedded:
-    name: Embedded ${{ matrix.target }}
+  # ── Кросс-компиляция ──────────────────────────────────────────────────────────
+  cross-compile:
+    name: ${{ matrix.target }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -34,7 +37,6 @@ jobs:
           - thumbv7em-none-eabihf
           - thumbv7em-none-eabi
           - riscv32imac-unknown-none-elf
-
     steps:
       - uses: actions/checkout@v4
 
@@ -44,17 +46,30 @@ jobs:
           toolchain: nightly-2026-02-14
           targets: ${{ matrix.target }}
 
-      - name: Ensure embedded target is installed
-        run: rustup target add --toolchain nightly-2026-02-14 ${{ matrix.target }}
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-embedded-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: cargo check (no features)
-        run: cargo check --lib --no-default-features --target ${{ matrix.target }}
+      - name: cargo check — no features
+        run: >
+          cargo check --lib
+          --no-default-features
+          --target ${{ matrix.target }}
 
-      - name: cargo check (defmt)
-        run: cargo check --lib --no-default-features --features defmt --target ${{ matrix.target }}
+      - name: cargo check — defmt feature
+        run: >
+          cargo check --lib
+          --no-default-features --features defmt
+          --target ${{ matrix.target }}
 
+  # ── Проверка размеров типов (Time<S> = 8 байт) ───────────────────────────────
   type-sizes:
-    name: Verify 8-byte type sizes
+    name: Type sizes = 8 bytes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -64,49 +79,8 @@ jobs:
         with:
           toolchain: nightly-2026-02-14
 
-      - name: Check type sizes via tests
-        run: cargo test --lib test_size_equals_u64 -- --nocapture
-
-  host-tests:
-    name: Host tests (regression)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly-2026-02-14
-
-      - name: cargo test
-        run: cargo test
-
-      - name: cargo test --features std
-        run: cargo test --features std
-
-      - name: cargo test --features defmt
-        run: cargo test --features defmt
-
-  lint:
-    name: Clippy + unsafe check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly-2026-02-14
-          components: clippy
-
-      - name: clippy (default)
-        run: cargo clippy --all-targets -- -D warnings
-
-      - name: clippy (all features)
-        run: cargo clippy --all-targets --all-features -- -D warnings
-
-      - name: Check for arithmetic overflow lint
-        run: cargo clippy -- -D clippy::arithmetic_overflow
-
-      - name: Verify forbid(unsafe_code)
-        run: grep -n "forbid(unsafe_code)" src/lib.rs
+      - name: Verify Time<S> is exactly 8 bytes
+        run: >
+          cargo test --lib
+          time::tests::test_size_equals_u64
+          -- --nocapture

@@ -1,20 +1,22 @@
-# CI: полный пайплайн для публикации на crates.io
+# ci.yml
+#
+# Основной CI пайплайн: качество кода, тесты, документация, MSRV, аудит.
+# Запускается при каждом push и PR.
 #
 # Jobs:
-#   fmt       — cargo fmt --check + taplo fmt --check
-#   clippy    — clippy -D warnings, все features, все targets
-#   test      — cargo test (default, std, defmt)
-#   deny      — cargo deny check (лицензии, уязвимости)
-#   msrv      — проверка MSRV = 1.75 (stable - 3 версии)
-#   embedded  — кросс-компиляция под embedded targets
-#   publish   — cargo publish --dry-run (только на тегах v*.*.*)
+#   fmt      — форматирование (cargo fmt + taplo)
+#   clippy   — статический анализ, все feature-комбинации
+#   test     — cargo test (default, std, defmt, std+defmt)
+#   docs     — cargo doc без предупреждений
+#   deny     — аудит лицензий и CVE (cargo deny)
+#   msrv     — проверка MSRV = Rust 1.75
+#   embedded — вызывает embedded.yml как reusable workflow
 
-name: Ci
+name: CI
 
 on:
   push:
     branches: [master, develop]
-    tags: ["v*.*.*"]
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -26,7 +28,7 @@ env:
 jobs:
   # ── Форматирование ────────────────────────────────────────────────────────────
   fmt:
-    name: Format check
+    name: Format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,12 +42,12 @@ jobs:
       - name: cargo fmt --check
         run: cargo fmt --all -- --check
 
-      - name: taplo fmt --check (TOML)
+      - name: Setup taplo
         uses: uncenter/setup-taplo@v1
         with:
           version: "0.9.3"
 
-      - name: Run taplo check
+      - name: taplo fmt --check (TOML файлы)
         run: taplo fmt --check
 
   # ── Clippy ────────────────────────────────────────────────────────────────────
@@ -70,16 +72,16 @@ jobs:
             target
           key: ${{ runner.os }}-clippy-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: clippy (default features)
+      - name: clippy — default features
         run: cargo clippy --all-targets -- -D warnings
 
-      - name: clippy (--features std)
+      - name: clippy — std feature
         run: cargo clippy --all-targets --features std -- -D warnings
 
-      - name: clippy (--features defmt)
+      - name: clippy — defmt feature
         run: cargo clippy --all-targets --features defmt -- -D warnings
 
-      - name: clippy (--all-features)
+      - name: clippy — all features
         run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Verify #![forbid(unsafe_code)]
@@ -90,7 +92,7 @@ jobs:
 
   # ── Тесты ─────────────────────────────────────────────────────────────────────
   test:
-    name: Test (${{ matrix.features }})
+    name: Test (${{ matrix.features || 'default' }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -100,7 +102,6 @@ jobs:
           - "std"
           - "defmt"
           - "std,defmt"
-
     steps:
       - uses: actions/checkout@v4
 
@@ -109,12 +110,11 @@ jobs:
         with:
           toolchain: nightly-2026-02-14
 
-      - name: Normalize features for cache key
-        id: normalize
+      - name: Normalize features для cache key
+        id: norm
         run: |
-          FEATURES="${{ matrix.features }}"
-          FEATURES="${FEATURES//,/-}"
-          echo "features=$FEATURES" >> $GITHUB_OUTPUT
+          KEY="${{ matrix.features }}"
+          echo "key=${KEY//,/-}" >> $GITHUB_OUTPUT
 
       - name: Cache cargo
         uses: actions/cache@v4
@@ -123,17 +123,18 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-test-${{ steps.normalize.outputs.features }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-test-${{ steps.norm.outputs.key }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: cargo test
         run: |
-          if [ -z "${{ matrix.features }}" ]; then
+          FEATURES="${{ matrix.features }}"
+          if [ -z "$FEATURES" ]; then
             cargo test
           else
-            cargo test --features "${{ matrix.features }}"
+            cargo test --features "$FEATURES"
           fi
 
-  # ── Проверка docs ─────────────────────────────────────────────────────────────
+  # ── Документация ──────────────────────────────────────────────────────────────
   docs:
     name: Docs
     runs-on: ubuntu-latest
@@ -145,12 +146,12 @@ jobs:
         with:
           toolchain: nightly-2026-02-14
 
-      - name: cargo doc (all features, -D warnings)
+      - name: cargo doc — all features, -D warnings
         run: RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
 
-  # ── cargo deny ────────────────────────────────────────────────────────────────
+  # ── Аудит лицензий и уязвимостей ─────────────────────────────────────────────
   deny:
-    name: Cargo deny (licenses + advisories)
+    name: Cargo deny
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -162,7 +163,7 @@ jobs:
           command: check
           arguments: --all-features
 
-  # ── MSRV: Rust 1.75 ──────────────────────────────────────────────────────────
+  # ── MSRV: минимальная поддерживаемая версия Rust (1.75) ─────────────────────
   msrv:
     name: MSRV 1.75
     runs-on: ubuntu-latest
@@ -174,52 +175,19 @@ jobs:
         with:
           toolchain: "1.75"
 
-      - name: cargo check (no features)
+      - name: cargo check — no features
         run: cargo check --lib --no-default-features
 
-      - name: cargo check (--features std)
+      - name: cargo check — std feature
         run: cargo check --lib --features std
 
-      - name: cargo check (--features defmt)
+      - name: cargo check — defmt feature
         run: cargo check --lib --no-default-features --features defmt
 
-  # ── Embedded кросс-компиляция ────────────────────────────────────────────────
+  # ── Embedded (reusable) ───────────────────────────────────────────────────────
+  # Вызывает embedded.yml как reusable workflow.
+  # Не дублирует логику — embedded.yml остаётся единым источником правды.
   embedded:
-    name: Embedded ${{ matrix.target }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        target:
-          - thumbv7em-none-eabihf
-          - thumbv7em-none-eabi
-          - riscv32imac-unknown-none-elf
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly-2026-02-14
-          targets: ${{ matrix.target }}
-
-      - name: cargo check (no features)
-        run: cargo check --lib --no-default-features --target ${{ matrix.target }}
-
-      - name: cargo check (defmt feature)
-        run: cargo check --lib --no-default-features --features defmt --target ${{ matrix.target }}
-
-  # ── Проверка типов (8 байт) ───────────────────────────────────────────────────
-  type-sizes:
-    name: Type size = 8 bytes
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly-2026-02-14
-
-      - name: Verify Time<S> is exactly 8 bytes
-        run: cargo test --lib time::tests::test_size_equals_u64 -- --nocapture
+    name: Embedded
+    needs: [fmt, clippy] # запускать только если базовые проверки прошли
+    uses: ./.github/workflows/embedded.yml

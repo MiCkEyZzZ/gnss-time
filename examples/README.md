@@ -1,6 +1,6 @@
 # Examples
 
-All examples compile and run with `cargo run --example <name>`.
+All examples compile and run with `cargo run --example $name`.
 
 ## Getting started
 
