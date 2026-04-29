@@ -1,0 +1,217 @@
+# CI: полный пайплайн для публикации на crates.io
+#
+# Jobs:
+#   fmt       — cargo fmt --check + taplo fmt --check
+#   clippy    — clippy -D warnings, все features, все targets
+#   test      — cargo test (default, std, defmt)
+#   deny      — cargo deny check (лицензии, уязвимости)
+#   msrv      — проверка MSRV = 1.75 (stable - 3 версии)
+#   embedded  — кросс-компиляция под embedded targets
+#   publish   — cargo publish --dry-run (только на тегах v*.*.*)
+
+name: CI
+
+on:
+  push:
+    branches: [master, develop]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  # ── Форматирование ────────────────────────────────────────────────────────────
+  fmt:
+    name: Format check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-14
+          components: rustfmt
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+      - name: taplo fmt --check (TOML)
+        uses: uncenter/setup-taplo@v1
+        with:
+          version: "0.9.3"
+
+      - name: Run taplo check
+        run: taplo fmt --check
+
+  # ── Clippy ────────────────────────────────────────────────────────────────────
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-14
+          components: clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-clippy-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: clippy (default features)
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: clippy (--features std)
+        run: cargo clippy --all-targets --features std -- -D warnings
+
+      - name: clippy (--features defmt)
+        run: cargo clippy --all-targets --features defmt -- -D warnings
+
+      - name: clippy (--all-features)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Verify #![forbid(unsafe_code)]
+        run: grep -n "forbid(unsafe_code)" src/lib.rs
+
+      - name: Verify #![deny(missing_docs)]
+        run: grep -n "deny(missing_docs)" src/lib.rs
+
+  # ── Тесты ─────────────────────────────────────────────────────────────────────
+  test:
+    name: Test (${{ matrix.features }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          - "" # default (no_std)
+          - "std"
+          - "defmt"
+          - "std,defmt"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-14
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-test-${{ matrix.features }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: cargo test
+        run: |
+          if [ -z "${{ matrix.features }}" ]; then
+            cargo test
+          else
+            cargo test --features "${{ matrix.features }}"
+          fi
+
+  # ── Проверка docs ─────────────────────────────────────────────────────────────
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-14
+
+      - name: cargo doc (all features, -D warnings)
+        run: RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
+
+  # ── cargo deny ────────────────────────────────────────────────────────────────
+  deny:
+    name: Cargo deny (licenses + advisories)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: cargo deny check
+        uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          log-level: warn
+          command: check
+          arguments: --all-features
+
+  # ── MSRV: Rust 1.75 ──────────────────────────────────────────────────────────
+  msrv:
+    name: MSRV 1.75
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust 1.75
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.75"
+
+      - name: cargo check (no features)
+        run: cargo check --lib --no-default-features
+
+      - name: cargo check (--features std)
+        run: cargo check --lib --features std
+
+      - name: cargo check (--features defmt)
+        run: cargo check --lib --no-default-features --features defmt
+
+  # ── Embedded кросс-компиляция ────────────────────────────────────────────────
+  embedded:
+    name: Embedded ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - thumbv7em-none-eabihf
+          - thumbv7em-none-eabi
+          - riscv32imac-unknown-none-elf
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-14
+          targets: ${{ matrix.target }}
+
+      - name: cargo check (no features)
+        run: cargo check --lib --no-default-features --target ${{ matrix.target }}
+
+      - name: cargo check (defmt feature)
+        run: cargo check --lib --no-default-features --features defmt --target ${{ matrix.target }}
+
+  # ── Проверка типов (8 байт) ───────────────────────────────────────────────────
+  type-sizes:
+    name: Type size = 8 bytes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-14
+
+      - name: Verify Time<S> is exactly 8 bytes
+        run: cargo test --lib time::tests::test_size_equals_u64 -- --nocapture
