@@ -11,8 +11,7 @@ db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/RustSec/advisory-db"]
 
 # Unmaintained packages — warning (not error)
-unmaintained = "warn"
-workspace = true
+unmaintained = "workspace"
 
 # Yanked versions — error
 yanked = "deny"
