@@ -269,7 +269,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [0.1.0] — 2026-04-21
 
-- **Тип `Duration`** — знаковый интервал времени в наносекундах (`i64`).
+- **`Duration`** — signed nanosecond interval (`i64`):
   - Конструкторы: `from_nanos`, `from_micros`, `from_millis`, `from_seconds`,
     `from_minutes`, `from_hours`, `from_days`.
   - Проверяемые варианты: `checked_from_micros`, `checked_from_millis`, `checked_from_seconds`.
@@ -330,7 +330,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - `DayTod` (GLONASS): `"GLO 10512:43200.000"`.
   - `Simple` (TAI, UTC): `"TAI +1000000000s 0ns"`.
 
-- **Примеры (`examples/`)**:
+- **Examples**:
   - `basic_usage.rs` — создание меток, арифметика, saturating операции.
   - `gps_week_tow.rs` — работа с GPS неделями и TOW.
   - `glonass_day_tod.rs` — работа с GLONASS днями и TOD.
