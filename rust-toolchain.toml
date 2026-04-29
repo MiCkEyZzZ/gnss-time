@@ -1,6 +1,6 @@
 [toolchain]
-# Конкретный nightly для воспроизводимости.
-# Обновляй осторожно — всегда проверяй MSRV (1.75) после обновления.
+# Specific nightly for reproducibility.
+# Update carefully — always verify MSRV (1.75) after upgrading.
 channel = "nightly-2026-02-14"
 components = ["rustfmt", "clippy", "rust-src", "rust-analyzer"]
 targets    = ["thumbv7em-none-eabihf", "riscv32imac-unknown-none-elf"]
