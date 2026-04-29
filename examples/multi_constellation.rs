@@ -9,6 +9,6 @@ fn main() {
     println!("GAL : {gal}");
     println!("BDT : {bdt}");
 
-    // важно: это один физический момент времени
+    // NOTE: this is the same physical point in time
     assert_eq!(gps.as_nanos(), gal.as_nanos());
 }

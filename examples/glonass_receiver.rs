@@ -1,7 +1,7 @@
 use gnss_time::prelude::*;
 
 fn main() {
-    // данные из GLONASS эфемерид
+    // data from GLONASS ephemeris
     let day = 10512;
     let tod = 43_200.0;
 

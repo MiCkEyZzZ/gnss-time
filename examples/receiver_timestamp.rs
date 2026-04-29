@@ -1,9 +1,9 @@
 use gnss_time::prelude::*;
 
 fn main() {
-    // данные из GNSS приёмника (например u-blox)
+    // data from GNSS receiver (e.g., u-blox)
     let week: u16 = 2345;
-    let tow: f64 = 432_000.125; // секунд + дробная часть
+    let tow: f64 = 432_000.125; // seconds + fractional part
 
     let t = Time::<Gps>::from_week_tow(week, tow).expect("valid GPS time");
 

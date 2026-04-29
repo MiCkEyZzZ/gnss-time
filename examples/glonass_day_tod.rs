@@ -1,33 +1,33 @@
 use gnss_time::prelude::*;
 
 fn main() {
-    // Эпоха ГЛОНАСС: 1996-01-01 00:00:00 UTC(SU)
+    // GLONASS epoch: 1996-01-01 00:00:00 UTC(SU)
     let epoch = Time::<Glonass>::EPOCH;
 
     println!("GLONASS epoch: {epoch}");
 
-    // Конструирование из номера дня и времени суток (в секундах)
-    // День 10512, TOD = 43200 секунд (ровно 12 часов)
+    // Construct from day number and time of day (in seconds)
+    // Day 10512, TOD = 43200 seconds (exactly 12 hourse)
     let t = Time::<Glonass>::from_day_tod(10_512, 43_200.0).unwrap();
 
     println!("GLONASS time: {t}");
 
-    // Извлекаем компоненты обратно
+    // Extract components back
     println!("Days since epoch: {}", t.day());
     println!("TOD (seconds): {}", t.tod_seconds());
 
-    // Дробный TOD
+    // Fractional TOD
     let fractional = Time::<Glonass>::from_day_tod(100, 3600.5).unwrap();
 
     println!("\nFractional seconds example: {fractional}");
 
-    // Некорректный TOD (должен быть < 86400)
+    // Invalid TOD (must be < 86400)
     match Time::<Glonass>::from_day_tod(0, 86_400.0) {
         Err(e) => println!("\nInvalid TOD rejected: {e}"),
         _ => panic!("Should have failed!"),
     }
 
-    // День 0 = эпоха
+    // Day 0 = epoch
     let day_zero = Time::<Glonass>::from_day_tod(0, 0.0).unwrap();
 
     assert_eq!(day_zero, Time::<Glonass>::EPOCH);
