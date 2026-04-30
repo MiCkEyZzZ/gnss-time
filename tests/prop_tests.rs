@@ -1,32 +1,30 @@
-// # Property-based тесты (без proptest — ручная реализация)
+// # Property-based tests (without proptest — manual implementation)
 //
-// Поскольку proptest недоступен в текущем окружении, реализуем
-// property-based подход вручную через детерминированные pseudo-random
-// выборки покрывающие весь диапазон значений.
+// Since proptest is unavailable in the current environment, we implement
+// a property-based approach manually using deterministic pseudo-random
+// samples covering the entire value range.
 //
-// ## Свойства, которые проверяются
+// ## Properties being tested
 //
-// 1. **Roundtrip GPS→UTC→GPS**: для любого `t: Time<Gps>` верно `GPS→UTC→GPS ==
-//    t`
-// 2. **Roundtrip через все 5 доменов**: GPS→GAL→BDT→TAI→GPS == GPS
-// 3. **Сортировка**: порядок `Vec<Time<Gps>>` совпадает с порядком по
-//    внутреннему u64
-// 4. **Исторические leap second transitions**: все 18 событий с 1981 по 2017
-// 5. **Реальные IGS эпохи**: несколько исторических GPS меток
+// 1. **Roundtrip GPS→UTC→GPS**: for any `t: Time<Gps>`, it holds that
+//    `GPS→UTC→GPS == t`
+// 2. **Roundtrip through all 5 domains**: GPS→GAL→BDT→TAI→GPS == GPS
+// 3. **Sorting**: ordering of `Vec<Time<Gps>>` matches ordering by internal u64
+// 4. **Historical leap second transitions**: all 18 events from 1981 to 2017
+// 5. **Real IGS epochs**: several historical GPS timestamps
 
 use gnss_time::{gps_to_utc, utc_to_gps, Beidou, Galileo, Gps, IntoScale, LeapSeconds, Tai, Time};
 
-// Детерминированная выборка: равномерно по всему GPS-диапазону + граничные
-// случаи.
+// Deterministic sampling: uniform across the entire GPS range + edge cases.
 fn gps_sample_points() -> Vec<Time<Gps>> {
     let mut pts = Vec::with_capacity(256);
 
-    // Граничные значения
+    // Boundary values
     pts.push(Time::<Gps>::EPOCH);
     pts.push(Time::<Gps>::from_nanos(1));
     pts.push(Time::<Gps>::from_nanos(1_000_000_000 - 1)); // 1s - 1ns
 
-    // Все известные GPS эпохи leap second переходов (GPS-секунды)
+    // All known GPS epochs of leap second transitions (GPS seconds)
     let leap_gps_seconds: &[u64] = &[
         46_828_801,    // 1981-07-01
         78_364_802,    // 1982-07-01
@@ -48,7 +46,7 @@ fn gps_sample_points() -> Vec<Time<Gps>> {
         1_167_264_018, // 2017-01-01
     ];
     for &s in leap_gps_seconds {
-        // 2 секунды до и после каждого перехода
+        // 2 seconds before and after each transition
         if s >= 2 {
             pts.push(Time::<Gps>::from_seconds(s - 2));
             pts.push(Time::<Gps>::from_seconds(s - 1));
@@ -58,13 +56,13 @@ fn gps_sample_points() -> Vec<Time<Gps>> {
         pts.push(Time::<Gps>::from_seconds(s + 2));
     }
 
-    // Равномерные точки по всему диапазону (каждый ~29 лет)
+    // Uniform points across the entire range (~every 29 years)
     let step = u64::MAX / 20;
     for i in 0..=20 {
         pts.push(Time::<Gps>::from_nanos(step.saturating_mul(i)));
     }
 
-    // IGS реальные эпохи (известные GPS недели)
+    // IGS real epochs (known GPS weeks)
     for week in [1, 100, 500, 1000, 1500, 2000, 2086, 2100, 2200] {
         pts.push(Time::<Gps>::from_week_tow(week, 0.0).unwrap());
         pts.push(Time::<Gps>::from_week_tow(week, 302_400.0).unwrap()); // середина недели
@@ -83,13 +81,14 @@ fn prop_gps_utc_gps_roundtrip_for_all_samples() {
     let samples = gps_sample_points();
 
     for t in &samples {
-        // Используем checked-версию чтобы выявить окно неоднозначности.
-        // В этом окне (1 с вокруг каждого leap second) roundtrip не гарантирован.
+        // Use checked version to detect ambiguity window.
+        // In this window (1 second around each leap second) roundtrip is not
+        // guaranteed.
         let result: ConvertResult<Time<Utc>> = match t.into_scale_with_checked(ls) {
             Ok(r) => r,
             Err(_) => continue,
         };
-        // Пропускаем неоднозначные точки (окно вставки leap second)
+        // Skip ambiguous points (leap second insertion window)
         let utc = match result {
             ConvertResult::Exact(u) => u,
             ConvertResult::AmbiguousLeapSecond(_) => continue,
@@ -109,7 +108,7 @@ fn prop_gps_galileo_gps_roundtrip_for_all_samples() {
     let samples = gps_sample_points();
 
     for t in &samples {
-        // GPS→GAL идёт через TAI: если GPS+19 > u64::MAX → overflow, пропускаем
+        // GPS→GAL goes via TAI: if GPS+19 > u64::MAX → overflow, skip
         let gal: Time<Galileo> = match t.into_scale() {
             Ok(g) => g,
             Err(_) => continue,
@@ -124,7 +123,7 @@ fn prop_gps_galileo_gps_roundtrip_for_all_samples() {
             "GPS→GAL→GPS roundtrip failed for t={} ns",
             t.as_nanos()
         );
-        // Galileo и GPS хранят одинаковые наносекунды
+        // Galileo and GPS store identical nanoseconds
         assert_eq!(t.as_nanos(), gal.as_nanos());
     }
 }
@@ -136,7 +135,7 @@ fn prop_gps_beidou_gps_roundtrip_for_all_samples() {
     for t in &samples {
         let bdt: Time<Beidou> = match t.into_scale() {
             Ok(b) => b,
-            Err(_) => continue, // underflow для малых GPS-значений
+            Err(_) => continue, // underflow for small GPS values
         };
         let back: Time<Gps> = bdt.into_scale().unwrap();
         assert_eq!(
@@ -174,11 +173,11 @@ fn prop_gps_tai_gps_roundtrip_for_all_samples() {
 fn prop_sort_order_matches_internal_u64() {
     let mut samples = gps_sample_points();
 
-    // Сортируем через Ord<Time<Gps>>
+    // Sort via Ord<Time<Gps>>
     let mut by_time = samples.clone();
     by_time.sort();
 
-    // Сортируем напрямую по u64
+    // Sort directly by u64
     samples.sort_by_key(|t| t.as_nanos());
 
     assert_eq!(
@@ -191,8 +190,8 @@ fn prop_sort_order_matches_internal_u64() {
 fn prop_gps_to_utc_is_monotone_between_leap_seconds() {
     let ls = LeapSeconds::builtin();
 
-    // В интервале 1999-01-01 (ls=32) до 2006-01-01 (ls=33) — 7 лет без leap second
-    // GPS 599_184_013 (1999-01-01) до GPS 820_108_814 (2006-01-01)
+    // Interval 1999-01-01 (ls=32) to 2006-01-01 (ls=33) — 7 years without leap
+    // second
     let start = Time::<Gps>::from_seconds(599_184_014);
     let mid = Time::<Gps>::from_seconds(709_646_413); // ~2002
     let end = Time::<Gps>::from_seconds(820_108_812);
@@ -213,15 +212,15 @@ fn prop_gps_to_utc_is_monotone_between_leap_seconds() {
     assert!(mid < end, "GPS ordering correct");
 }
 
-/// Таблица: [(GPS_seconds, expected_GPS_minus_UTC_seconds)]
+// Table: [(GPS_seconds, expected_GPS_minus_UTC_seconds)]
 const GPS_OFFSET_TABLE: &[(u64, i64)] = &[
-    // В 1980 году GPS-UTC = 0
+    // In 1980 year GPS-UTC = 0
     (1, 0),
-    // После 1981-07-01: GPS-UTC = 1
+    // after 1981-07-01: GPS-UTC = 1
     (46_828_802, 1),
-    // После 1999-01-01: GPS-UTC = 13
+    // after 1999-01-01: GPS-UTC = 13
     (599_184_014, 13),
-    // После 2017-01-01: GPS-UTC = 18
+    // after 2017-01-01: GPS-UTC = 18
     (1_167_264_019, 18),
 ];
 
@@ -247,13 +246,13 @@ fn prop_gps_minus_utc_matches_expected_offsets() {
     }
 }
 
-// Проверяет что GPS прыгает на 2 секунды (UTC на 1) при каждом leap second.
+// Verifies GPS jumps by 2 seconds (UTC by 1) at each leap second.
 struct LeapTransition {
-    // GPS-секунды ПОСЛЕ вставки leap second (первая секунда нового значения)
+    // GPS seconds AFTER the leap second is inserted (first second with new value)
     gps_after: u64,
-    // GPS-секунды ДО вставки (последняя секунда старого значения)
+    // GPS seconds BEFORE insertion (last second with old value)
     gps_before: u64,
-    // Ожидаемая разность UTC-секунд между after и before (должна быть 1)
+    // Expected difference in UTC seconds between after and before (should be 1)
     expected_utc_diff: i64,
 }
 
@@ -263,7 +262,7 @@ fn prop_all_18_leap_second_transitions_correct() {
 
     let transitions = [
         // gps_after = (unix_event - 315_964_800) + new_GPS_UTC_offset
-        // gps_before = gps_after - 2 (GPS прыгает на 2, UTC на 1)
+        // gps_before = gps_after - 2 (GPS jumps by 2 seconds, UTC by 1 second)
         LeapTransition {
             gps_after: 46_828_801,
             gps_before: 46_828_799,
@@ -377,7 +376,7 @@ fn prop_gps_utc_offset_strictly_increases_at_each_transition() {
     let ls = LeapSeconds::builtin();
     const GPS_UTC_EPOCH_OFFSET_S: i64 = 252_892_800;
 
-    // GPS секунды сразу после каждого leap second
+    // GPS seconds immediately after each leap second
     let transition_points: &[u64] = &[
         46_828_802,
         78_364_803,
