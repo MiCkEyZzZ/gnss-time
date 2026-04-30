@@ -137,7 +137,7 @@ impl<T> ConvertResult<T> {
 
     /// Returns `true` if the result is ambiguous.
     #[inline]
-    pub fn is_unambiguous(&self) -> bool {
+    pub fn is_ambiguous(&self) -> bool {
         matches!(self, ConvertResult::AmbiguousLeapSecond(_))
     }
 }
@@ -828,5 +828,130 @@ mod tests {
         let via_fn = gps_to_utc(gps, ls).unwrap();
 
         assert_eq!(via_trait, via_fn);
+    }
+
+    #[test]
+    fn test_gps_to_utc_detects_leap_second_ambiguity() {
+        let ls = LeapSeconds::builtin();
+        // GPS time прямо на leap second boundary (2017-01-01)
+        let gps = Time::<Gps>::from_seconds(1_167_264_018);
+        let result: ConvertResult<Time<Utc>> = gps.into_scale_with_checked(ls).unwrap();
+
+        assert!(matches!(result, ConvertResult::AmbiguousLeapSecond(_)));
+    }
+
+    #[test]
+    fn test_all_roundtrip_invariants() {
+        let ls = LeapSeconds::builtin();
+
+        let gps_values = [
+            Time::<Gps>::from_week_tow(2086, 0.0).unwrap(),
+            Time::<Gps>::from_week_tow(2100, 86_400.0).unwrap(),
+            Time::<Gps>::from_nanos(1_167_264_100_123_456_789),
+        ];
+
+        for gps in gps_values {
+            let utc: Time<Utc> = gps.into_scale_with(ls).unwrap();
+            let back: Time<Gps> = utc.into_scale_with(ls).unwrap();
+            assert_eq!(gps, back);
+
+            let gal: Time<Galileo> = gps.into_scale().unwrap();
+            let back: Time<Gps> = gal.into_scale().unwrap();
+            assert_eq!(gps, back);
+
+            let bdt: Time<Beidou> = gps.into_scale().unwrap();
+            let back: Time<Gps> = bdt.into_scale().unwrap();
+            assert_eq!(gps, back);
+        }
+    }
+
+    #[test]
+    fn test_gps_epoch_to_utc_is_exact() {
+        let ls = LeapSeconds::builtin();
+
+        let gps = Time::<Gps>::EPOCH;
+        let utc: Time<Utc> = gps.into_scale_with(ls).unwrap();
+
+        assert_eq!(utc.as_seconds(), 252_892_800);
+    }
+
+    #[test]
+    fn test_gps_epoch_utc_roundtrip() {
+        let ls = LeapSeconds::builtin();
+
+        let gps = Time::<Gps>::EPOCH;
+        let utc: Time<Utc> = gps.into_scale_with(ls).unwrap();
+        let back: Time<Gps> = utc.into_scale_with(ls).unwrap();
+
+        assert_eq!(gps, back);
+    }
+
+    #[test]
+    fn test_glonass_roundtrip_invariants_supported_range() {
+        let ls = LeapSeconds::builtin();
+
+        let gps_values = [
+            Time::<Gps>::from_week_tow(2086, 0.0).unwrap(),
+            Time::<Gps>::from_week_tow(2100, 86_400.0).unwrap(),
+            Time::<Gps>::from_nanos(1_167_264_100_123_456_789),
+        ];
+
+        for gps in gps_values {
+            let glo: Time<Glonass> = gps.into_scale_with(ls).unwrap();
+            let back: Time<Gps> = glo.into_scale_with(ls).unwrap();
+
+            assert_eq!(gps, back);
+        }
+    }
+
+    #[test]
+    fn test_checked_variants_contract() {
+        let ls = LeapSeconds::builtin();
+        let gps = Time::<Gps>::from_week_tow(2000, 0.0).unwrap();
+        let res: ConvertResult<Time<Utc>> = gps.into_scale_with_checked(ls).unwrap();
+
+        match res {
+            ConvertResult::Exact(_) => {}
+            ConvertResult::AmbiguousLeapSecond(_) => panic!("unexpected ambiguity"),
+        }
+    }
+
+    #[test]
+    fn test_convert_result_consistency() {
+        let t = Time::<Gps>::from_seconds(42);
+        let exact = ConvertResult::Exact(t);
+
+        assert!(exact.is_exact());
+        assert!(!exact.is_ambiguous());
+
+        let amb = ConvertResult::AmbiguousLeapSecond(t);
+
+        assert!(!amb.is_exact());
+        assert!(amb.is_ambiguous());
+    }
+
+    #[test]
+    fn test_gps_to_tai_overflow_near_max() {
+        let gps = Time::<Gps>::from_nanos(Time::<Gps>::MAX.as_nanos() - 1);
+        let result: Result<Time<Tai>, _> = gps.into_scale();
+
+        assert!(matches!(result, Err(GnssTimeError::Overflow)));
+    }
+
+    #[test]
+    fn test_gps_to_tai_near_overflow_succeeds() {
+        let gps = Time::<Gps>::from_nanos(Time::<Gps>::MAX.as_nanos() - 20_000_000_000);
+        let tai: Time<Tai> = gps.into_scale().unwrap();
+
+        assert!(tai.as_nanos() > gps.as_nanos());
+    }
+
+    #[test]
+    fn test_glonass_utc_symmetry_random() {
+        let utc = Time::<Utc>::from_nanos(800_000_000_000_000_000);
+        let glo: Time<Glonass> = utc.into_scale().unwrap();
+        let back: Time<Utc> = glo.into_scale().unwrap();
+
+        assert_eq!(utc, back);
     }
 }

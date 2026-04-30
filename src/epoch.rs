@@ -262,60 +262,60 @@ mod tests {
     use super::*;
 
     #[test]
-    fn unix_epoch_is_day_zero() {
+    fn test_unix_epoch_is_day_zero() {
         assert_eq!(UNIX_EPOCH.days_from_unix(), 0);
     }
 
     #[test]
-    fn gps_epoch_is_3657_days_from_unix() {
+    fn test_gps_epoch_is_3657_days_from_unix() {
         assert_eq!(GPS_EPOCH.days_from_unix(), 3657);
     }
 
     #[test]
-    fn galileo_epoch_days_from_unix() {
+    fn test_galileo_epoch_days_from_unix() {
         // 1999-08-22: well-known reference value
         assert_eq!(GALILEO_EPOCH.days_from_unix(), 10825);
     }
 
     #[test]
-    fn beidou_epoch_days_from_unix() {
+    fn test_beidou_epoch_days_from_unix() {
         // 2006-01-01
         assert_eq!(BEIDOU_EPOCH.days_from_unix(), 13149);
     }
 
     #[test]
-    fn glonass_epoch_days_from_unix() {
+    fn test_glonass_epoch_days_from_unix() {
         // 1996-01-01
         assert_eq!(GLONASS_EPOCH.days_from_unix(), 9496);
     }
 
     #[test]
-    fn gps_to_galileo_is_7168_days() {
+    fn test_gps_to_galileo_is_7168_days() {
         assert_eq!(DAYS_GPS_TO_GALILEO, 7168);
     }
 
     #[test]
-    fn gps_to_beidou_is_9492_days() {
+    fn test_gps_to_beidou_is_9492_days() {
         assert_eq!(DAYS_GPS_TO_BEIDOU, 9492);
     }
 
     #[test]
-    fn gps_to_glonass_is_5839_days() {
+    fn test_gps_to_glonass_is_5839_days() {
         assert_eq!(DAYS_GPS_TO_GLONASS, 5839);
     }
 
     #[test]
-    fn galileo_minus_gps_is_619315200_seconds() {
+    fn test_galileo_minus_gps_is_619315200_seconds() {
         assert_eq!(GPS_EPOCH.seconds_until(GALILEO_EPOCH), 619_315_200);
     }
 
     #[test]
-    fn beidou_minus_gps_calendar_is_820108800_seconds() {
+    fn test_beidou_minus_gps_calendar_is_820108800_seconds() {
         assert_eq!(GPS_EPOCH.seconds_until(BEIDOU_EPOCH), 820_108_800);
     }
 
     #[test]
-    fn glonass_minus_gps_is_505123200_seconds() {
+    fn test_glonass_minus_gps_is_505123200_seconds() {
         // 5839 days * 86_400 = 504_921_600 seconds
         let expected = 5839_i64 * 86_400;
 
@@ -323,7 +323,7 @@ mod tests {
     }
 
     #[test]
-    fn days_until_is_antisymmetric() {
+    fn test_days_until_is_antisymmetric() {
         let a = CivilDate::new(2000, 1, 1);
         let b = CivilDate::new(2001, 1, 1);
 
@@ -331,12 +331,12 @@ mod tests {
     }
 
     #[test]
-    fn days_until_self_is_zero() {
+    fn test_days_until_self_is_zero() {
         assert_eq!(GPS_EPOCH.days_until(GPS_EPOCH), 0);
     }
 
     #[test]
-    fn year_2000_is_leap_year() {
+    fn test_year_2000_is_leap_year() {
         // 2000-02-29 is a valid date; 2000-03-01 = 2000-02-29 + 1 day
         let feb29 = CivilDate::new(2000, 2, 29);
         let mar01 = CivilDate::new(2000, 3, 1);
@@ -345,7 +345,7 @@ mod tests {
     }
 
     #[test]
-    fn year_1900_is_not_leap_year() {
+    fn test_year_1900_is_not_leap_year() {
         // 1900 is divisible by 100 but not by 400 → not a leap year
         let feb28 = CivilDate::new(1900, 2, 28);
         let mar01 = CivilDate::new(1900, 3, 1);
@@ -355,7 +355,7 @@ mod tests {
     }
 
     #[test]
-    fn epoch_dates_are_correct() {
+    fn test_epoch_dates_are_correct() {
         assert_eq!(GPS_EPOCH, CivilDate::new(1980, 1, 6));
         assert_eq!(GLONASS_EPOCH, CivilDate::new(1996, 1, 1));
         assert_eq!(GALILEO_EPOCH, CivilDate::new(1999, 8, 22));
@@ -365,7 +365,7 @@ mod tests {
     }
 
     #[test]
-    fn leap_seconds_at_epochs_match_official_values() {
+    fn test_leap_seconds_at_epochs_match_official_values() {
         // Historical IERS leap second table
         assert_eq!(LEAP_SECONDS_AT_GPS_EPOCH, 19);
         assert_eq!(LEAP_SECONDS_AT_GLONASS_EPOCH, 30);
@@ -373,15 +373,67 @@ mod tests {
     }
 
     #[test]
-    fn nanos_gps_to_galileo_matches_known_value() {
+    fn test_nanos_gps_to_galileo_matches_known_value() {
         assert_eq!(NANOS_GPS_TO_GALILEO_EPOCH, 619_315_200_000_000_000_i64);
     }
 
     #[test]
-    fn nanos_gps_to_beidou_calendar_matches_known_value() {
+    fn test_nanos_gps_to_beidou_calendar_matches_known_value() {
         assert_eq!(
             NANOS_GPS_TO_BEIDOU_EPOCH_CALENDAR,
             820_108_800_000_000_000_i64
         );
+    }
+
+    #[test]
+    fn test_pre_unix_date_is_negative() {
+        let date = CivilDate::new(1960, 1, 1);
+
+        assert!(date.days_from_unix() < 0);
+    }
+
+    #[test]
+    fn test_invalid_date_does_not_panic() {
+        let date = CivilDate::new(2024, 13, 40);
+        let _ = date.days_from_unix(); // просто проверка устойчивости
+    }
+
+    #[test]
+    fn test_ordering_is_consistent() {
+        let a = CivilDate::new(2000, 1, 1);
+        let b = CivilDate::new(2001, 1, 1);
+
+        assert!(a.days_from_unix() < b.days_from_unix());
+    }
+
+    #[test]
+    fn test_seconds_until_matches_days() {
+        let a = CivilDate::new(2000, 1, 1);
+        let b = CivilDate::new(2000, 1, 2);
+
+        assert_eq!(a.seconds_until(b), 86_400);
+    }
+
+    #[test]
+    fn test_nanos_until_matches_seconds() {
+        let a = CivilDate::new(2000, 1, 1);
+        let b = CivilDate::new(2000, 1, 2);
+
+        assert_eq!(a.nanos_until(b), 86_400_000_000_000);
+    }
+
+    #[test]
+    fn test_gps_epoch_days_constant_is_stable() {
+        assert_eq!(GPS_EPOCH.days_from_unix(), 3657);
+    }
+
+    #[test]
+    fn test_monotonicity_property() {
+        let a = CivilDate::new(2000, 1, 1);
+        let b = CivilDate::new(2000, 1, 2);
+        let c = CivilDate::new(2000, 1, 3);
+
+        assert!(a.days_from_unix() < b.days_from_unix());
+        assert!(b.days_from_unix() < c.days_from_unix());
     }
 }

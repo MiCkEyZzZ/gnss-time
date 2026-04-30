@@ -557,4 +557,191 @@ mod tests {
 
         assert_eq!(d.as_nanos(), 123456789);
     }
+
+    #[test]
+    fn test_checked_from_seconds_overflow() {
+        assert!(Duration::checked_from_seconds(i64::MAX / NANOS_PER_SECOND + 1).is_none());
+    }
+
+    #[test]
+    fn test_checked_from_millis_overflow() {
+        assert!(Duration::checked_from_millis(i64::MAX / NANOS_PER_MILLI + 1).is_none());
+    }
+
+    #[test]
+    fn test_checked_from_micros_overflow() {
+        assert!(Duration::checked_from_micros(i64::MAX / NANOS_PER_MICRO + 1).is_none());
+    }
+
+    #[test]
+    fn test_as_seconds_truncation_positive() {
+        let d = Duration::from_nanos(1_500_000_000);
+        assert_eq!(d.as_seconds(), 1);
+    }
+
+    #[test]
+    fn test_as_seconds_truncation_negative() {
+        let d = Duration::from_nanos(-1_500_000_000);
+
+        // важно: trunc toward zero
+        assert_eq!(d.as_seconds(), -1);
+    }
+
+    #[test]
+    fn test_as_millis_truncation_negative() {
+        let d = Duration::from_nanos(-1_500_000);
+        assert_eq!(d.as_millis(), -1);
+    }
+
+    #[test]
+    fn test_add_assign() {
+        let mut d = Duration::from_seconds(10);
+        d += Duration::from_seconds(5);
+
+        assert_eq!(d, Duration::from_seconds(15));
+    }
+
+    #[test]
+    fn test_sub_assign() {
+        let mut d = Duration::from_seconds(10);
+        d -= Duration::from_seconds(5);
+
+        assert_eq!(d, Duration::from_seconds(5));
+    }
+
+    #[test]
+    fn test_add_assign_zero_identity() {
+        let mut d = Duration::from_seconds(42);
+        d += Duration::ZERO;
+
+        assert_eq!(d, Duration::from_seconds(42));
+    }
+
+    #[test]
+    fn test_sub_assign_zero_identity() {
+        let mut d = Duration::from_seconds(42);
+        d -= Duration::ZERO;
+
+        assert_eq!(d, Duration::from_seconds(42));
+    }
+
+    #[test]
+    fn test_min_plus_zero() {
+        assert_eq!(Duration::MIN + Duration::ZERO, Duration::MIN);
+    }
+
+    #[test]
+    fn test_max_plus_zero() {
+        assert_eq!(Duration::MAX + Duration::ZERO, Duration::MAX);
+    }
+
+    #[test]
+    fn test_min_minus_zero() {
+        assert_eq!(Duration::MIN - Duration::ZERO, Duration::MIN);
+    }
+
+    #[test]
+    fn test_max_minus_zero() {
+        assert_eq!(Duration::MAX - Duration::ZERO, Duration::MAX);
+    }
+
+    #[test]
+    fn test_abs_positive_identity() {
+        let d = Duration::from_seconds(10);
+        assert_eq!(d.abs().unwrap(), d);
+    }
+
+    #[test]
+    fn test_abs_zero() {
+        assert_eq!(Duration::ZERO.abs().unwrap(), Duration::ZERO);
+    }
+
+    #[test]
+    fn test_seconds_millis_consistency() {
+        assert_eq!(Duration::from_seconds(1), Duration::from_millis(1000));
+    }
+
+    #[test]
+    fn test_seconds_micros_consistency() {
+        assert_eq!(Duration::from_seconds(1), Duration::from_micros(1_000_000));
+    }
+
+    #[test]
+    fn test_seconds_nanos_consistency() {
+        assert_eq!(
+            Duration::from_seconds(1),
+            Duration::from_nanos(1_000_000_000)
+        );
+    }
+
+    #[test]
+    fn test_checked_add_matches_manual() {
+        let a = Duration::from_seconds(123);
+        let b = Duration::from_seconds(456);
+
+        assert_eq!(a.checked_add(b), Some(Duration::from_seconds(579)));
+    }
+
+    #[test]
+    fn test_checked_sub_matches_manual() {
+        let a = Duration::from_seconds(500);
+        let b = Duration::from_seconds(200);
+
+        assert_eq!(a.checked_sub(b), Some(Duration::from_seconds(300)));
+    }
+
+    #[test]
+    fn test_ordering_basic() {
+        let a = Duration::from_seconds(1);
+        let b = Duration::from_seconds(2);
+
+        assert!(a < b);
+        assert!(b > a);
+    }
+
+    #[test]
+    fn test_ordering_zero() {
+        let a = Duration::ZERO;
+        let b = Duration::from_seconds(1);
+
+        assert!(a < b);
+    }
+
+    #[test]
+    fn test_neg_zero() {
+        assert_eq!(-Duration::ZERO, Duration::ZERO);
+    }
+
+    #[test]
+    fn test_neg_sign_flip() {
+        let d = Duration::from_seconds(100);
+
+        assert_eq!(-d, Duration::from_seconds(-100));
+    }
+
+    #[test]
+    fn test_checked_add_overflow_returns_none() {
+        assert_eq!(Duration::MAX.checked_add(Duration::ONE_NANOSECOND), None);
+    }
+
+    #[test]
+    fn test_checked_sub_underflow_returns_none() {
+        assert_eq!(Duration::MIN.checked_sub(Duration::ONE_NANOSECOND), None);
+    }
+
+    #[test]
+    fn test_try_add_overflow_returns_err() {
+        assert_eq!(
+            Duration::MAX.try_add(Duration::ONE_NANOSECOND),
+            Err(GnssTimeError::Overflow)
+        );
+    }
+
+    #[test]
+    fn test_try_sub_underflow_returns_err() {
+        assert_eq!(
+            Duration::MIN.try_sub(Duration::ONE_NANOSECOND),
+            Err(GnssTimeError::Overflow)
+        );
+    }
 }
