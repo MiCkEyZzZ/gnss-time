@@ -1,13 +1,15 @@
-// # Tests: `no_std` совместимость и гарантии размеров типов
+// # Tests: `no_std` compatibility and type size guarantees
 //
-// Эти тесты проверяют сво-во, критичные для embedded-среды:
+// These tests verify properties critical for embedded environments:
 //
-// 1. **Размеры типов** — `Time<S>` ровно 8 байт, `Duration` ровно 8 байт.
-// 2. **`Copy` без аллокаций** — все типы `Copy`, нет `Box`, `Vec`, `String`.
-// 3. **`no_std` корректность** — crate компилируется без std (проверяется в CI
-//    кросс-компиляцией под embedded targets).
-// 4. **Константность** — ключевые операции `const fn` для использования в
-//    static initializers.
+// 1. **Type sizes** — `Time<S>` is exactly 8 bytes, `Duration` is exactly 8
+//    bytes.
+// 2. **`Copy` without allocations** — all types are `Copy`, no `Box`, `Vec`,
+//    `String`.
+// 3. **`no_std` correctness** — the crate compiles without std (verified in CI
+//    via cross-compilation for embedded targets).
+// 4. **Constness** — key operations are `const fn` for use in static
+//    initializers.
 
 use std::{
     collections::hash_map::DefaultHasher,
@@ -19,13 +21,13 @@ use gnss_time::{
     Tai, Time, Utc,
 };
 
-// Константная инициализация в static context
+// Constant initialization in static context
 static GPS_EPOCH_STATIC: Time<Gps> = Time::<Gps>::EPOCH;
 static GPS_MAX_STATIC: Time<Gps> = Time::<Gps>::MAX;
 static ZERO_DURATION: Duration = Duration::ZERO;
 static ONE_SECOND: Duration = Duration::ONE_SECOND;
 
-// Константная операция с Duration
+// Const operation with Duration
 const fn make_five_seconds() -> Duration {
     Duration::from_seconds(5)
 }
@@ -95,8 +97,8 @@ fn test_all_scale_markers_are_zero_sized() {
 #[test]
 fn test_time_is_copy_no_drop() {
     fn assert_copy_no_drop<T: Copy>() {
-        // Если T реализует Drop, то T: Copy нельзя — это проверяется компилятором.
-        // Дополнительно проверяем что T не требует деструктора.
+        // If T implements Drop, then T: Copy is impossible — checked by compiler.
+        // Additionally verify that T does not require a destructor.
         assert!(
             !core::mem::needs_drop::<T>(),
             "Time<S> must not require Drop (no allocations)"
@@ -121,12 +123,12 @@ fn test_gnss_time_error_is_copy_no_drop() {
     assert!(!core::mem::needs_drop::<GnssTimeError>());
 }
 
-// Явно проверяем Copy через присваивание (не move)
+// Explicitly check Copy via assignment (not move)
 #[test]
 fn test_copy_semantics_time() {
     let t = Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap();
-    let t2 = t; // copy, не move
-    let _t3 = t; // t всё ещё доступен
+    let t2 = t; // copy, not move
+    let _t3 = t; //  t is still usable
 
     assert_eq!(t, t2);
 }
@@ -163,7 +165,7 @@ fn test_const_fn_duration_works() {
 
 #[test]
 fn test_time_gps_alignment_is_8_bytes() {
-    // Time<Gps> содержит u64 → выравнивание 8 байт
+    // Time<Gps> contains u64 → 8-byte alignment
     assert_eq!(
         core::mem::align_of::<Time<Gps>>(),
         8,
@@ -182,7 +184,7 @@ fn test_duration_alignment_is_8_bytes() {
 
 #[test]
 fn no_heap_allocation_in_conversions() {
-    // Все эти операции — на стеке, нет heap-аллокаций
+    // All these operations are stack-only, no heap allocations
     let gps: Time<Gps> = Time::from_seconds(1_500_000_000);
     let tai: Time<Tai> = gps.into_scale().unwrap();
     let gal: Time<Galileo> = gps.into_scale().unwrap();
@@ -192,14 +194,14 @@ fn no_heap_allocation_in_conversions() {
     let utc: Time<Utc> = gps.into_scale_with(ls).unwrap();
     let glo: Time<Glonass> = gps.into_scale_with(ls).unwrap();
 
-    // Обратно
+    // Back conversions
     let _back_gps: Time<Gps> = tai.into_scale().unwrap();
     let _back2: Time<Gps> = gal.into_scale().unwrap();
     let _back3: Time<Gps> = bdt.into_scale().unwrap();
     let _back4: Time<Gps> = utc.into_scale_with(ls).unwrap();
     let _back5: Time<Gps> = glo.into_scale_with(ls).unwrap();
 
-    // Все результаты — 8 байт на стеке
+    // All results are 8 bytes on stack
     assert_eq!(core::mem::size_of_val(&tai), 8);
     assert_eq!(core::mem::size_of_val(&gal), 8);
     assert_eq!(core::mem::size_of_val(&bdt), 8);

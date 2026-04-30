@@ -1,17 +1,17 @@
-// # Точность roundtrip и тесты реальных эпох
+// # Roundtrip precision and real epoch tests
 //
-// Тесты в этом файле проверяют:
-// - roundtrip GPS ↔ UTC ↔ GPS с точностью до наносекунд
-// - известные пары эпох, полученные из публичных данных RINEX/IGS
-// - все 18 переходов с високосными секундами GPS-эры
-// - согласованность между API трейта `convert.rs` и функциями из `leap.rs`
+// Tests in this file verify:
+// - GPS ↔ UTC ↔ GPS roundtrip with nanosecond precision
+// - known epoch pairs obtained from public RINEX/IGS data
+// - all 18 leap second transitions in the GPS era
+// - consistency between the `convert.rs` trait API and functions from `leap.rs`
 
 use gnss_time::{
     gps_to_utc, utc_to_gps, Beidou, CivilDate, ConvertResult, Galileo, Glonass, Gps, IntoScale,
     IntoScaleWith, LeapSeconds, Tai, Time, GPS_EPOCH, UNIX_EPOCH,
 };
 
-// Вспомогательная функция: секунды GPS из Unix timestamp
+// Helper function: GPS seconds from Unix timestamp
 // GPS_epoch_unix = 315_964_800
 // GPS_s = (unix - 315_964_800) + (TAI_minus_UTC - 19)
 
@@ -41,7 +41,7 @@ fn test_roundtrip_gps_utc_gps_is_exact_with_no_nanos() {
 #[test]
 fn test_test_roundtrip_gps_utc_gps_with_sub_second_nanos() {
     let ls = LeapSeconds::builtin();
-    // GPS-метка времени с произвольной наносекундной частью
+    // GPS timestamp with arbitrary nanosecond fraction
     let gps = Time::<Gps>::from_nanos(1_200_000_000_123_456_789); // значительно после границы 2017 года
     let utc: gnss_time::Time<gnss_time::scale::Utc> = gps.into_scale_with(ls).unwrap();
     let back: Time<Gps> = utc.into_scale_with(ls).unwrap();
@@ -52,7 +52,7 @@ fn test_test_roundtrip_gps_utc_gps_with_sub_second_nanos() {
 #[test]
 fn test_roundtrip_utc_gps_utc_is_exact() {
     let ls = LeapSeconds::builtin();
-    // UTC: 2022-11-20 00:00:00 UTC = 18627 дней от 1972-01-01
+    // UTC: 2022-11-20 00:00:00 UTC = 18627 days since 1972-01-01
     let utc = utc_from_days_since_1972(18_627);
     let gps: Time<Gps> = utc.into_scale_with(ls).unwrap();
     let back: gnss_time::Time<gnss_time::scale::Utc> = gps.into_scale_with(ls).unwrap();
@@ -97,15 +97,15 @@ fn test_roundtrip_gps_glonass_gps_is_exact() {
     assert_eq!(gps, back);
 }
 
-// Известные пары эпох RINEX / IGS
+// Known RINEX / IGS epoch pairs
 //
-// Источник: отчёты аналитических центров IGS, примеры заголовков RINEX 3.x.
-// Все значения смещения GPS-UTC проверены по бюллетеню IERS Bulletin C.
+// Source: IGS analysis center reports, RINEX 3.x header examples.
+// All GPS-UTC offset values verified against IERS Bulletin C.
 
-// GPS неделя 1045, TOW = 0 → 2000-01-02 00:00:00 UTC (GPS-UTC = 13с)
+// GPS week 1045, TOW = 0 → 2000-01-02 00:00:00 UTC (GPS-UTC = 13 s)
 // unix(2000-01-02) = 946_771_200
 // GPS_s = (946771200 - 315964800) + (32-19) = 630806400 + 13 = 630806413
-// UTC_days_from_1972 = 10228 дней (2000-01-02 - 1972-01-01)
+// UTC_days_from_1972 = 10228 days (2000-01-02 - 1972-01-01)
 #[test]
 fn test_rinex_epoch_2000_01_02_gps_week_1045() {
     let ls = LeapSeconds::builtin();
@@ -128,23 +128,23 @@ fn test_rinex_epoch_2000_01_02_gps_week_1045() {
     );
 }
 
-// GPS неделя 1945, TOW = 345600 → 2017-04-02 12:00:00 UTC (GPS-UTC = 18 с)
+// GPS week 1945, TOW = 345600 → 2017-04-02 12:00:00 UTC (GPS-UTC = 18 s)
 // unix(2017-04-02) = 1491091200; TOW = 4*86400 = 345600
 // GPS_s = (1491091200 - 315964800 + 345600) + 18 = 175471200 + 345600 + 18
-//       = week=1945, tow=345618? нужно пересчитать
+//       = week=1945, tow=345618? needs recalculation
 //
-// GPS неделя 1945 начинается с unix = 315964800 + 1945*604800 = 315964800 +
+// GPS week 1945 starts at unix = 315964800 + 1945*604800 = 315964800 +
 // 1176336000 = 1492300800 (2017-04-16 00:00:00 UTC)
 //
-// Используем более простой известный эталон:
-// GPS неделя 1981, TOW = 0 → 2018-01-07 00:00:00 UTC (GPS-UTC = 18 с)
+// Use a simpler known reference:
+// GPS week 1981, TOW = 0 → 2018-01-07 00:00:00 UTC (GPS-UTC = 18 s)
 // unix(2018-01-07) = 1515283200
 // GPS_s = (1515283200 - 315964800) + 18 = 1199318400 + 18 = 1199318418
 // week = 1199318418 / 604800 = 1981.xxx → 1981, TOW = 1199318418 % 604800 = 18
 #[test]
 fn test_rinex_epoch_2018_01_07_gps_week_1981() {
     let ls = LeapSeconds::builtin();
-    let gps = gps_from_unix(1_515_283_200, 37); // TAI-UTC = 37 в 2018 году
+    let gps = gps_from_unix(1_515_283_200, 37); // TAI-UTC = 37 in 2018
                                                 // week = GPS_s / 604800
                                                 // GPS_s = (1515283200 - 315964800) + 18 = 1199318418
                                                 // week = 1199318418 / 604800 = 1981
@@ -158,7 +158,7 @@ fn test_rinex_epoch_2018_01_07_gps_week_1981() {
     ); // 1983*604800+18=1199318418 ✓
 
     let utc: gnss_time::Time<gnss_time::scale::Utc> = gps.into_scale_with(ls).unwrap();
-    // UTC дни от 1972-01-01 до 2018-01-07:
+    // UTC days от 1972-01-01 до 2018-01-07:
     // = days_from_unix(2018-01-07) - days_from_unix(1972-01-01)
     // = 17538 - 730 = 16808
     let utc_days_from_1972: u64 = CivilDate::new(1972, 1, 1)
@@ -172,19 +172,19 @@ fn test_rinex_epoch_2018_01_07_gps_week_1981() {
     );
 }
 
-// GPS неделя 2086, TOW = 0 → 2020-01-05 00:00:00 UTC (GPS-UTC = 18 с)
-// Проверено по IGS daily reports.
+// GPS week 2086, TOW = 0 → 2020-01-05 00:00:00 UTC (GPS-UTC = 18 s)
+// Verified using IGS daily reports.
 // unix(2020-01-05) = 1578182400
 // GPS_s = (1578182400 - 315964800) + 18 = 1262217618
 // week = 1262217618 / 604800 = 2086.xxx → week = 2086, tow = 18
-// Таким образом, week TOW = 0 соответствует времени на 18 секунд раньше в UTC,
-// то есть 2020-01-05 соответствует GPS week 2086 TOW = 18.
+// Therefore, week TOW = 0 corresponds to a time 18 seconds earlier in UTC,
+// i.e. 2020-01-05 corresponds to GPS week 2086 TOW = 18.
 #[test]
 fn test_rinex_epoch_2020_01_05_gps_week_2086() {
     let ls = LeapSeconds::builtin();
     let gps = gps_from_unix(1_578_182_400, 37);
 
-    // GPS_s = 1262217618; неделя = 2086, tow = 18
+    // GPS_s = 1262217618; week = 2086, tow = 18
     assert_eq!(gps.week(), 2087);
     assert_eq!(gps.tow_seconds(), 18);
 
@@ -196,8 +196,8 @@ fn test_rinex_epoch_2020_01_05_gps_week_2086() {
     assert_eq!(utc.as_seconds(), utc_days * 86_400);
 }
 
-// Эпоха GPS (неделя 0, TOW 0) соответствует 1980-01-06 00:00:00 UTC.
-// В этот момент TAI-UTC = 19, поэтому GPS-UTC = 0.
+// GPS epoch (week 0, TOW 0) corresponds to 1980-01-06 00:00:00 UTC.
+// At that moment TAI-UTC = 19, therefore GPS-UTC = 0.
 // UTC_s_from_1972 = days(1980-01-06 - 1972-01-01) * 86400
 #[test]
 fn test_rinex_epoch_gps_epoch_is_1980_01_06_utc() {
@@ -212,29 +212,29 @@ fn test_rinex_epoch_gps_epoch_is_1980_01_06_utc() {
     );
 }
 
-// Все 18 переходов с високосными секундами GPS-эры
-// (значение GPS-UTC до и после каждого события)
+// All 18 leap second transitions in the GPS era
+// (GPS-UTC value before and after each event)
 
 struct LeapTransition {
     name: &'static str,
-    unix_event: u64, // unix-секунда события (начало новой минуты)
-    tai_before: u64, // TAI-UTC до события
-    tai_after: u64,  // TAI-UTC после события
+    unix_event: u64, // Unix second of the event (start of the new minute)
+    tai_before: u64, // TAI-UTC before the event
+    tai_after: u64,  // TAI-UTC after the event
 }
 
 fn test_check_transition(t: &LeapTransition) {
     let ls = LeapSeconds::builtin();
 
-    // за 1 секунду до события: GPS опережает на (tai_before - 19) секунд
+    // 1 second before the event: GPS leads by (tai_before - 19) seconds
     let gps_before = gps_from_unix(t.unix_event - 1, t.tai_before);
-    // В момент события: GPS опережает на (tai_after - 19) секунд
+    // At the event moment: GPS leads by (tai_after - 19) seconds
     let gps_after = gps_from_unix(t.unix_event, t.tai_after);
 
     let utc_before: gnss_time::Time<gnss_time::scale::Utc> =
         gps_before.into_scale_with(ls).unwrap();
     let utc_after: gnss_time::Time<gnss_time::scale::Utc> = gps_after.into_scale_with(ls).unwrap();
 
-    // GPS скачок на 2 с, UTC — на 1 с (вставлена високосная секунда)
+    // GPS jumps by 2 s, UTC by 1 s (a leap second is inserted)
     let gps_jump = (gps_after.as_nanos() as i128 - gps_before.as_nanos() as i128) / 1_000_000_000;
     let utc_jump = (utc_after.as_nanos() as i128 - utc_before.as_nanos() as i128) / 1_000_000_000;
 
@@ -373,7 +373,7 @@ fn test_all_gps_era_leap_second_transitions() {
 #[test]
 fn test_convert_result_normal_time_is_exact() {
     let ls = LeapSeconds::builtin();
-    // Далеко от любой високосной секунды
+    // Far from any leap second
     let gps = Time::<Gps>::from_week_tow(2086, 100_000.0).unwrap();
     let r: ConvertResult<gnss_time::Time<gnss_time::scale::Utc>> =
         gps.into_scale_with_checked(ls).unwrap();
@@ -388,7 +388,7 @@ fn test_convert_result_into_inner_unwraps_value() {
     let result: ConvertResult<gnss_time::Time<gnss_time::scale::Utc>> =
         gps.into_scale_with_checked(ls).unwrap();
     let utc = result.into_inner();
-    // Проверяем, что результат совпадает с прямым преобразованием
+    // Verify that the result matches the direct conversion
     let direct: gnss_time::Time<gnss_time::scale::Utc> = gps.into_scale_with(ls).unwrap();
 
     assert_eq!(utc, direct);
@@ -456,17 +456,17 @@ fn test_gps_week_boundary_tow_just_before_end() {
     let gps = Time::<Gps>::from_week_tow(10, 604_799.999_999_999).unwrap();
 
     assert_eq!(gps.week(), 10);
-    // TOW чуть меньше 604800, tow_seconds округляется вниз до 604799
+    // TOW is slightly less than 604800, tow_seconds rounds down to 604799
     assert_eq!(gps.tow_seconds(), 604_799);
 }
 
 #[test]
 fn test_gps_week_0_is_1980_01_06() {
-    // Эпоха GPS (неделя 0, TOW 0) = 1980-01-06 00:00:00 UTC
+    // GPS epoch (week 0, TOW 0) = 1980-01-06 00:00:00 UTC
     let ls = LeapSeconds::builtin();
     let gps = Time::<Gps>::EPOCH;
     let utc: gnss_time::Time<gnss_time::scale::Utc> = gps.into_scale_with(ls).unwrap();
 
-    // UTC секунды от 1972: 2927 дней * 86400
+    // UTC seconds from 1972: 2927 days * 86400
     assert_eq!(utc.as_seconds(), 2_927 * 86_400);
 }
