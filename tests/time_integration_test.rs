@@ -178,7 +178,7 @@ fn test_timestamps_sort_correctly() {
 
 #[test]
 fn test_gps_display_canonical_example() {
-    // Точный формат из issue: "GPS 2345:432000.000"
+    // Exact format from the issue: "GPS 2345:432000.000"
     let t = Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap();
 
     assert_eq!(t.to_string(), "GPS 2345:432000.000");
@@ -347,7 +347,7 @@ fn test_tai_to_gps_subtracts_19s() {
 
 #[test]
 fn test_gps_galileo_roundtrip_via_tai_is_identity() {
-    // GPS и Galileo используют одинаковое смещение TAI → одинаковые наносекунды
+    // GPS and Galileo use the same TAI offset -> identical nanoseconds
     let gps = Time::<Gps>::from_seconds(12_345);
     let gal = gps.try_convert::<Galileo>().unwrap();
 
@@ -356,7 +356,7 @@ fn test_gps_galileo_roundtrip_via_tai_is_identity() {
 
 #[test]
 fn test_gps_to_beidou_via_tai() {
-    // GPS(100c) → TAI(119c) → BDT(119-33=86c)
+    // GPS(100 s) -> TAI(119 s) -> BDT(119-33 = 86 s)
     let gps = Time::<Gps>::from_seconds(100);
     let bdt = gps.try_convert::<Beidou>().unwrap();
 
@@ -381,7 +381,7 @@ fn test_utc_to_tai_requires_context() {
 
 #[test]
 fn test_tai_underflow_is_detected() {
-    // TAI(0) - смещение GPS (19 с) → отрицательное значение → Overflow
+    // TAI(0) - GPS offset (19 s) -> negative value -> Overflow
     let tai = Time::<Tai>::from_nanos(0);
 
     assert!(matches!(
