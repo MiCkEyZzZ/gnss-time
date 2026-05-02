@@ -1,35 +1,35 @@
-# Руководство по использованию в embedded
+# Embedded Usage Guide
 
 Как использовать `gnss-time` в окружениях `no_std` (STM32, nRF52, ESP32-C3 и т.д.).
 
-## Быстрый старт
+## Quick start
 
 ```toml
 # Cargo.toml
 [dependencies]
 gnss-time = { version = "0.3", default-features = false }
 
-# Для embedded-логирования через probe-rs:
+# For embedded logging via probe-rs:
 gnss-time = { version = "0.3", features = ["defmt"] }
 defmt      = "0.3"
 ```
 
 Фича `std` не требуется. Крейт по умолчанию работает в `no_std`.
 
-## Гарантии размера
+## Size guarantees
 
 Каждый публичный тип имеет фиксированный, известный размер — подходит для
 DMA-буферов и пакетов телеметрии фиксированного размера:
 
-| Тип             | Размер | Выравнивание |
-| --------------- | ------ | ------------ |
-| `Time<Gps>`     | 8 B    | 8 B          |
-| `Time<Glonass>` | 8 B    | 8 B          |
-| `Time<Galileo>` | 8 B    | 8 B          |
-| `Time<Beidou>`  | 8 B    | 8 B          |
-| `Time<Tai>`     | 8 B    | 8 B          |
-| `Time<Utc>`     | 8 B    | 8 B          |
-| `Duration`      | 8 B    | 8 B          |
+| Type            | Size | Alignment |
+| --------------- | ---- | --------- |
+| `Time<Gps>`     | 8 B  | 8 B       |
+| `Time<Glonass>` | 8 B  | 8 B       |
+| `Time<Galileo>` | 8 B  | 8 B       |
+| `Time<Beidou>`  | 8 B  | 8 B       |
+| `Time<Tai>`     | 8 B  | 8 B       |
+| `Time<Utc>`     | 8 B  | 8 B       |
+| `Duration`      | 8 B  | 8 B       |
 
 Все типы-маркеры шкал (`Gps`, `Glonass`, ...) имеют нулевой размер.
 
@@ -37,7 +37,7 @@ DMA-буферов и пакетов телеметрии фиксированн
 
 Benchmark results on x86_64 (Criterion, release mode):
 
-| Операция                                 | Время   |
+| Operation                                | Time    |
 | ---------------------------------------- | ------- |
 | `Time<Gps> + Duration` (panic-версия)    | 516 ps  |
 | `u64 + u64` (базовый уровень)            | 516 ps  |

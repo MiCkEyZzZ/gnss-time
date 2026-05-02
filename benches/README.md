@@ -21,17 +21,18 @@ cargo bench --bench time_bench
 
 ### Arithmetic
 
-| Operation                           | Time     | Note                    |
-| ----------------------------------- | -------- | ----------------------- |
-| `Time<Gps> + Duration` (panicking)  | ~514 ps  | 0 ns overhead           |
-| `u64 + u64` (baseline)              | ~514 ps  | baseline addition       |
-| `Time<Gps> - Time<Gps>` (panicking) | ~514 ps  | 0 ns overhead           |
-| `u64 - u64`                         | ~515 ps  | baseline subtraction    |
-| `Time<Gps>.checked_add`             | ~4.36 ns | with overflow checking  |
-| `Time<Gps>.checked_sub_duration`    | ~4.37 ns | with underflow checking |
-| `Time<Gps>.saturating_add`          | ~515 ps  | no extra checks         |
-| `Duration + Duration`               | ~514 ps  | 0 ns overhead           |
-| `Duration.checked_add`              | ~4.37 ns | with checking           |
+| Operation                                   | Time     | Note                                     |
+| ------------------------------------------- | -------- | ---------------------------------------- |
+| `Time<Gps> + Duration` (panicking)          | ~505 ps  | 0 ns overhead                            |
+| `u64 + u64` (baseline)                      | ~504 ps  | baseline addition                        |
+| `Time<Gps> - Time<Gps>` (panicking)         | ~504 ps  | 0 ns overhead                            |
+| `u64 - u64`                                 | ~505 ps  | baseline subtraction                     |
+| `Time<Gps>.checked_add`                     | ~4.29 ns | with overflow checking                   |
+| `Time<Gps>.checked_sub_duration`            | ~4.27 ns | with underflow checking                  |
+| `Time<Gps>.saturating_add`                  | ~506 ps  | no extra checks                          |
+| `Time<Gps>.saturating_add (at MAX, clamps)` | ~509 ps  | saturated edge case, constant-time clamp |
+| `Duration + Duration`                       | ~506 ps  | 0 ns overhead                            |
+| `Duration.checked_add`                      | ~4.31 ns | with checking                            |
 
 **Conclusion:** panicking operations have no measurable overhead. Checked
 operations add a small cost (< 5 ns).
@@ -40,14 +41,14 @@ operations add a small cost (< 5 ns).
 
 | Operation                                | Time     | Target  |
 | ---------------------------------------- | -------- | ------- |
-| `GPS → TAI`                              | ~822 ps  | < 2 ns  |
-| `GPS → Galileo`                          | ~782 ps  | < 2 ns  |
-| `GPS → BeiDou`                           | ~926 ps  | < 2 ns  |
-| `TAI → GPS`                              | ~791 ps  | < 2 ns  |
-| `GPS → UTC` (table lookup, 2020)         | ~9.8 ns  | < 10 ns |
-| `GPS → UTC` (GPS epoch)                  | ~9.8 ns  | < 10 ns |
-| `UTC → GPS` (two-pass algorithm)         | ~22.4 ns | —       |
-| `GPS → UTC → GPS` (roundtrip)            | ~40.6 ns | —       |
+| `GPS → TAI`                              | ~807 ps  | < 2 ns  |
+| `GPS → Galileo`                          | ~779 ps  | < 2 ns  |
+| `GPS → BeiDou`                           | ~874 ps  | < 2 ns  |
+| `TAI → GPS`                              | ~1.0 ns  | < 2 ns  |
+| `GPS → UTC` (table lookup, 2020)         | ~9.6 ns  | < 10 ns |
+| `GPS → UTC` (GPS epoch)                  | ~9.6 ns  | < 10 ns |
+| `UTC → GPS` (two-pass algorithm)         | ~22.0 ns | —       |
+| `GPS → UTC → GPS` (roundtrip)            | ~40.2 ns | —       |
 | `LeapSeconds` binary search (19 entries) | ~7.0 ns  | —       |
 
 **Conclusion:** fixed-offset conversions are effectively free (~0.8–0.9 ns).

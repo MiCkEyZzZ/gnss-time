@@ -48,7 +48,7 @@ const NANOS_PER_MICRO: i64 = 1_000;
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[repr(transparent)]
-pub struct Duration(i64); // nanosecnds
+pub struct Duration(i64); // nanoseconds
 
 impl Duration {
     /// Zero duration.
@@ -143,7 +143,7 @@ impl Duration {
         self.0
     }
 
-    /// Whole miscroseconds (truncated toward zero).
+    /// Whole microseconds (truncated toward zero).
     #[inline]
     pub const fn as_micros(self) -> i64 {
         self.0 / NANOS_PER_MICRO
@@ -211,7 +211,7 @@ impl Duration {
         }
     }
 
-    /// Substract, returning `None` on overflow.
+    /// Subtract, returning `None` on overflow.
     #[inline]
     pub const fn checked_sub(
         self,
@@ -263,6 +263,10 @@ impl Duration {
 impl Add for Duration {
     type Output = Duration;
 
+    /// # Panics / Overflow
+    ///
+    /// In debug builds, panics on overflow.
+    /// In release builds, wraps around (same semantics as `i64`).
     #[inline]
     fn add(
         self,
@@ -325,6 +329,7 @@ impl fmt::Display for Duration {
         let abs = total.unsigned_abs(); // u64
         let secs = abs / 1_000_000_000u64;
         let nanos = abs % 1_000_000_000u64;
+
         write!(f, "{sign}{secs}s {nanos}ns")
     }
 }

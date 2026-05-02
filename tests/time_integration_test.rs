@@ -6,7 +6,7 @@ use gnss_time::{
         NANOS_GPS_TO_BEIDOU_EPOCH_CALENDAR, NANOS_GPS_TO_GALILEO_EPOCH, UNIX_EPOCH,
     },
     scale::{DisplayStyle, OffsetToTai, TimeScale},
-    Beidou, Duration, Galileo, Glonass, GnssTimeError, Gps, Tai, Time, Utc,
+    Beidou, Duration, DurationParts, Galileo, Glonass, GnssTimeError, Gps, Tai, Time, Utc,
 };
 
 #[test]
@@ -36,14 +36,28 @@ fn test_epoch_is_zero_nanos_for_every_scale() {
 
 #[test]
 fn test_gps_week_0_tow_0_is_epoch() {
-    let t = Time::<Gps>::from_week_tow(0, 0.0).unwrap();
+    let t = Time::<Gps>::from_week_tow(
+        0,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t, Time::<Gps>::EPOCH);
 }
 
 #[test]
 fn test_gps_week_tow_roundtrip() {
-    let t = Time::<Gps>::from_week_tow(2300, 12_345.678).unwrap();
+    let t = Time::<Gps>::from_week_tow(
+        2300,
+        DurationParts {
+            seconds: 12_345,
+            nanos: 678_000_000,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t.week(), 2300);
     assert_eq!(t.tow_seconds(), 12_345);
@@ -52,48 +66,109 @@ fn test_gps_week_tow_roundtrip() {
 
 #[test]
 fn test_gps_tow_boundary_valid() {
-    assert!(Time::<Gps>::from_week_tow(0, 604_799.999_999).is_ok());
+    assert!(Time::<Gps>::from_week_tow(
+        0,
+        DurationParts {
+            seconds: 604_799,
+            nanos: 999_999_999
+        }
+    )
+    .is_ok());
 }
 
 #[test]
 fn test_gps_tow_at_604800_is_invalid() {
     assert!(matches!(
-        Time::<Gps>::from_week_tow(0, 604_800.0),
+        Time::<Gps>::from_week_tow(
+            0,
+            DurationParts {
+                seconds: 604_800,
+                nanos: 0
+            }
+        ),
         Err(GnssTimeError::InvalidInput(_))
     ));
 }
 
 #[test]
-fn test_gps_negative_tow_is_invalid() {
+fn test_gps_invalid_tow_bounds() {
+    // >= 1 week
     assert!(matches!(
-        Time::<Gps>::from_week_tow(0, -0.001),
+        Time::<Gps>::from_week_tow(
+            0,
+            DurationParts {
+                seconds: 604_800,
+                nanos: 0
+            }
+        ),
+        Err(GnssTimeError::InvalidInput(_))
+    ));
+}
+
+#[test]
+fn test_gps_invalid_nanos() {
+    assert!(matches!(
+        Time::<Gps>::from_week_tow(
+            0,
+            DurationParts {
+                seconds: 0,
+                nanos: 1_000_000_000
+            }
+        ),
         Err(GnssTimeError::InvalidInput(_))
     ));
 }
 
 #[test]
 fn test_glonass_day_0_tod_0_is_epoch() {
-    let t = Time::<Glonass>::from_day_tod(0, 0.0).unwrap();
+    let t = Time::<Glonass>::from_day_tod(
+        0,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t, Time::<Glonass>::EPOCH);
 }
 
 #[test]
 fn test_glonass_tod_boundary_valid() {
-    assert!(Time::<Glonass>::from_day_tod(100, 86_399.999_9).is_ok());
+    assert!(Time::<Glonass>::from_day_tod(
+        100,
+        DurationParts {
+            seconds: 86_399,
+            nanos: 999_999_999
+        }
+    )
+    .is_ok());
 }
 
 #[test]
 fn test_glonass_tod_at_86400_is_invalid() {
     assert!(matches!(
-        Time::<Glonass>::from_day_tod(0, 86_400.0),
+        Time::<Glonass>::from_day_tod(
+            0,
+            DurationParts {
+                seconds: 86_400,
+                nanos: 0
+            }
+        ),
         Err(GnssTimeError::InvalidInput(_))
     ));
 }
 
 #[test]
 fn test_glonass_day_and_tod_accessors() {
-    let t = Time::<Glonass>::from_day_tod(10_512, 43_200.0).unwrap();
+    let t = Time::<Glonass>::from_day_tod(
+        10_512,
+        DurationParts {
+            seconds: 43_200,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t.day(), 10_512);
     assert_eq!(t.tod_seconds(), 43_200);
@@ -127,8 +202,22 @@ fn test_subtracting_duration_is_inverse_of_adding() {
 
 #[test]
 fn test_elapsed_between_two_gps_timestamps() {
-    let start = Time::<Gps>::from_week_tow(2300, 0.0).unwrap();
-    let end = Time::<Gps>::from_week_tow(2300, 3600.0).unwrap();
+    let start = Time::<Gps>::from_week_tow(
+        2300,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
+    let end = Time::<Gps>::from_week_tow(
+        2300,
+        DurationParts {
+            seconds: 3600,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!((end - start).as_seconds(), 3600);
 }
@@ -179,7 +268,14 @@ fn test_timestamps_sort_correctly() {
 #[test]
 fn test_gps_display_canonical_example() {
     // Exact format from the issue: "GPS 2345:432000.000"
-    let t = Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap();
+    let t = Time::<Gps>::from_week_tow(
+        2345,
+        DurationParts {
+            seconds: 432_000,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t.to_string(), "GPS 2345:432000.000");
 }
@@ -191,21 +287,42 @@ fn test_gps_display_epoch_is_zero_week() {
 
 #[test]
 fn test_gps_display_tow_is_zero_padded_to_6_digits() {
-    let t = Time::<Gps>::from_week_tow(10, 1.0).unwrap();
+    let t = Time::<Gps>::from_week_tow(
+        10,
+        DurationParts {
+            seconds: 1,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t.to_string(), "GPS 10:000001.000");
 }
 
 #[test]
 fn test_gps_display_millis_precision() {
-    let t = Time::<Gps>::from_week_tow(0, 0.123).unwrap();
+    let t = Time::<Gps>::from_week_tow(
+        0,
+        DurationParts {
+            seconds: 0,
+            nanos: 123_000_000,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t.to_string(), "GPS 0:000000.123");
 }
 
 #[test]
 fn test_glonass_display_canonical() {
-    let t = Time::<Glonass>::from_day_tod(10_512, 43_200.0).unwrap();
+    let t = Time::<Glonass>::from_day_tod(
+        10_512,
+        DurationParts {
+            seconds: 43_200,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t.to_string(), "GLO 10512:43200.000");
 }
@@ -217,7 +334,14 @@ fn test_glonass_display_epoch() {
 
 #[test]
 fn test_glonass_display_tod_is_zero_padded_to_5_digits() {
-    let t = Time::<Glonass>::from_day_tod(5, 1.0).unwrap();
+    let t = Time::<Glonass>::from_day_tod(
+        5,
+        DurationParts {
+            seconds: 1,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t.to_string(), "GLO 5:00001.000");
 }

@@ -1,38 +1,49 @@
 use gnss_time::prelude::*;
 
+/// Basic GNSS time workflow:
+/// create → manipulate → compare → protect against overflow
 fn main() {
-    // Crate from raw nanoseconds since the GPS epoch (1980-01-06)
+    // ------------------------------------------------------------
+    // 1. GNSS epoch (system reference point)
+    // ------------------------------------------------------------
     let epoch = Time::<Gps>::EPOCH;
-
     println!("GPS epoch: {epoch}");
 
-    // Crate from second (helper constructor)
-    let one_hour = Time::<Gps>::from_seconds(3600);
+    // ------------------------------------------------------------
+    // 2. Receiver-derived timestamp (example: 1 hour after epoch)
+    // ------------------------------------------------------------
+    let t1 = Time::<Gps>::from_seconds(3600);
+    println!("Receiver time: {t1}");
 
-    println!("One hour after GPS epoch start: {one_hour}");
+    // ------------------------------------------------------------
+    // 3. Time arithmetic (signal processing / correction logic)
+    // ------------------------------------------------------------
+    let t2 = t1 + Duration::from_seconds(3600);
+    println!("Adjusted time (+1h correction): {t2}");
 
-    // Add a duration
-    let two_hours = one_hour + Duration::from_seconds(3600);
-
-    println!("Two hours: {two_hours}");
-
-    // Diference between two points in time
-    let diff = two_hours - epoch;
+    // ------------------------------------------------------------
+    // 4. Time interval extraction (measurement / sync delta)
+    // ------------------------------------------------------------
+    let delta = t2 - epoch;
 
     println!(
-        "Difference: {} seconds = {}ns",
-        diff.as_seconds(),
-        diff.as_nanos()
+        "Elapsed since epoch: {}s ({} ns)",
+        delta.as_seconds(),
+        delta.as_nanos()
     );
 
-    // Check sign and zero value
-    assert!(diff.is_positive());
-    assert!(Duration::ZERO.is_zero());
+    // ------------------------------------------------------------
+    // 5. Safety invariants (always guaranteed)
+    // ------------------------------------------------------------
+    debug_assert!(delta.is_positive());
+    debug_assert!(Duration::ZERO.is_zero());
 
-    // Saturating arithmetic (never panic)
-    let max_safe = Time::<Gps>::MAX.saturating_add(Duration::ONE_NANOSECOND);
+    // ------------------------------------------------------------
+    // 6. Embedded-safe arithmetic (no panic behavior)
+    // ------------------------------------------------------------
+    let clamped = Time::<Gps>::MAX.saturating_add(Duration::from_nanos(1));
 
-    assert_eq!(max_safe, Time::<Gps>::MAX);
+    assert_eq!(clamped, Time::<Gps>::MAX);
 
-    println!("\nSaturating addition works: MAX + 1ns = MAX");
+    println!("Saturating arithmetic: MAX + 1ns → MAX (clamped)");
 }

@@ -1,9 +1,17 @@
 use gnss_time::{ConversionMatrix, ScaleId};
 
 fn main() {
+    // =========================================================
+    // 1. Build conversion matrix (static graph of all paths)
+    // =========================================================
+
     let matrix = ConversionMatrix::new();
 
-    println!("=== Матрица конверсий (6×6) ===\n");
+    println!("=== Conversion Matrix (6×6) ===\n");
+
+    // =========================================================
+    // 2. Iterate over all scale pairs
+    // =========================================================
 
     for &from in &ScaleId::ALL {
         for &to in &ScaleId::ALL {
@@ -11,24 +19,35 @@ fn main() {
                 continue;
             }
 
+            // Conversion type (Identity / Fixed / Contextual / EpochShift)
             let kind = matrix.kind(from, to);
 
-            let fixed = if from.is_fixed(to) {
+            // Runtime classification: requires leap seconds or not
+            let classification = if from.is_fixed(to) {
                 "✓ fixed"
             } else {
                 "✗ contextual"
             };
 
-            println!("{:?} -> {:?} : {:?} ({})", from, to, kind, fixed);
+            println!("{:?} -> {:?} : {:?} ({})", from, to, kind, classification);
         }
 
         println!();
     }
 
-    println!("=== Статистика ===");
+    // =========================================================
+    // 3. Aggregate statistics (graph-level properties)
+    // =========================================================
+
+    println!("=== Statistics ===");
+
     println!(
-        "Fixed + Identity + EpochShift путей: {}",
+        "Fixed + Identity + EpochShift paths: {}",
         matrix.path_count(false)
     );
-    println!("Contextual путей: {}", matrix.path_count(true));
+
+    println!(
+        "Contextual (leap-second dependent) paths: {}",
+        matrix.path_count(true)
+    );
 }

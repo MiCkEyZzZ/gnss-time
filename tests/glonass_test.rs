@@ -30,8 +30,8 @@
 // ```
 
 use gnss_time::{
-    glonass_to_gps, glonass_to_utc, gps_to_glonass, utc_to_glonass, CivilDate, Glonass,
-    GnssTimeError, Gps, IntoScale, IntoScaleWith, LeapSeconds, Time, Utc,
+    glonass_to_gps, glonass_to_utc, gps_to_glonass, utc_to_glonass, CivilDate, DurationParts,
+    Glonass, GnssTimeError, Gps, IntoScale, IntoScaleWith, LeapSeconds, Time, Utc,
 };
 
 // GLONASS epoch = 1996-01-01 00:00:00 UTC(SU) = 1995-12-31 21:00:00 UTC.
@@ -73,7 +73,14 @@ fn test_glonass_utc_offset_is_exactly_3_hours() {
     // Check for a known date:
     // GLONASS day 1, tod = 0 = 1996-01-02 00:00:00 UTC(SU)
     //                         = 1996-01-01 21:00:00 UTC
-    let glo = Time::<Glonass>::from_day_tod(1, 0.0).unwrap();
+    let glo = Time::<Glonass>::from_day_tod(
+        1,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
     let utc: Time<Utc> = glo.into_scale().unwrap();
 
     // UTC time 1996-01-01 21:00:00 can be obtained as:
@@ -87,8 +94,22 @@ fn test_glonass_utc_offset_is_exactly_3_hours() {
 fn test_glonass_to_utc_is_constant_shift() {
     // The offset is always the same regardless of the time instant — no table
     // lookup is required.
-    let glo1 = Time::<Glonass>::from_day_tod(1_000, 43_200.0).unwrap();
-    let glo2 = Time::<Glonass>::from_day_tod(5_000, 12_345.0).unwrap();
+    let glo1 = Time::<Glonass>::from_day_tod(
+        1_000,
+        DurationParts {
+            seconds: 43_200,
+            nanos: 0,
+        },
+    )
+    .unwrap();
+    let glo2 = Time::<Glonass>::from_day_tod(
+        5_000,
+        DurationParts {
+            seconds: 12_345,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     let utc1: Time<Utc> = glo1.into_scale().unwrap();
     let utc2: Time<Utc> = glo2.into_scale().unwrap();
@@ -106,7 +127,14 @@ fn test_glonass_to_utc_is_constant_shift() {
 
 #[test]
 fn test_glonass_to_utc_roundtrip() {
-    let glo = Time::<Glonass>::from_day_tod(10_512, 43_200.0).unwrap();
+    let glo = Time::<Glonass>::from_day_tod(
+        10_512,
+        DurationParts {
+            seconds: 43_200,
+            nanos: 0,
+        },
+    )
+    .unwrap();
     let utc: Time<Utc> = glo.into_scale().unwrap();
     let back: Time<Glonass> = utc.into_scale().unwrap();
 
@@ -164,7 +192,14 @@ fn test_glonass_gps_roundtrip_post_2017() {
     let ls = LeapSeconds::builtin();
 
     // After 2017-01-01 (the last leap second), GPS-UTC = 18 s (stable time)
-    let gps = Time::<Gps>::from_week_tow(2100, 86_400.0).unwrap();
+    let gps = Time::<Gps>::from_week_tow(
+        2100,
+        DurationParts {
+            seconds: 86_400,
+            nanos: 0,
+        },
+    )
+    .unwrap();
     let glo: Time<Glonass> = gps.into_scale_with(ls).unwrap();
     let back: Time<Gps> = glo.into_scale_with(ls).unwrap();
 
@@ -249,7 +284,14 @@ fn test_day_of_week_epoch_is_monday() {
 fn test_day_of_week_sequence_mon_through_sun() {
     let expected = [1u8, 2, 3, 4, 5, 6, 7]; // Mon … Sun
     for (i, &expected_dow) in expected.iter().enumerate() {
-        let t = Time::<Glonass>::from_day_tod(i as u32, 0.0).unwrap();
+        let t = Time::<Glonass>::from_day_tod(
+            i as u32,
+            DurationParts {
+                seconds: 0,
+                nanos: 0,
+            },
+        )
+        .unwrap();
         assert_eq!(
             t.day_of_week(),
             expected_dow,
@@ -263,16 +305,44 @@ fn test_day_of_week_sequence_mon_through_sun() {
 #[test]
 fn test_day_of_week_wraps_at_7() {
     // Day 7 = 1996-01-08 = Monday again
-    let t = Time::<Glonass>::from_day_tod(7, 0.0).unwrap();
+    let t = Time::<Glonass>::from_day_tod(
+        7,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t.day_of_week(), 1, "day 7 should be Monday again");
 }
 
 #[test]
 fn test_day_of_week_saturday_and_sunday() {
-    let sat = Time::<Glonass>::from_day_tod(5, 0.0).unwrap(); // 1996-01-06 Saturday
-    let sun = Time::<Glonass>::from_day_tod(6, 0.0).unwrap(); // 1996-01-07 Sanday
-    let mon = Time::<Glonass>::from_day_tod(0, 0.0).unwrap(); // Monday
+    let sat = Time::<Glonass>::from_day_tod(
+        5,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap(); // 1996-01-06 Saturday
+    let sun = Time::<Glonass>::from_day_tod(
+        6,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap(); // 1996-01-07 Sanday
+    let mon = Time::<Glonass>::from_day_tod(
+        0,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap(); // Monday
 
     assert_eq!(sat.day_of_week(), 6);
     assert_eq!(sun.day_of_week(), 7);
@@ -281,10 +351,38 @@ fn test_day_of_week_saturday_and_sunday() {
 
 #[test]
 fn test_is_weekend_returns_true_for_sat_sun() {
-    let sat = Time::<Glonass>::from_day_tod(5, 0.0).unwrap();
-    let sun = Time::<Glonass>::from_day_tod(6, 0.0).unwrap();
-    let fri = Time::<Glonass>::from_day_tod(4, 0.0).unwrap();
-    let mon = Time::<Glonass>::from_day_tod(0, 0.0).unwrap();
+    let sat = Time::<Glonass>::from_day_tod(
+        5,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
+    let sun = Time::<Glonass>::from_day_tod(
+        6,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
+    let fri = Time::<Glonass>::from_day_tod(
+        4,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
+    let mon = Time::<Glonass>::from_day_tod(
+        0,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert!(sat.is_weekend());
     assert!(sun.is_weekend());
@@ -307,7 +405,14 @@ fn test_day_of_week_2020_01_05_is_sunday() {
 
     assert_eq!(days, 8770);
 
-    let t = Time::<Glonass>::from_day_tod(days, 0.0).unwrap();
+    let t = Time::<Glonass>::from_day_tod(
+        days,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t.day_of_week(), 7, "2020-01-05 was a Sunday");
 }
@@ -319,7 +424,14 @@ fn test_day_of_week_matches_known_dates() {
     let days_mon = CivilDate::new(1996, 1, 1)
         .days_until(CivilDate::new(2023, 10, 9))
         .unsigned_abs() as u32;
-    let t = Time::<Glonass>::from_day_tod(days_mon, 0.0).unwrap();
+    let t = Time::<Glonass>::from_day_tod(
+        days_mon,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t.day_of_week(), 1, "2023-10-09 should be Monday");
 
@@ -327,14 +439,28 @@ fn test_day_of_week_matches_known_dates() {
     let days_sat = CivilDate::new(1996, 1, 1)
         .days_until(CivilDate::new(2023, 10, 14))
         .unsigned_abs() as u32;
-    let t = Time::<Glonass>::from_day_tod(days_sat, 0.0).unwrap();
+    let t = Time::<Glonass>::from_day_tod(
+        days_sat,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t.day_of_week(), 6, "2023-10-14 should be Saturday");
 }
 
 #[test]
 fn test_glonass_sub_second_nanos() {
-    let t = Time::<Glonass>::from_day_tod(100, 43_200.5).unwrap();
+    let t = Time::<Glonass>::from_day_tod(
+        100,
+        DurationParts {
+            seconds: 43_200,
+            nanos: 500_000_000,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t.tod_seconds(), 43_200);
     assert_eq!(t.sub_second_nanos(), 500_000_000); // 0.5c
@@ -342,7 +468,14 @@ fn test_glonass_sub_second_nanos() {
 
 #[test]
 fn test_glonass_sub_second_nanos_zero() {
-    let t = Time::<Glonass>::from_day_tod(0, 0.0).unwrap();
+    let t = Time::<Glonass>::from_day_tod(
+        0,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t.sub_second_nanos(), 0);
 }
@@ -391,7 +524,14 @@ fn test_glonass_across_2017_leap_second_roundtrip() {
 
 #[test]
 fn test_into_scale_glonass_utc_matches_glonass_to_utc() {
-    let glo = Time::<Glonass>::from_day_tod(5_000, 36_000.0).unwrap();
+    let glo = Time::<Glonass>::from_day_tod(
+        5_000,
+        DurationParts {
+            seconds: 36_000,
+            nanos: 0,
+        },
+    )
+    .unwrap();
     let via_trait: Time<Utc> = glo.into_scale().unwrap();
     let via_fn = glonass_to_utc(glo).unwrap();
 
@@ -410,7 +550,14 @@ fn test_into_scale_utc_glonass_matches_utc_to_glonass() {
 #[test]
 fn test_into_scale_with_gps_glonass_matches_gps_to_glonass() {
     let ls = LeapSeconds::builtin();
-    let gps = Time::<Gps>::from_week_tow(2086, 0.0).unwrap();
+    let gps = Time::<Gps>::from_week_tow(
+        2086,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
     let via_trait: Time<Glonass> = gps.into_scale_with(ls).unwrap();
     let via_fn = gps_to_glonass(gps, ls).unwrap();
 
@@ -420,7 +567,14 @@ fn test_into_scale_with_gps_glonass_matches_gps_to_glonass() {
 #[test]
 fn test_into_scale_with_glonass_gps_matches_glonass_to_gps() {
     let ls = LeapSeconds::builtin();
-    let glo = Time::<Glonass>::from_day_tod(8_000, 43_200.0).unwrap();
+    let glo = Time::<Glonass>::from_day_tod(
+        8_000,
+        DurationParts {
+            seconds: 43_200,
+            nanos: 0,
+        },
+    )
+    .unwrap();
     let via_trait: Time<Gps> = glo.into_scale_with(ls).unwrap();
     let via_fn = glonass_to_gps(glo, ls).unwrap();
 
@@ -429,7 +583,14 @@ fn test_into_scale_with_glonass_gps_matches_glonass_to_gps() {
 
 #[test]
 fn test_glonass_display_canonical_format() {
-    let t = Time::<Glonass>::from_day_tod(10_512, 43_200.0).unwrap();
+    let t = Time::<Glonass>::from_day_tod(
+        10_512,
+        DurationParts {
+            seconds: 43_200,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t.to_string(), "GLO 10512:43200.000");
 }
@@ -441,14 +602,28 @@ fn test_glonass_display_epoch_is_day_zero() {
 
 #[test]
 fn test_glonass_display_tod_zero_padded_to_5_digits() {
-    let t = Time::<Glonass>::from_day_tod(1, 1.0).unwrap();
+    let t = Time::<Glonass>::from_day_tod(
+        1,
+        DurationParts {
+            seconds: 1,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t.to_string(), "GLO 1:00001.000");
 }
 
 #[test]
 fn test_glonass_day_accessor_large_value() {
-    let t = Time::<Glonass>::from_day_tod(99_999, 86_399.0).unwrap();
+    let t = Time::<Glonass>::from_day_tod(
+        99_999,
+        DurationParts {
+            seconds: 86_399,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t.day(), 99_999);
     assert_eq!(t.tod_seconds(), 86_399);
@@ -461,7 +636,14 @@ fn test_glonass_day_counter_does_not_rollover_at_7() {
     // Check that days 7, 14, 21, ... give the correct day_of_week,
     // but access to `day()` does NOT perform a cyclic reset (does not wrap).
     for n in [7u32, 14, 21, 100, 1000] {
-        let t = Time::<Glonass>::from_day_tod(n, 0.0).unwrap();
+        let t = Time::<Glonass>::from_day_tod(
+            n,
+            DurationParts {
+                seconds: 0,
+                nanos: 0,
+            },
+        )
+        .unwrap();
 
         assert_eq!(t.day(), n, "day() should return raw day count, not wrapped");
     }
@@ -473,7 +655,14 @@ fn test_glonass_day_counter_does_not_rollover_at_7() {
 #[test]
 fn test_glonass_large_day_count_roundtrip() {
     // ~30 years after the epoch ≈ 10 950 days
-    let t = Time::<Glonass>::from_day_tod(10_950, 43_200.0).unwrap();
+    let t = Time::<Glonass>::from_day_tod(
+        10_950,
+        DurationParts {
+            seconds: 43_200,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!(t.day(), 10_950);
     assert_eq!(t.tod_seconds(), 43_200);

@@ -5,9 +5,16 @@
 //! ## Quick start
 //!
 //! ```rust
-//! use gnss_time::prelude::*;
+//! use gnss_time::{prelude::*, DurationParts};
 //!
-//! let gps = Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap();
+//! let gps = Time::<Gps>::from_week_tow(
+//!     2345,
+//!     DurationParts {
+//!         seconds: 432_000,
+//!         nanos: 0,
+//!     },
+//! )
+//! .unwrap();
 //! assert_eq!(gps.to_string(), "GPS 2345:432000.000");
 //!
 //! let utc: Time<Utc> = gps.into_scale_with(LeapSeconds::builtin()).unwrap();

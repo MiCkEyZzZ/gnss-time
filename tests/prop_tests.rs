@@ -13,7 +13,9 @@
 // 4. **Historical leap second transitions**: all 18 events from 1981 to 2017
 // 5. **Real IGS epochs**: several historical GPS timestamps
 
-use gnss_time::{gps_to_utc, utc_to_gps, Beidou, Galileo, Gps, IntoScale, LeapSeconds, Tai, Time};
+use gnss_time::{
+    gps_to_utc, utc_to_gps, Beidou, DurationParts, Galileo, Gps, IntoScale, LeapSeconds, Tai, Time,
+};
 
 // Deterministic sampling: uniform across the entire GPS range + edge cases.
 fn gps_sample_points() -> Vec<Time<Gps>> {
@@ -25,7 +27,7 @@ fn gps_sample_points() -> Vec<Time<Gps>> {
     pts.push(Time::<Gps>::from_nanos(1_000_000_000 - 1)); // 1s - 1ns
 
     // All known GPS epochs of leap second transitions (GPS seconds)
-    let leap_gps_seconds: &[u64] = &[
+    let leap_gps_seconds = &[
         46_828_801,    // 1981-07-01
         78_364_802,    // 1982-07-01
         109_900_803,   // 1983-07-01
@@ -64,8 +66,26 @@ fn gps_sample_points() -> Vec<Time<Gps>> {
 
     // IGS real epochs (known GPS weeks)
     for week in [1, 100, 500, 1000, 1500, 2000, 2086, 2100, 2200] {
-        pts.push(Time::<Gps>::from_week_tow(week, 0.0).unwrap());
-        pts.push(Time::<Gps>::from_week_tow(week, 302_400.0).unwrap()); // середина недели
+        pts.push(
+            Time::<Gps>::from_week_tow(
+                week,
+                DurationParts {
+                    seconds: 0,
+                    nanos: 0,
+                },
+            )
+            .unwrap(),
+        );
+        pts.push(
+            Time::<Gps>::from_week_tow(
+                week,
+                DurationParts {
+                    seconds: 302_400,
+                    nanos: 0,
+                },
+            )
+            .unwrap(),
+        ); // середина недели
     }
 
     pts
@@ -213,7 +233,7 @@ fn prop_gps_to_utc_is_monotone_between_leap_seconds() {
 }
 
 // Table: [(GPS_seconds, expected_GPS_minus_UTC_seconds)]
-const GPS_OFFSET_TABLE: &[(u64, i64)] = &[
+const GPS_OFFSET_TABLE: [(u64, i64); 4] = [
     // In 1980 year GPS-UTC = 0
     (1, 0),
     // after 1981-07-01: GPS-UTC = 1
@@ -230,7 +250,7 @@ fn prop_gps_minus_utc_matches_expected_offsets() {
     // UTC epoch offset: 252_892_800 s from 1972-01-01 to GPS epoch 1980-01-06
     const GPS_UTC_EPOCH_OFFSET_S: i64 = 252_892_800;
 
-    for &(gps_s, expected_offset) in GPS_OFFSET_TABLE {
+    for &(gps_s, expected_offset) in &GPS_OFFSET_TABLE {
         let gps = Time::<Gps>::from_seconds(gps_s);
         let utc = gps_to_utc(gps, ls).unwrap();
 
@@ -377,7 +397,7 @@ fn prop_gps_utc_offset_strictly_increases_at_each_transition() {
     const GPS_UTC_EPOCH_OFFSET_S: i64 = 252_892_800;
 
     // GPS seconds immediately after each leap second
-    let transition_points: &[u64] = &[
+    let transition_points = &[
         46_828_802,
         78_364_803,
         109_900_804,

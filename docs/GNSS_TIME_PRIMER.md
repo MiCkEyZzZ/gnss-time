@@ -113,13 +113,13 @@ BDT — китайская навигационная система.
 
 До 1981-07-01 разница была 0. После 2017-01-01 — уже 18 секунд.
 
-| Событие    | TAI − UTC | GPS − UTC |
+| Event      | TAI − UTC | GPS − UTC |
 | ---------- | --------- | --------- |
-| 1980-01-06 | 19 с      | 0 с       |
-| 1981-07-01 | 20 с      | 1 с       |
+| 1980-01-06 | 19 s      | 0 s       |
+| 1981-07-01 | 20 s      | 1 s       |
 | ...        | ...       | ...       |
-| 1999-01-01 | 32 с      | 13 с      |
-| 2017-01-01 | 37 с      | 18 с      |
+| 1999-01-01 | 32 s      | 13 s      |
+| 2017-01-01 | 37 s      | 18 s      |
 
 Приёмники GPS передают текущее смещение GPS – UTC (поле `IODC`), чтобы ПО могло
 вычислить гражданское время.
@@ -135,7 +135,8 @@ GPS: 1_167_264_018 ns  →  UTC: 23:59:60  (вставленная leap second)
 GPS: 1_167_264_018 ns  →  UTC: 00:00:00  (начало следующего дня — то же GPS значение!)
 ```
 
-Эта библиотека обнаруживает такое окно и сигнализирует о нём через `ConvertResult::AmbiguousLeapSecond`.
+Эта библиотека обнаруживает такое окно и сигнализирует о нём через
+`ConvertResult::AmbiguousLeapSecond`.
 
 ## Граф преобразований
 
@@ -174,13 +175,13 @@ GPS: 1_167_264_018 ns  →  UTC: 00:00:00  (начало следующего д
 ### Использовать GPS как UTC
 
 ```rust
-// НЕПРАВИЛЬНО — GPS опережает UTC на 18 секунд после 2017 года
+// WRONG — GPS опережает UTC на 18 секунд после 2017 года
 let gps = Time::<Gps>::from_seconds(gps_seconds_from_receiver);
 let civil_time = gps.as_seconds(); // ← это GPS секунды, не UTC!
 ```
 
 ```rust
-// ПРАВИЛЬНО
+// RIGHT
 let utc = gps.into_scale_with(LeapSeconds::builtin()).unwrap();
 let civil_seconds = utc.as_seconds(); // UTC секунды от 1972-01-01
 ```
@@ -188,24 +189,24 @@ let civil_seconds = utc.as_seconds(); // UTC секунды от 1972-01-01
 ### Игнорировать leap seconds при GPS → UTC
 
 ```rust
-// НЕПРАВИЛЬНО — предполагает фиксированные 18 секунд
+// WRONG — предполагает фиксированные 18 секунд
 let utc_seconds = gps.as_seconds() - 18;
 ```
 
 ```rust
-// ПРАВИЛЬНО — использует полную таблицу високосных секунд
+// RIGHT — использует полную таблицу високосных секунд
 let utc = gps.into_scale_with(LeapSeconds::builtin()).unwrap();
 ```
 
 ### Смешивать шкалы времени в арифметике
 
 ```rust
-// НЕПРАВИЛЬНО — не скомпилируется в gnss-time, но частая ошибка:
+// WRONG — не скомпилируется в gnss-time, но частая ошибка:
 // let delta = gps_time - glonass_time;
 ```
 
 ```rust
-// ПРАВИЛЬНО — сначала привести к одной шкале
+// RIGHT — сначала привести к одной шкале
 let glo_as_utc: Time<Utc> = glonass.into_scale().unwrap();
 let gps_as_utc: Time<Utc> = gps.into_scale_with(ls).unwrap();
 let delta = gps_as_utc - glo_as_utc;

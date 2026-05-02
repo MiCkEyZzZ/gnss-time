@@ -1,13 +1,13 @@
-# Архитектура
+# Architecture
 
-Внутренний дизайн `gnss-time`.
+Internal design of `gnss-time`.
 
-## Структура модулей
+## Module layout
 
 ```text
 src/
 ├── tables/
-│   └── leap_seconds.rs  — BUILTIN_TABLE (19 записей эпохи GPS)
+│   └── leap_seconds.rs  — BUILTIN_TABLE (19 GPS-era entries)
 ├── convert.rs      — трейты IntoScale / IntoScaleWith + все реализации
 ├── duration.rs     — Duration (знаковый интервал в наносекундах)
 ├── epoch.rs        — CivilDate, константные смещения эпох
@@ -20,7 +20,7 @@ src/
 └── time.rs         — структура Time<S>, конструкторы, арифметика
 ```
 
-## Основной инвариант: TAI как универсальная опорная точка
+## Core invariant: TAI as the universal pivot
 
 Любое преобразование с фиксированным смещением проходит через TAI:
 
@@ -100,7 +100,7 @@ let utc = gps_to_utc(gps, LeapSeconds::builtin())?;
 
 ## Feature-флаги
 
-| Feature | Эффект                                        |
+| Feature | Effect                                        |
 | ------- | --------------------------------------------- |
 | (none)  | Чистый `no_std`, без внешних зависимостей     |
 | `std`   | `impl std::error::Error for GnssTimeError`    |
@@ -131,9 +131,9 @@ pub trait IntoScaleWith<Target: TimeScale>: Sized {
 `ConvertResult<T>` добавляет сигнал о попадании в окно неоднозначности високосной
 секунды, не усложняя обычный путь выполнения.
 
-## Гарантии CI
+## CI guarantees
 
-| Проверка                     | Инструмент                                                 |
+| Check                        | Tool                                                       |
 | ---------------------------- | ---------------------------------------------------------- |
 | Нет небезопасного кода       | `#![forbid(unsafe_code)]`                                  |
 | Нет недокументированного API | `#![deny(missing_docs)]`                                   |
