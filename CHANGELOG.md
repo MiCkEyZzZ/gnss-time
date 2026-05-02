@@ -46,6 +46,37 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **API breaking change**: replaced `f64` fractional seconds with `DurationParts`
+  for all constructors:
+  - `Time<Gps>::from_week_tow(week, tow)` теперь принимает `DurationParts`
+  - `Time<Glonass>::from_day_tod(day, tod)` теперь принимает `DurationParts`
+  - Добавлена валидация на этапе конструирования: `seconds` и `nanos` проверяются
+    на диапазон
+  - Устранена недетерминированность, связанная с `f64`
+- **Новый тип `DurationParts`**:
+  - Поля `seconds: u64` и `nanos: u32`
+  - Конструктор `new()` с валидацией `nanos < 1_000_000_000`
+  - Метод `as_nanos() -> u128` для преобразования в наносекунды
+- **Обновлены все примеры** (`examples/`):
+  - `basic_usage.rs`, `gps_week_tow.rs`, `glonass_day_tod.rs`
+  - `convert_basic.rs`, `convert_contextual.rs`, `chain_conversion.rs`
+  - `display_formats.rs`, `dynamic_conversion.rs`, `embedded_safe_arithmetic.rs`
+  - `glonass_receiver.rs`, `gps_time_operations.rs`, `log_stream.rs`
+  - `matrix_inspection.rs`, `multi_constellation.rs`, `no_domain_mixing.rs`
+  - `no_std_example.rs`, `receiver_timestamp.rs`, `scale_conversion.rs`
+  - `sync_alignment.rs`
+- **Обновлены интеграционные тесты** (`tests/`):
+  - `glonass_test.rs` — все конструкторы переписаны на `DurationParts`
+  - `roundtrip_test.rs` — все тесты roundtrip обновлены
+  - `time_integration_test.rs` — адаптирован под новый API
+- **Обновлены бенчмарки** (`benches/`):
+  - `arithmetic_bench.rs` — без изменений (не использует конструкторы)
+  - `convert_bench.rs` — обновлены вызовы `from_week_tow` с `DurationParts`
+  - `time_bench.rs` — обновлены конструкторы
+- **Документация**:
+  - Добавлена полная документация для `DurationParts`
+  - Обновлены примеры в doc-комментариях всех модулей
+
 - CI architecture:
   - embedded checks extracted into reusable workflow (`embedded.yml`)
   - improved caching strategy (feature-aware cache keys)

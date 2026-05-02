@@ -1,34 +1,51 @@
-use gnss_time::prelude::*;
+use gnss_time::{prelude::*, DurationParts};
 
 fn main() {
-    // GPS / Galileo / BeiDou: Week:TOW format
-    // GPS has a dedicated constructor
-    let gps = Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap();
+    // =========================================================
+    // GPS / Galileo / BeiDou (Week:Time-of-Week model)
+    // =========================================================
 
-    // For Galileo and BeiDou, create via seconds or nanoseconds
-    // Galileo epoch: 1999-08-22, GPS epoch: 1980-01-06
-    // Diference: 7168 days = 619_315_200 seconds
-    let galileo_nanos = 619_315_200_000_000_000u64 + 432_000_000_000_000u64; // 7168 days + 5 days
-    let gal = Time::<Galileo>::from_nanos(galileo_nanos);
+    let gps = Time::<Gps>::from_week_tow(
+        2345,
+        DurationParts {
+            seconds: 432_000,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
-    // BeiDou epoch: 2006-01-01, GPS epoch: 1980-01-06
-    // Diference: 9492 days = 820_108_800 seconds
-    let beidou_nanos = 820_108_800_000_000_000u64 + 432_000_000_000_000u64; // 9492 days + 5 days
-    let bdt = Time::<Beidou>::from_nanos(beidou_nanos);
+    // Galileo = GPS epoch + offset (fixed relationship)
+    let gal = Time::<Galileo>::from_nanos(619_315_200_000_000_000 + 432_000_000_000_000);
+
+    // BeiDou = GPS epoch + different offset
+    let bdt = Time::<Beidou>::from_nanos(820_108_800_000_000_000 + 432_000_000_000_000);
 
     println!("GPS     : {gps}");
     println!("Galileo : {gal}");
     println!("BeiDou  : {bdt}");
     println!();
 
-    // GLONASS: Day:TOD format
-    let glo = Time::<Glonass>::from_day_tod(10_512, 43_200.0).unwrap();
+    // =========================================================
+    // GLONASS (Day:Time-of-Day model)
+    // =========================================================
+
+    let glo = Time::<Glonass>::from_day_tod(
+        10_512,
+        DurationParts {
+            seconds: 43_200,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     println!("GLONASS : {glo}");
-    println!("GLONASS epoch: {}", Time::<Glonass>::EPOCH);
+    println!("Epoch   : {}", Time::<Glonass>::EPOCH);
     println!();
 
-    // TAI and UTC: simple format (seconds + nanoseconds)
+    // =========================================================
+    // Atomic / Civil time scales (continuous seconds model)
+    // =========================================================
+
     let tai = Time::<Tai>::from_seconds(1_000_000_000);
     let utc = Time::<Utc>::from_seconds(1_000_000_000);
 
@@ -36,23 +53,52 @@ fn main() {
     println!("UTC : {utc}");
     println!();
 
-    // Demostration of zero-padding
-    let gps_early = Time::<Gps>::from_week_tow(1, 1.0).unwrap();
-    let glo_early = Time::<Glonass>::from_day_tod(1, 1.0).unwrap();
+    // =========================================================
+    // Precision & formatting guarantees
+    // =========================================================
 
-    println!("GPS early    : {gps_early} (TOW zero-padded to 6 digits)");
-    println!("GLONASS early: {glo_early} (TOD zero-padded to 5 digits)");
+    let gps_early = Time::<Gps>::from_week_tow(
+        1,
+        DurationParts {
+            seconds: 1,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
-    // Millisecond precision
-    let gps_ms = Time::<Gps>::from_week_tow(100, 0.5).unwrap();
+    let glo_early = Time::<Glonass>::from_day_tod(
+        1,
+        DurationParts {
+            seconds: 1,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
-    println!("\nGPS with milliseconds: {gps_ms}");
+    println!("GPS early    : {gps_early}");
+    println!("GLONASS early: {glo_early}");
+    println!();
 
-    // Demostration that Display automatically uses the correct format for each time
-    // scale
-    let gal_epoch = Time::<Galileo>::EPOCH;
-    let bdt_epoch = Time::<Beidou>::EPOCH;
+    // =========================================================
+    // Sub-second precision
+    // =========================================================
 
-    println!("\nGalileo epoch: {gal_epoch}");
-    println!("BeiDou epoch:  {bdt_epoch}");
+    let gps_ms = Time::<Gps>::from_week_tow(
+        100,
+        DurationParts {
+            seconds: 0,
+            nanos: 500_000_000,
+        },
+    )
+    .unwrap();
+
+    println!("GPS (ms precision): {gps_ms}");
+    println!();
+
+    // =========================================================
+    // Epoch consistency check
+    // =========================================================
+
+    println!("Galileo epoch: {}", Time::<Galileo>::EPOCH);
+    println!("BeiDou epoch : {}", Time::<Beidou>::EPOCH);
 }
