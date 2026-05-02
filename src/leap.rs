@@ -46,8 +46,6 @@ static BUILTIN_LEAP_SECONDS: LeapSeconds = LeapSeconds {
 /// Nanoseconds from the UTC epoch (1972-01-01) to the GLONASS epoch
 /// (1995-12-31 21:00:00 UTC).
 ///
-/// GLONASS epoch = 1996-01-01 00:00:00 UTC(SU) = 1995-12-31 21:00:00 UTC.
-///
 /// `UTC_nanos = GLO_nanos + GLONASS_FROM_UTC_EPOCH_NS`
 const GLONASS_FROM_UTC_EPOCH_NS: i64 = {
     // от UTC-epoch до 1996-01-01 00:00:00 UTC
@@ -120,7 +118,7 @@ pub trait LeapSecondsProvider {
 /// tai_minus_utc` seconds.
 ///
 /// Strict contract: the table must be sorted by `tai_nanos` in ascending order.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct LeapEntry {
     /// Internal TAI nanoseconds (inclusive lower bound).
     pub tai_nanos: u64,
@@ -173,6 +171,7 @@ impl LeapEntry {
     /// - `tai_minus_utc`: TAI - UTC in seconds that applies from this
     ///   threshold.
     #[inline]
+    #[must_use]
     pub const fn new(
         tai_nanos: u64,
         tai_minus_utc: i32,
@@ -190,6 +189,8 @@ impl LeapSeconds {
     /// Covers all 18 leap-second events in the GPS era.
     ///
     /// Source: [IERS Bulletin C](https://www.iers.org/IERS/EN/Publications/Bulletins/bulletins.html)
+    #[inline]
+    #[must_use]
     pub fn builtin() -> &'static LeapSeconds {
         &BUILTIN_LEAP_SECONDS
     }
@@ -200,21 +201,29 @@ impl LeapSeconds {
     /// # Requirements
     ///
     /// `entries` must be sorted by `tai_nanos` in ascending order.
+    #[inline]
+    #[must_use]
     pub const fn from_table(entries: &'static [LeapEntry]) -> Self {
         Self { entries }
     }
 
     /// Returns the number of entries in the table.
+    #[inline]
+    #[must_use]
     pub fn len(&self) -> usize {
         self.entries.len()
     }
 
     /// Returns `true` if the table is empty.
+    #[inline]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
 
     /// Returns all table entries (for inspection / serialization).
+    #[inline]
+    #[must_use]
     pub fn entries(&self) -> &[LeapEntry] {
         self.entries
     }

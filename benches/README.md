@@ -44,7 +44,7 @@ operations add a small cost (< 5 ns).
 | `GPS → TAI`                              | ~807 ps  | < 2 ns  |
 | `GPS → Galileo`                          | ~779 ps  | < 2 ns  |
 | `GPS → BeiDou`                           | ~874 ps  | < 2 ns  |
-| `TAI → GPS`                              | ~1.0 ns  | < 2 ns  |
+| `TAI → GPS`                              | ~787 ps  | < 2 ns  |
 | `GPS → UTC` (table lookup, 2020)         | ~9.6 ns  | < 10 ns |
 | `GPS → UTC` (GPS epoch)                  | ~9.6 ns  | < 10 ns |
 | `UTC → GPS` (two-pass algorithm)         | ~22.0 ns | —       |
