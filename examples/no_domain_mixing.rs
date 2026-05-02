@@ -1,11 +1,44 @@
-use gnss_time::prelude::*;
+use gnss_time::{ConversionMatrix, ScaleId};
 
 fn main() {
-    let _gps = Time::<Gps>::from_seconds(1000);
-    let _glo = Time::<Glonass>::from_day_tod(1, 0.0).unwrap();
+    // =========================================================
+    // Conversion matrix inspection (SDK-style introspection)
+    // =========================================================
 
-    // ❌ This will NOT compile:
-    // let diff = gps - glo;
+    let matrix = ConversionMatrix::new();
 
-    println!("Different time domains cannot be mixed at compile time");
+    println!("=== Conversion Matrix (6×6) ===\n");
+
+    // Iterate over all scale pairs
+    for &from in &ScaleId::ALL {
+        for &to in &ScaleId::ALL {
+            if from == to {
+                continue;
+            }
+
+            let kind = matrix.kind(from, to);
+
+            let mode = if from.is_fixed(to) {
+                "✓ fixed"
+            } else {
+                "✗ contextual"
+            };
+
+            println!("{:?} -> {:?} : {:?} ({})", from, to, kind, mode);
+        }
+
+        println!();
+    }
+
+    // =========================================================
+    // Summary statistics
+    // =========================================================
+
+    println!("=== Statistics ===");
+
+    let fixed_paths = matrix.path_count(false);
+    let contextual_paths = matrix.path_count(true);
+
+    println!("Fixed / Identity / EpochShift paths: {fixed_paths}");
+    println!("Contextual paths (require leap seconds): {contextual_paths}");
 }

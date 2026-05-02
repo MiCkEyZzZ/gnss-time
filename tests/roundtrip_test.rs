@@ -7,8 +7,8 @@
 // - consistency between the `convert.rs` trait API and functions from `leap.rs`
 
 use gnss_time::{
-    gps_to_utc, utc_to_gps, Beidou, CivilDate, ConvertResult, Galileo, Glonass, Gps, IntoScale,
-    IntoScaleWith, LeapSeconds, Tai, Time, GPS_EPOCH, UNIX_EPOCH,
+    gps_to_utc, utc_to_gps, Beidou, CivilDate, ConvertResult, DurationParts, Galileo, Glonass, Gps,
+    IntoScale, IntoScaleWith, LeapSeconds, Tai, Time, GPS_EPOCH, UNIX_EPOCH,
 };
 
 // Helper function: GPS seconds from Unix timestamp
@@ -31,7 +31,14 @@ fn utc_from_days_since_1972(days: u64) -> gnss_time::Time<gnss_time::scale::Utc>
 #[test]
 fn test_roundtrip_gps_utc_gps_is_exact_with_no_nanos() {
     let ls = LeapSeconds::builtin();
-    let gps = Time::<Gps>::from_week_tow(2086, 259_200.0).unwrap();
+    let gps = Time::<Gps>::from_week_tow(
+        2086,
+        DurationParts {
+            seconds: 259_200,
+            nanos: 0,
+        },
+    )
+    .unwrap();
     let utc: gnss_time::Time<gnss_time::scale::Utc> = gps.into_scale_with(ls).unwrap();
     let back: Time<Gps> = utc.into_scale_with(ls).unwrap();
 
@@ -62,7 +69,14 @@ fn test_roundtrip_utc_gps_utc_is_exact() {
 
 #[test]
 fn test_roundtrip_gps_tai_gps_is_exact() {
-    let gps = Time::<Gps>::from_week_tow(2345, 432_000.123).unwrap();
+    let gps = Time::<Gps>::from_week_tow(
+        2345,
+        DurationParts {
+            seconds: 432_000,
+            nanos: 123_456_789,
+        },
+    )
+    .unwrap();
     let tai: Time<Tai> = gps.into_scale().unwrap();
     let back: Time<Gps> = tai.into_scale().unwrap();
 
@@ -71,7 +85,14 @@ fn test_roundtrip_gps_tai_gps_is_exact() {
 
 #[test]
 fn test_roundtrip_gps_galileo_gps_is_exact() {
-    let gps = Time::<Gps>::from_week_tow(2238, 518_400.0).unwrap();
+    let gps = Time::<Gps>::from_week_tow(
+        2238,
+        DurationParts {
+            seconds: 518_400,
+            nanos: 0,
+        },
+    )
+    .unwrap();
     let gal: Time<Galileo> = gps.into_scale().unwrap();
     let back: Time<Gps> = gal.into_scale().unwrap();
 
@@ -80,7 +101,14 @@ fn test_roundtrip_gps_galileo_gps_is_exact() {
 
 #[test]
 fn test_roundtrip_gps_beidou_gps_is_exact() {
-    let gps = Time::<Gps>::from_week_tow(2238, 518_400.0).unwrap();
+    let gps = Time::<Gps>::from_week_tow(
+        2238,
+        DurationParts {
+            seconds: 518_400,
+            nanos: 0,
+        },
+    )
+    .unwrap();
     let bdt: Time<Beidou> = gps.into_scale().unwrap();
     let back: Time<Gps> = bdt.into_scale().unwrap();
 
@@ -90,7 +118,14 @@ fn test_roundtrip_gps_beidou_gps_is_exact() {
 #[test]
 fn test_roundtrip_gps_glonass_gps_is_exact() {
     let ls = LeapSeconds::builtin();
-    let gps = Time::<Gps>::from_week_tow(2100, 86_400.0).unwrap();
+    let gps = Time::<Gps>::from_week_tow(
+        2100,
+        DurationParts {
+            seconds: 86_400,
+            nanos: 0,
+        },
+    )
+    .unwrap();
     let glo: Time<Glonass> = gps.into_scale_with(ls).unwrap();
     let back: Time<Gps> = glo.into_scale_with(ls).unwrap();
 
@@ -374,7 +409,14 @@ fn test_all_gps_era_leap_second_transitions() {
 fn test_convert_result_normal_time_is_exact() {
     let ls = LeapSeconds::builtin();
     // Far from any leap second
-    let gps = Time::<Gps>::from_week_tow(2086, 100_000.0).unwrap();
+    let gps = Time::<Gps>::from_week_tow(
+        2086,
+        DurationParts {
+            seconds: 100_000,
+            nanos: 0,
+        },
+    )
+    .unwrap();
     let r: ConvertResult<gnss_time::Time<gnss_time::scale::Utc>> =
         gps.into_scale_with_checked(ls).unwrap();
 
@@ -384,7 +426,14 @@ fn test_convert_result_normal_time_is_exact() {
 #[test]
 fn test_convert_result_into_inner_unwraps_value() {
     let ls = LeapSeconds::builtin();
-    let gps = Time::<Gps>::from_week_tow(2345, 0.0).unwrap();
+    let gps = Time::<Gps>::from_week_tow(
+        2345,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
     let result: ConvertResult<gnss_time::Time<gnss_time::scale::Utc>> =
         gps.into_scale_with_checked(ls).unwrap();
     let utc = result.into_inner();
@@ -425,7 +474,14 @@ fn test_into_scale_with_utc_gps_matches_utc_to_gps() {
 
 #[test]
 fn test_full_fixed_chain_gps_tai_galileo_beidou_roundtrip() {
-    let gps_orig = Time::<Gps>::from_week_tow(2300, 259_200.0).unwrap();
+    let gps_orig = Time::<Gps>::from_week_tow(
+        2300,
+        DurationParts {
+            seconds: 259_200,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     let tai: Time<Tai> = gps_orig.into_scale().unwrap();
     let gps2: Time<Gps> = tai.into_scale().unwrap();
@@ -446,14 +502,28 @@ fn test_gps_days_from_unix_epoch_is_3657() {
 
 #[test]
 fn test_gps_week_seconds_per_week() {
-    let gps = Time::<Gps>::from_week_tow(1, 0.0).unwrap();
+    let gps = Time::<Gps>::from_week_tow(
+        1,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
     assert_eq!(gps.as_seconds(), 604_800);
 }
 
 #[test]
 fn test_gps_week_boundary_tow_just_before_end() {
-    let gps = Time::<Gps>::from_week_tow(10, 604_799.999_999_999).unwrap();
+    let gps = Time::<Gps>::from_week_tow(
+        10,
+        DurationParts {
+            seconds: 604_799,
+            nanos: 999_999_999,
+        },
+    )
+    .unwrap();
 
     assert_eq!(gps.week(), 10);
     // TOW is slightly less than 604800, tow_seconds rounds down to 604799

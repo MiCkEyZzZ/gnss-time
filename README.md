@@ -7,169 +7,207 @@
 ![MSRV](https://img.shields.io/badge/MSRV-1.75-blue)
 ![Embedded](https://img.shields.io/badge/embedded-friendly-green)
 
-**Type-safe time handling for GNSS systems.**
+**Strongly typed GNSS time model with zero-cost conversions and explicit leap
+second handling.**
 
-`gnss-time` is a minimal, zero-cost core library for working with time in satellite
-navigation systems such as GLONASS, GPS, Galileo, and BeiDou.
+`gnss-time` is a minimal, high-performance library for representing and converting
+time across GNSS and atomic time scales:
 
-This is **not** a GNSS engine and **not** an RTK library.
-It is a strictly typed time model designed to prevent domain-mixing bugs at compile
-time.
+- GLONASS
+- GPS
+- Galileo
+- BeiDou
+- TAI
+- UTC
+
+This crate focuses on **correctness, type safety, and deterministic conversions**,
+not on navigation or positioning algorithms.
+
+## Core Idea (mental model)
+
+GNSS time is not a single system.
+
+Each scale differs in:
+
+- epoch
+- unit definition
+- leap second behavior
+
+This crate enforces:
+
+> different time scales are different types
+
+So invalid mixing is impossible at compile time.
 
 ## API in 2 minutes
-
-This is the simplest mental model of the library:
 
 ```rust
 use gnss_time::prelude::*;
 
-// 1. Create GPS time
-let gps = Time::<Gps>::from_week_tow(2200, 0.0).unwrap();
+let gps = Time::<Gps>::from_week_tow(2200, DurationParts {
+    seconds: 0,
+    nanos: 0,
+}).unwrap();
 
-// 2. Get leap second table
+// Fixed conversion (zero-cost)
+let gal: Time<Galileo> = gps.into_scale().unwrap();
+```
+
+## GNSS Time Primer
+
+GNSS systems define different time scales:
+
+- **GLONASS** → UTC(SU)-aligned (leap-second dependent)
+- **GPS / Galileo** → TAI − 19s (fixed offset)
+- **BeiDou (BDT)** → TAI − 33s (fixed offset)
+- **TAI** → continuous atomic time
+- **UTC** → civil time with leap seconds
+
+> The same physical moment may have multiple valid representations.
+
+## Features
+
+### Type-safe time domains
+
+Each scale is a distinct type:
+
+- `Glonass`
+- `Gps`
+- `Galileo`
+- `Beidou`
+- `Tai`
+- `Utc`
+
+Cross-scale arithmetic is **not allowed implicitly**.
+
+### Zero-cost abstractions
+
+Arithmetic compiles down to native operations:
+
+- `Time + Duration` ≈ `u64 + u64`
+- no heap allocations
+- no runtime overhead in fast path
+
+### Explicit conversion model
+
+Conversions are categorized:
+
+- **Fixed** → constant offset (zero-cost)
+- **EpochShift** → deterministic shift
+- **Contextual** → leap second aware
+
+### Leap-second aware UTC
+
+UTC conversions support:
+
+- leap second table lookup
+- ambiguity detection
+- explicit result model:
+
+```rust
+ConvertResult::Exact
+ConvertResult::AmbiguousLeapSecond
+```
+
+### Conversion graph inspection
+
+The library exposes the full conversion matrix:
+
+- 6×6 scale graph
+- fixed vs contextual edges
+- runtime inspection tools
+
+## Performance
+
+### Arithmetic
+
+| Operation                      | Cost    |
+| ------------------------------ | ------- |
+| `Time + Duration` (panic path) | ~0.5 ns |
+| `checked_add`                  | ~4.3 ns |
+| `saturating_add`               | ~0.5 ns |
+
+### Conversions
+
+| Operation                     | Cost        |
+| ----------------------------- | ----------- |
+| GPS → Galileo / TAI / BeiDou  | ~0.8–1.0 ns |
+| GPS → UTC (leap-second aware) | ~9–10 ns    |
+| UTC → GPS                     | ~22 ns      |
+
+## Important design choice
+
+### UTC is contextual
+
+UTC conversions:
+
+- depend on leap second table
+- are not always invertible
+- may be ambiguous during leap insertion
+
+This is intentional and modeled explicitly.
+
+## Example: leap-second aware conversion
+
+```rust
+use gnss_time::prelude::*;
+
+let gps = Time::<Gps>::from_week_tow(2200, DurationParts {
+    seconds: 0,
+    nanos: 0,
+}).unwrap();
+
 let ls = LeapSeconds::builtin();
 
-// 3. Convert to UTC safely
-match gps.into_scale_with_checked(ls).unwrap() {
+match gps.into_scale_with(ls).unwrap() {
     ConvertResult::Exact(utc) => {
         println!("UTC: {}", utc);
     }
     ConvertResult::AmbiguousLeapSecond(utc) => {
-        println!("Leap second ambiguity, UTC: {}", utc);
+        println!("Leap second ambiguity: {}", utc);
     }
 }
 ```
 
-Core idea:
+## No domain mixing guarantee
 
-- every time scale is a **distinct type**
-- conversions are **explicit**
-- leap seconds are **never hidden**
-
-## GNSS Time Primer (short version)
-
-GNSS time systems are not identical:
-
-- **GLONASS** → aligned to **UTC(SU)** (leap-second dependent)
-- **GPS / Galileo** → aligned to **TAI − 19s**
-- **BeiDou (BDT)** → aligned to **TAI − 33s**
-- **TAI** → continuous atomic time (no leap seconds)
-- **UTC** → civil time with leap seconds
-
-Key consequence:
-
-> the same physical moment can have different numeric representations depending
-> on the scale
-
-That is why this library enforces type safety.
-
-## Features
-
-- **Type-safe time scales**
-  `Glonass`, `Gps`, `Galileo`, `Beidou`, `Tai`, `Utc`
-
-- **Full 6×6 conversion matrix (30 directions)**
-  All time scale conversions are explicitly defined and verified
-
-- **Typed conversion API**
-  - `IntoScale` — fixed-offset conversions
-  - `IntoScaleWith` — leap-second-aware conversions
-
-- **Explicit leap second handling**
-  - No hidden global state
-  - Detection of ambiguity during leap insertion
-  - `ConvertResult<T>` for safe handling
-
-- **Deterministic conversions via TAI pivot**
-
-- **Domain-specific formats**
-  - `Day:TOD` (GLONASS)
-  - `Week:TOW` (GPS, Galileo, BeiDou)
-
-- **Runtime conversion graph inspection**
-  - `ConversionMatrix`
-  - `ScaleId`, `ConversionKind`
-
-- **High-precision durations** (`Duration`, nanoseconds)
-
-- **Zero-cost abstractions**
-  - timestamps are 8 bytes (`u64`)
-
-- **`no_std` by default**
-  suitable for embedded and real-time systems
-
-## Quick Start
-
-Add to your `Cargo.toml`:
-
-```toml
-[dependencies]
-gnss-time = "0.3.0"
-```
-
-## Example (basic conversion)
+Invalid operations are rejected at compile time:
 
 ```rust
-use gnss_time::prelude::*;
+let gps: Time<Gps> = ...;
+let utc: Time<Utc> = ...;
 
-let gps = Time::<Gps>::from_week_tow(2200, 0.0).unwrap();
-let gal: Time<Galileo> = gps.into_scale().unwrap();
-
-println!("GPS -> Galileo: {}", gal);
+// ❌ compile error
+let x = gps + utc;
 ```
 
-## Example (leap-second aware)
+## Design goals
 
-```rust
-use gnss_time::prelude::*;
+- Prevent GNSS time domain mixing at compile time
+- Make leap seconds explicit and unavoidable
+- Provide deterministic conversions where possible
+- Achieve zero-cost abstractions over raw timestamps
+- Be fully `no_std` compatible
+- Serve as a foundational GNSS time layer
 
-let gps = Time::<Gps>::from_week_tow(2200, 0.0).unwrap();
-let ls = LeapSeconds::builtin();
+## Supported scales
 
-let utc = gps.into_scale_with(ls).unwrap();
-
-println!("UTC: {}", utc);
-```
-
-## Design Goals
-
-- Prevent mixing incompatible time domains at compile time
-- Make leap seconds explicit and impossible to ignore
-- Guarantee deterministic conversions
-- Provide zero-cost abstractions over raw timestamps
-- Be fully usable in `no_std` environments
-- Serve as a foundational building block for GNSS software
-
-## Supported Time Scales
-
-| Scale   | Epoch              | Format        | Offset vs TAI         |
-| ------- | ------------------ | ------------- | --------------------- |
-| GLONASS | 1996-01-01 UTC(SU) | `GLO D:TOD`   | contextual (needs LS) |
-| GPS     | 1980-01-06 UTC     | `GPS W:TOW`   | +19 s (fixed)         |
-| Galileo | 1999-08-22 UTC     | `GAL W:TOW`   | +19 s (fixed)         |
-| BeiDou  | 2006-01-01 UTC     | `BDT W:TOW`   | +33 s (fixed)         |
-| TAI     | 1958-01-01         | `TAI +Ss Nns` | 0 s (pivot)           |
-| UTC     | 1972-01-01         | `UTC +Ss Nns` | contextual (needs LS) |
-
-## Why not use standard libraries?
-
-Typical time libraries:
-
-- do not distinguish GNSS time domains
-- allow unsafe mixing of GPS / UTC / TAI
-- hide leap seconds or ignore them entirely
-- are not `no_std` compatible
-
-`gnss-time` solves these problems at the type level.
+| Scale   | Format            |
+| ------- | ----------------- |
+| GLONASS | Day / TOD         |
+| GPS     | Week / TOW        |
+| Galileo | Week / TOW        |
+| BeiDou  | Week / TOW        |
+| TAI     | Seconds + nanos   |
+| UTC     | Leap-second aware |
 
 ## Status
 
-- [x] Core types (`Time<S>`, `Duration`)
-- [x] Epoch definitions
-- [x] Fixed-offset conversions
+- [x] Core types
+- [x] Fixed conversions
 - [x] Leap second handling
-- [x] Display formats
-- [x] Full conversion matrix
+- [x] Conversion matrix
+- [x] Embedded-safe arithmetic
 
 ## License
 

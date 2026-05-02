@@ -1,14 +1,33 @@
-use gnss_time::prelude::*;
+use gnss_time::{prelude::*, DurationParts};
 
 fn main() {
-    // data from GNSS receiver (e.g., u-blox)
-    let week: u16 = 2345;
-    let tow: f64 = 432_000.125; // seconds + fractional part
+    // =========================================================
+    // Receiver timestamp (GPS Week + TOW)
+    // =========================================================
 
-    let t = Time::<Gps>::from_week_tow(week, tow).expect("valid GPS time");
+    let gps = Time::<Gps>::from_week_tow(
+        2345,
+        DurationParts {
+            seconds: 432_000,
+            nanos: 125_000_000,
+        },
+    )
+    .expect("valid GPS timestamp");
 
-    println!("Receiver timestamp: {t}");
-    println!("Week: {}", t.week());
-    println!("TOW: {}s", t.tow_seconds());
-    println!("Sub-ns: {}", t.sub_second_nanos());
+    // =========================================================
+    // Structured access (decode components)
+    // =========================================================
+
+    let week = gps.week();
+    let tow = gps.tow_seconds();
+    let sub_ns = gps.sub_second_nanos();
+
+    // =========================================================
+    // Output
+    // =========================================================
+
+    println!("Receiver timestamp: {gps}");
+    println!("Week: {week}");
+    println!("TOW: {tow}s");
+    println!("Sub-ns: {sub_ns}");
 }
