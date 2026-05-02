@@ -1,7 +1,5 @@
 use gnss_time::prelude::*;
 
-/// Basic GNSS time workflow:
-/// create → manipulate → compare → protect against overflow
 fn main() {
     // ------------------------------------------------------------
     // 1. GNSS epoch (system reference point)
