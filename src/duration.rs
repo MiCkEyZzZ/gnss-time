@@ -47,6 +47,7 @@ const NANOS_PER_MICRO: i64 = 1_000;
 /// assert_eq!(neg.as_nanos(), -1_000_000_000);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[must_use = "Duration is a value type; ignoring it has no effect"]
 #[repr(transparent)]
 pub struct Duration(i64); // nanoseconds
 
@@ -110,6 +111,7 @@ impl Duration {
 
     /// Create from microseconds, returning `None` on overflow.
     #[inline]
+    #[must_use = "returns None on overflow; check the result"]
     pub const fn checked_from_micros(micros: i64) -> Option<Self> {
         match micros.checked_mul(NANOS_PER_MICRO) {
             Some(n) => Some(Duration(n)),
@@ -119,6 +121,7 @@ impl Duration {
 
     /// Create from milliseconds, returning `None` on overflow.
     #[inline]
+    #[must_use = "returns None on overflow; check the result"]
     pub const fn checked_from_millis(millis: i64) -> Option<Self> {
         match millis.checked_mul(NANOS_PER_MILLI) {
             Some(n) => Some(Duration(n)),
@@ -128,6 +131,7 @@ impl Duration {
 
     /// Create from whole seconds, returning `None` on overflow.
     #[inline]
+    #[must_use = "returns None on overflow; check the result"]
     pub const fn checked_from_seconds(secs: i64) -> Option<Self> {
         match secs.checked_mul(NANOS_PER_SECOND) {
             Some(n) => Some(Duration(n)),
@@ -139,24 +143,28 @@ impl Duration {
 impl Duration {
     /// Raw nanosecond count (may be negative).
     #[inline(always)]
+    #[must_use]
     pub const fn as_nanos(self) -> i64 {
         self.0
     }
 
     /// Whole microseconds (truncated toward zero).
     #[inline]
+    #[must_use]
     pub const fn as_micros(self) -> i64 {
         self.0 / NANOS_PER_MICRO
     }
 
     /// Whole millisecond (truncated toward zero).
     #[inline]
+    #[must_use]
     pub const fn as_millis(self) -> i64 {
         self.0 / NANOS_PER_MILLI
     }
 
     /// Whole seconds (truncated toward zero).
     #[inline]
+    #[must_use]
     pub const fn as_seconds(self) -> i64 {
         self.0 / NANOS_PER_SECOND
     }
@@ -165,24 +173,28 @@ impl Duration {
     /// significant decimal digits), sufficient for sub-nanosecond accuracy up
     /// to ~10 000 seconds.
     #[inline]
+    #[must_use]
     pub fn as_seconds_f64(self) -> f64 {
         self.0 as f64 / NANOS_PER_SECOND as f64
     }
 
     /// Returns `true` if the duration is positive (> 0).
     #[inline]
+    #[must_use]
     pub const fn is_positive(self) -> bool {
         self.0 > 0
     }
 
     /// Returns `true` if the duration is negative (< 0).
     #[inline]
+    #[must_use]
     pub const fn is_negative(self) -> bool {
         self.0 < 0
     }
 
     /// Returns `true` if the duration is zero.
     #[inline]
+    #[must_use]
     pub const fn is_zero(self) -> bool {
         self.0 == 0
     }
@@ -190,6 +202,7 @@ impl Duration {
     /// Absolute value. Returns `None` for `Duration::MIN` (no positive
     /// counterpart in `i64`).
     #[inline]
+    #[must_use = "returns None for Duration::MIN; check the result"]
     pub const fn abs(self) -> Option<Self> {
         match self.0.checked_abs() {
             Some(n) => Some(Duration(n)),
@@ -201,6 +214,7 @@ impl Duration {
 impl Duration {
     /// Add, returning `None` on overflow.
     #[inline]
+    #[must_use = "returns None on overflow; check the result"]
     pub const fn checked_add(
         self,
         rhs: Duration,
@@ -213,6 +227,7 @@ impl Duration {
 
     /// Subtract, returning `None` on overflow.
     #[inline]
+    #[must_use = "returns None on overflow; check the result"]
     pub const fn checked_sub(
         self,
         rhs: Duration,
@@ -225,6 +240,7 @@ impl Duration {
 
     /// Add, saturating at `i64::MAX` / `i64::MIN`.
     #[inline]
+    #[must_use = "saturating_add returns a new Duration; the original is unchanged"]
     pub const fn saturating_add(
         self,
         rhs: Duration,
@@ -234,6 +250,7 @@ impl Duration {
 
     /// Subtract, saturating at `i64::MAX` / `i64::MIN`.
     #[inline]
+    #[must_use = "saturating_sub returns a new Duration; the original is unchanged"]
     pub const fn saturating_sub(
         self,
         rhs: Duration,
@@ -311,6 +328,7 @@ impl SubAssign for Duration {
 impl Neg for Duration {
     type Output = Duration;
 
+    #[inline]
     fn neg(self) -> Self::Output {
         Duration(-self.0)
     }

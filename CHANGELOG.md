@@ -5,6 +5,43 @@ All notable changes to **gnss-time** are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Added `#[must_use]` annotations across core types and APIs:
+  - `Time<S>`, `Duration`, `GnssTimeError`, `ConvertResult<T>`
+  - all arithmetic helpers (`checked_*`, `saturating_*`)
+  - accessors (`as_nanos`, `as_seconds`, `week`, `tow_seconds`, etc.)
+  - conversion traits (`IntoScale`, `IntoScaleWith`)
+- Added diagnostic messages to `#[must_use]` where ignoring results is likely a bug
+- Added `#[non_exhaustive]` to:
+  - `GnssTimeError`
+  - `ConvertResult<T>`
+  - `ConversionKind`
+  - `ScaleId`
+    (allows future extension without breaking changes)
+- Added helper methods in `scale.rs`:
+  - `OffsetToTai::is_fixed()`
+  - (complements existing `is_contextual()`)
+- Added extended trait coverage test:
+  - `test_scale_is_copy` now validates `Copy + Clone + Eq + PartialEq + Debug`
+- Added test `test_offset_to_tai_helpers` covering `is_fixed()` and `is_contextual()`
+- Added `clippy.toml` as an explicit lint configuration entry point
+  for future lint expansion
+
+### Changed
+
+- Improved API correctness by enforcing explicit result usage via `#[must_use]`
+- Strengthened forward-compatibility guarantees using `#[non_exhaustive]`
+- Updated internal documentation and diagnostics for better developer feedback
+- Prepared clippy configuration for future lint additions
+  (`warn-on-all-wildcard-imports = false` as extension point)
+
+### Fixed
+
+- Fixed documentation typo in `GnssTimeError` (`i64` → `u64` for internal representation)
+
 ## [0.4.0] — 2026-05-02
 
 ### Added

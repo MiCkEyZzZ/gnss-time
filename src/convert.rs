@@ -95,6 +95,7 @@ use crate::{
 ///
 /// Returns [`GnssTimeError::Overflow`] if the converted value does not fit into
 /// the destination time representation.
+#[must_use = "conversion result must be used; ignoring it discards the converted time"]
 pub trait IntoScale<Target: TimeScale>: Sized {
     /// Converts using a fixed offset.
     fn into_scale(self) -> Result<Time<Target>, GnssTimeError>;
@@ -105,6 +106,7 @@ pub trait IntoScale<Target: TimeScale>: Sized {
 ///
 /// This trait is required for conversions that depend on civil time, such as
 /// `UTC ↔ GPS` and `GLONASS ↔ GPS`.
+#[must_use = "conversion result must be used; ignoring it discards the converted time"]
 pub trait IntoScaleWith<Target: TimeScale>: Sized {
     /// Converts using the provided leap-second source.
     ///
@@ -123,7 +125,8 @@ pub trait IntoScaleWith<Target: TimeScale>: Sized {
 }
 
 /// Result of a conversion that may be ambiguous during leap-second insertion.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[must_use = "ConvertResult carries ambiguity information; call .into_inner() or match on it"]
 pub enum ConvertResult<T> {
     /// The conversion is fully unambiguous.
     Exact(T),
@@ -137,6 +140,7 @@ pub enum ConvertResult<T> {
 impl<T> ConvertResult<T> {
     /// Returns the inner value regardless of the variant.
     #[inline]
+    #[must_use]
     pub fn into_inner(self) -> T {
         match self {
             ConvertResult::Exact(t) | ConvertResult::AmbiguousLeapSecond(t) => t,
@@ -145,12 +149,14 @@ impl<T> ConvertResult<T> {
 
     /// Returns `true` if the result is exact.
     #[inline]
+    #[must_use]
     pub fn is_exact(&self) -> bool {
         matches!(self, ConvertResult::Exact(_))
     }
 
     /// Returns `true` if the result is ambiguous.
     #[inline]
+    #[must_use]
     pub fn is_ambiguous(&self) -> bool {
         matches!(self, ConvertResult::AmbiguousLeapSecond(_))
     }

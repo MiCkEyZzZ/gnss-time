@@ -59,7 +59,7 @@ pub(crate) const NANOS_PER_SECOND: i64 = 1_000_000_000;
 ///
 /// This must be consistent for all scales.
 /// Violating it breaks cross-scale conversions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum OffsetToTai {
     /// Fixed offset (does not require leap seconds)
     Fixed(i64),
@@ -207,6 +207,7 @@ define_scale!(
 impl OffsetToTai {
     /// Returns the fixed offset in nanoseconds.
     #[inline(always)]
+    #[must_use]
     pub const fn fixed(self) -> Option<i64> {
         match self {
             OffsetToTai::Fixed(v) => Some(v),
@@ -216,8 +217,16 @@ impl OffsetToTai {
 
     /// Returns `true` for scales that require runtime context (UTC, GLONASS).
     #[inline(always)]
+    #[must_use]
     pub const fn is_contextual(self) -> bool {
         matches!(self, OffsetToTai::Contextual)
+    }
+
+    /// Returns `true` for scale with a fixed TAI offset.
+    #[inline(always)]
+    #[must_use]
+    pub const fn is_fixed(self) -> bool {
+        matches!(self, OffsetToTai::Fixed(_))
     }
 }
 
@@ -333,6 +342,17 @@ mod tests {
     }
 
     #[test]
+    fn test_scale_is_copy() {
+        fn assert_copy<T: Copy + Clone + Eq + PartialEq + core::fmt::Debug>() {}
+        assert_copy::<Glonass>();
+        assert_copy::<Gps>();
+        assert_copy::<Galileo>();
+        assert_copy::<Beidou>();
+        assert_copy::<Tai>();
+        assert_copy::<Utc>();
+    }
+
+    #[test]
     fn test_display_styles() {
         assert_eq!(Gps::DISPLAY_STYLE, DisplayStyle::WeekTow);
         assert_eq!(Glonass::DISPLAY_STYLE, DisplayStyle::DayTod);
@@ -340,6 +360,16 @@ mod tests {
         assert_eq!(Beidou::DISPLAY_STYLE, DisplayStyle::WeekTow);
         assert_eq!(Tai::DISPLAY_STYLE, DisplayStyle::Simple);
         assert_eq!(Utc::DISPLAY_STYLE, DisplayStyle::Simple);
+    }
+
+    #[test]
+    fn test_offset_to_tai_helpers() {
+        assert!(OffsetToTai::Fixed(0).is_fixed());
+        assert!(!OffsetToTai::Fixed(0).is_contextual());
+        assert!(OffsetToTai::Contextual.is_contextual());
+        assert!(!OffsetToTai::Contextual.is_fixed());
+        assert_eq!(OffsetToTai::Fixed(42).fixed(), Some(42));
+        assert_eq!(OffsetToTai::Contextual.fixed(), None);
     }
 
     #[test]
@@ -354,6 +384,7 @@ mod tests {
     #[test]
     fn test_tai_invariant() {
         assert_eq!(Tai::OFFSET_TO_TAI, OffsetToTai::Fixed(0));
+        assert_eq!(Tai::OFFSET_TO_TAI.fixed(), Some(0));
     }
 
     #[test]

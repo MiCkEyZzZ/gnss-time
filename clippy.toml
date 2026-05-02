@@ -4,8 +4,11 @@ upper-case-acronyms-aggressive = true
 # Do not block changes in the public API (project is pre-0.1, API is evolving rapidly)
 avoid-breaking-exported-api = false
 
-# Forbidden methods
+# Warn when a function returning a meaningful value is not annotated with #[must_use].
+# This catches missing annotations on Result / Option / custom types.
+warn-on-all-wildcard-imports = false
 
+# Forbidden methods
 # Unsafe functions from the `time` crate (RUSTSEC-2020-0071)
 [[disallowed-methods]]
 path         = "time::now"
@@ -28,7 +31,6 @@ path   = "std::mem::transmute"
 reason = "transmute опасен — используйте безопасные конверсии (From/Into/bytemuck)."
 
 # Forbidden types
-
 # Do not use std::sync::Mutex for IQ data in hot paths
 [[disallowed-types]]
 path   = "std::sync::Mutex"

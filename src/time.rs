@@ -8,6 +8,7 @@
 //!
 //! ```rust
 //! # use gnss_time::{Time, scale::Gps};
+//!
 //! assert_eq!(core::mem::size_of::<Time<Gps>>(), 8); // identical to u64
 //! ```
 //!
@@ -84,6 +85,7 @@ use crate::{
 /// // let _ = later - glo; // ← ОШИБКА
 /// ```
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[must_use = "Time<S> is a value type; ignoring it has no effect"]
 pub struct Time<S: TimeScale> {
     nanos: u64,
     _scale: PhantomData<S>,
@@ -172,6 +174,7 @@ impl<S: TimeScale> Time<S> {
 
     /// Construct from whole seconds, returning `None` on overflow.
     #[inline]
+    #[must_use = "returns None on overflow; check the result"]
     pub const fn checked_from_seconds(secs: u64) -> Option<Self> {
         match secs.checked_mul(1_000_000_000) {
             Some(n) => Some(Time::from_nanos(n)),
@@ -183,12 +186,14 @@ impl<S: TimeScale> Time<S> {
 impl<S: TimeScale> Time<S> {
     /// Raw nanoseconds since this scale's epoch.
     #[inline(always)]
+    #[must_use]
     pub const fn as_nanos(self) -> u64 {
         self.nanos
     }
 
     /// Whole seconds since this scale's epoch (truncated).
     #[inline]
+    #[must_use]
     pub const fn as_seconds(self) -> u64 {
         self.nanos / 1_000_000_000
     }
@@ -196,6 +201,7 @@ impl<S: TimeScale> Time<S> {
     /// Seconds as `f64`. For large timestamps (> ~2^53 ns), precision loss
     /// affects even milliseconds
     #[inline]
+    #[must_use]
     pub fn as_seconds_f64(self) -> f64 {
         self.nanos as f64 / 1_000_000_000.0
     }
@@ -238,7 +244,8 @@ impl<S: TimeScale> Time<S> {
     }
 
     /// Convert directly between two fixed-offset scales via TAI.
-    // Fails if either source or target scale requires leap seconds
+    ///
+    /// Fails if either source or target scale requires leap seconds.
     pub fn try_convert<T: TimeScale>(self) -> Result<Time<T>, GnssTimeError> {
         let tai = self.to_tai()?;
 
@@ -249,6 +256,7 @@ impl<S: TimeScale> Time<S> {
 impl<S: TimeScale> Time<S> {
     /// Add a `Duration`, returning `None` on overflow or underflow.
     #[inline]
+    #[must_use = "returns None on overflow; check the result"]
     pub fn checked_add(
         self,
         d: Duration,
@@ -264,6 +272,7 @@ impl<S: TimeScale> Time<S> {
 
     /// Subtract a `Duration`, returning `None` on overflow or underflow.
     #[inline]
+    #[must_use = "returns None on underflow; check the result"]
     pub fn checked_sub_duration(
         self,
         d: Duration,
@@ -279,6 +288,7 @@ impl<S: TimeScale> Time<S> {
 
     /// Add, saturating at `EPOCH` (below) and `MAX` (above).
     #[inline]
+    #[must_use = "saturating_add returns a new Time<S>; the original is unchanged"]
     pub fn saturating_add(
         self,
         d: Duration,
@@ -292,6 +302,7 @@ impl<S: TimeScale> Time<S> {
 
     /// Subtract duration, saturating at bounds.
     #[inline]
+    #[must_use = "saturating_sub_duration returns a new Time<S>; the original is unchanged"]
     pub fn saturating_sub_duration(
         self,
         d: Duration,
@@ -325,6 +336,7 @@ impl<S: TimeScale> Time<S> {
 impl<S: TimeScale> Time<S> {
     /// Signed interval `self − earlier`. Returns `None` if it overflows `i64`.
     #[inline]
+    #[must_use = "returns None on overflow; check the result"]
     pub const fn checked_elapsed(
         self,
         earlier: Time<S>,
@@ -449,6 +461,7 @@ impl DurationParts {
     /// assert_eq!(parts.as_nanos(), 2_123_456_789);
     /// ```
     #[inline]
+    #[must_use]
     pub const fn as_nanos(self) -> u128 {
         (self.seconds as u128) * Self::NANOS_PER_SECOND as u128 + self.nanos as u128
     }
@@ -496,18 +509,21 @@ impl Time<Glonass> {
 
     /// Day number since GLONASS epoch.
     #[inline]
+    #[must_use]
     pub const fn day(self) -> u32 {
         (self.nanos / 86_400_000_000_000u64) as u32
     }
 
     /// Time of day in whole seconds.
     #[inline]
+    #[must_use]
     pub const fn tod_seconds(self) -> u32 {
         ((self.nanos % 86_400_000_000_000u64) / 1_000_000_000u64) as u32
     }
 
     /// Sub-second nanosecond remainder within the current second.
     #[inline]
+    #[must_use]
     pub const fn sub_second_nanos(self) -> u32 {
         (self.nanos % 1_000_000_000u64) as u32
     }
@@ -567,6 +583,7 @@ impl Time<Glonass> {
     /// assert_eq!(t3.day_of_week(), 1);
     /// ```
     #[inline]
+    #[must_use]
     pub const fn day_of_week(self) -> u8 {
         // GLONASS epoch starts on Monday → day 0 corresponds to 1
         (self.day() % 7) as u8 + 1
@@ -574,6 +591,7 @@ impl Time<Glonass> {
 
     /// Returns `true` if the current day-of-week is Saturday (6) or Sunday (7).
     #[inline]
+    #[must_use]
     pub const fn is_weekend(self) -> bool {
         let d = self.day_of_week();
 
@@ -644,18 +662,21 @@ impl Time<Gps> {
 
     /// GPS week number.
     #[inline]
+    #[must_use]
     pub const fn week(self) -> u32 {
         (self.nanos / 604_800_000_000_000u64) as u32
     }
 
     /// Time of week in whole seconds.
     #[inline]
+    #[must_use]
     pub const fn tow_seconds(self) -> u32 {
         ((self.nanos % 604_800_000_000_000u64) / 1_000_000_000u64) as u32
     }
 
     /// Sub-second nanosecond remainder within the current second.
     #[inline]
+    #[must_use]
     pub const fn sub_second_nanos(self) -> u32 {
         (self.nanos % 1_000_000_000u64) as u32
     }
