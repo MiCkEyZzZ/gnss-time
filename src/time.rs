@@ -89,6 +89,19 @@ pub struct Time<S: TimeScale> {
     _scale: PhantomData<S>,
 }
 
+/// Split seconds into whole seconds and nanoseconds.
+///
+/// This type is used for GNSS week/day constructors so that the core API
+/// stays fully deterministic and `no_std`-friendly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct DurationParts {
+    /// Whole seconds part (non-negative).
+    pub seconds: u64,
+
+    /// Nanosecond part, must be in `[0, 999_999_999]`.
+    pub nanos: u32,
+}
+
 impl<S: TimeScale> Time<S> {
     /// The scale's epoch — 0 nanoseconds.
     ///
@@ -146,9 +159,15 @@ impl<S: TimeScale> Time<S> {
     }
 
     /// Construct from whole seconds since this scale's epoch.
+    ///
+    /// # Panics
+    /// Panics if `secs * 1_000_000_000` overflows `u64`.
     #[inline]
     pub const fn from_seconds(secs: u64) -> Self {
-        Time::from_nanos(secs * 1_000_000_000)
+        match secs.checked_mul(1_000_000_000) {
+            Some(n) => Time::from_nanos(n),
+            None => panic!("Time::from_seconds overflow"),
+        }
     }
 
     /// Construct from whole seconds, returning `None` on overflow.
@@ -174,8 +193,8 @@ impl<S: TimeScale> Time<S> {
         self.nanos / 1_000_000_000
     }
 
-    /// Seconds as `f64`. For large timestamps, sub-microsecond precision is
-    /// lost.
+    /// Seconds as `f64`. For large timestamps (> ~2^53 ns), precision loss
+    /// affects even milliseconds
     #[inline]
     pub fn as_seconds_f64(self) -> f64 {
         self.nanos as f64 / 1_000_000_000.0
@@ -219,6 +238,7 @@ impl<S: TimeScale> Time<S> {
     }
 
     /// Convert directly between two fixed-offset scales via TAI.
+    // Fails if either source or target scale requires leap seconds
     pub fn try_convert<T: TimeScale>(self) -> Result<Time<T>, GnssTimeError> {
         let tai = self.to_tai()?;
 
@@ -307,9 +327,9 @@ impl<S: TimeScale> Time<S> {
     #[inline]
     pub const fn checked_elapsed(
         self,
-        ealier: Time<S>,
+        earlier: Time<S>,
     ) -> Option<Duration> {
-        let diff = (self.nanos as i128) - (ealier.nanos as i128);
+        let diff = (self.nanos as i128) - (earlier.nanos as i128);
 
         if diff > i64::MAX as i128 || diff < i64::MIN as i128 {
             return None;
@@ -378,29 +398,99 @@ impl<S: TimeScale> Sub<Time<S>> for Time<S> {
     }
 }
 
-impl Time<Glonass> {
-    /// Construct from GLONASS **day number** and **time-of-day** in seconds.
+impl DurationParts {
+    /// Number of nanoseconds in one second.
+    pub const NANOS_PER_SECOND: u32 = 1_000_000_000;
+
+    /// Creates a new `DurationParts` from whole seconds and nanoseconds.
     ///
-    /// - `day`: days since GLONASS epoch (1996-01-01 00:00:00 UTC(SU)).
-    /// - `tod_s`: time of day in seconds, must be in `[0, 86 400)`.
+    /// # Parameters
+    /// - `seconds` – whole seconds (non‑negative)
+    /// - `nanos` – additional nanoseconds, **must be less than**
+    ///   `1_000_000_000`
+    ///
+    /// # Errors
+    /// Returns [`GnssTimeError::InvalidInput`] if `nanos >= 1_000_000_000`.
+    ///
+    /// # Example
+    /// ```
+    /// use gnss_time::DurationParts;
+    ///
+    /// let parts = DurationParts::new(5, 500_000_000).unwrap();
+    ///
+    /// assert_eq!(parts.as_nanos(), 5_500_000_000);
+    /// ```
+    #[inline]
+    pub const fn new(
+        seconds: u64,
+        nanos: u32,
+    ) -> Result<Self, GnssTimeError> {
+        if nanos >= Self::NANOS_PER_SECOND {
+            return Err(GnssTimeError::InvalidInput(
+                "nanos must be in [0, 1_000_000_000]",
+            ));
+        }
+
+        Ok(Self { seconds, nanos })
+    }
+
+    /// Converts the `DurationParts` into a total number of nanoseconds as
+    /// `u128`.
+    ///
+    /// # Example
+    /// ```
+    /// use gnss_time::DurationParts;
+    ///
+    /// let parts = DurationParts {
+    ///     seconds: 2,
+    ///     nanos: 123_456_789,
+    /// };
+    ///
+    /// assert_eq!(parts.as_nanos(), 2_123_456_789);
+    /// ```
+    #[inline]
+    pub const fn as_nanos(self) -> u128 {
+        (self.seconds as u128) * Self::NANOS_PER_SECOND as u128 + self.nanos as u128
+    }
+}
+
+impl Time<Glonass> {
+    /// Construct from GLONASS day number and time-of-day.
+    ///
+    /// `tod.seconds` must be in `[0, 86_400)`.
+    /// `tod.nanos` must be in `[0, 1_000_000_000)`.
     ///
     /// # Errors
     ///
     /// [`GnssTimeError::InvalidInput`] if `tod_s ∉ [0, 86 400)`.
     pub fn from_day_tod(
         day: u32,
-        tod_s: f64,
+        tod: DurationParts,
     ) -> Result<Self, GnssTimeError> {
-        if !(0.0..86_400.0).contains(&tod_s) {
-            return Err(GnssTimeError::InvalidInput("tod_s must be in [0, 86_400)"));
+        if tod.seconds >= 86_400 {
+            return Err(GnssTimeError::InvalidInput(
+                "tod.seconds must be in [0, 86_400)",
+            ));
+        }
+
+        if tod.nanos >= DurationParts::NANOS_PER_SECOND {
+            return Err(GnssTimeError::InvalidInput(
+                "tod.nanos must be in [0, 1_000_000_000)",
+            ));
         }
 
         let day_ns = (day as u64)
             .checked_mul(86_400_000_000_000)
             .ok_or(GnssTimeError::Overflow)?;
-        let tod_ns = (tod_s * 1_000_000_000.0) as u64;
-        let total = day_ns.checked_add(tod_ns).ok_or(GnssTimeError::Overflow)?;
 
+        let tod_ns = tod
+            .seconds
+            .checked_mul(1_000_000_000)
+            .ok_or(GnssTimeError::Overflow)?
+            .checked_add(tod.nanos as u64)
+            .ok_or(GnssTimeError::Overflow)?;
+
+        let total = day_ns.checked_add(tod_ns).ok_or(GnssTimeError::Overflow)?;
         Ok(Time::from_nanos(total))
     }
 
@@ -438,20 +528,41 @@ impl Time<Glonass> {
     /// # Examples
     ///
     /// ```rust
-    /// use gnss_time::{scale::Glonass, Time};
+    /// use gnss_time::{scale::Glonass, DurationParts, Time};
     ///
     /// // Day 0 = 1996-01-01 = Monday
-    /// let t = Time::<Glonass>::from_day_tod(0, 0.0).unwrap();
+    /// let t = Time::<Glonass>::from_day_tod(
+    ///     0,
+    ///     DurationParts {
+    ///         seconds: 0,
+    ///         nanos: 0,
+    ///     },
+    /// )
+    /// .unwrap();
     ///
     /// assert_eq!(t.day_of_week(), 1); // Monday
     ///
     /// // Day 6 = 1996-01-07 = Sunday
-    /// let t2 = Time::<Glonass>::from_day_tod(6, 0.0).unwrap();
+    /// let t2 = Time::<Glonass>::from_day_tod(
+    ///     6,
+    ///     DurationParts {
+    ///         seconds: 0,
+    ///         nanos: 0,
+    ///     },
+    /// )
+    /// .unwrap();
     ///
     /// assert_eq!(t2.day_of_week(), 7); // Sunday
     ///
     /// // Day 7 = 1996-01-08 = Monday again
-    /// let t3 = Time::<Glonass>::from_day_tod(7, 0.0).unwrap();
+    /// let t3 = Time::<Glonass>::from_day_tod(
+    ///     7,
+    ///     DurationParts {
+    ///         seconds: 0,
+    ///         nanos: 0,
+    ///     },
+    /// )
+    /// .unwrap();
     ///
     /// assert_eq!(t3.day_of_week(), 1);
     /// ```
@@ -471,42 +582,38 @@ impl Time<Glonass> {
 }
 
 impl Time<Gps> {
-    /// Construct from GPS **week number** and **time-of-week** in seconds.
+    /// Construct from GPS week number and time-of-week.
     ///
-    /// - `week`: GPS week (0 = 1980-01-06; no rollover correction applied).
-    /// - `tow_s`: time of week in seconds, must be in `[0, 604 800)`.
-    ///
-    /// # Errors
-    ///
-    /// [`GnssTimeError::InvalidInput`] if `tow_s ∉ [0, 604 800)`.
-    /// [`GnssTimeError::Overflow`] if the result exceeds `u64::MAX` ns.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use gnss_time::{scale::Gps, Time};
-    ///
-    /// let t = Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap();
-    ///
-    /// assert_eq!(t.week(), 2345);
-    /// assert_eq!(t.tow_seconds(), 432_000);
-    /// ```
+    /// `tow.seconds` must be in `[0, 604_800)`.
+    /// `tow.nanos` must be in `[0, 1_000_000_000)`.
     pub fn from_week_tow(
         week: u16,
-        tow_s: f64,
+        tow: DurationParts,
     ) -> Result<Self, GnssTimeError> {
-        if !(0.0..604_800.0).contains(&tow_s) {
-            return Err(GnssTimeError::InvalidInput("tow_s must be in [0, 604_800)"));
+        if tow.seconds >= 604_800 {
+            return Err(GnssTimeError::InvalidInput(
+                "tow.seconds must be in [0, 604_800)",
+            ));
         }
 
-        let week_nanos = (week as u64)
-            .checked_mul(604_800_000_000_000) // 604_800 с * 1е9
-            .ok_or(GnssTimeError::Overflow)?;
-        let tow_nanos = (tow_s * 1_000_000_000.0) as u64;
-        let total = week_nanos
-            .checked_add(tow_nanos)
+        if tow.nanos >= DurationParts::NANOS_PER_SECOND {
+            return Err(GnssTimeError::InvalidInput(
+                "tow.nanos must be in [0, 1_000_000_000)",
+            ));
+        }
+
+        let week_ns = (week as u64)
+            .checked_mul(604_800_000_000_000)
             .ok_or(GnssTimeError::Overflow)?;
 
+        let tow_ns = tow
+            .seconds
+            .checked_mul(1_000_000_000)
+            .ok_or(GnssTimeError::Overflow)?
+            .checked_add(tow.nanos as u64)
+            .ok_or(GnssTimeError::Overflow)?;
+
+        let total = week_ns.checked_add(tow_ns).ok_or(GnssTimeError::Overflow)?;
         Ok(Time::from_nanos(total))
     }
 
@@ -717,14 +824,28 @@ mod tests {
 
     #[test]
     fn test_from_week_tow_zero() {
-        let t = Time::<Gps>::from_week_tow(0, 0.0).unwrap();
+        let t = Time::<Gps>::from_week_tow(
+            0,
+            DurationParts {
+                seconds: 0,
+                nanos: 0,
+            },
+        )
+        .unwrap();
 
         assert_eq!(t, Time::<Gps>::EPOCH);
     }
 
     #[test]
     fn test_from_week_tow_roundtrip() {
-        let t = Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap();
+        let t = Time::<Gps>::from_week_tow(
+            2345,
+            DurationParts {
+                seconds: 432_000,
+                nanos: 0,
+            },
+        )
+        .unwrap();
 
         assert_eq!(t.week(), 2345);
         assert_eq!(t.tow_seconds(), 432_000);
@@ -733,7 +854,14 @@ mod tests {
 
     #[test]
     fn test_from_week_tow_with_fractional() {
-        let t = Time::<Gps>::from_week_tow(2300, 3661.5).unwrap();
+        let t = Time::<Gps>::from_week_tow(
+            2300,
+            DurationParts {
+                seconds: 3661,
+                nanos: 500_000_000,
+            },
+        )
+        .unwrap();
 
         assert_eq!(t.week(), 2300);
         assert_eq!(t.tow_seconds(), 3661);
@@ -743,25 +871,41 @@ mod tests {
     #[test]
     fn test_from_week_tow_invalid() {
         assert!(matches!(
-            Time::<Gps>::from_week_tow(0, 604_800.0),
-            Err(GnssTimeError::InvalidInput(_))
-        ));
-        assert!(matches!(
-            Time::<Gps>::from_week_tow(0, -1.0),
+            Time::<Gps>::from_week_tow(
+                0,
+                DurationParts {
+                    seconds: 604_800,
+                    nanos: 0
+                }
+            ),
             Err(GnssTimeError::InvalidInput(_))
         ));
     }
 
     #[test]
     fn test_from_day_tod_zero() {
-        let t = Time::<Glonass>::from_day_tod(0, 0.0).unwrap();
+        let t = Time::<Glonass>::from_day_tod(
+            0,
+            DurationParts {
+                seconds: 0,
+                nanos: 0,
+            },
+        )
+        .unwrap();
 
         assert_eq!(t, Time::<Glonass>::EPOCH);
     }
 
     #[test]
     fn test_from_day_tod_roundtrip() {
-        let t = Time::<Glonass>::from_day_tod(10_512, 43_200.0).unwrap();
+        let t = Time::<Glonass>::from_day_tod(
+            10_512,
+            DurationParts {
+                seconds: 43_200,
+                nanos: 0,
+            },
+        )
+        .unwrap();
 
         assert_eq!(t.day(), 10_512);
         assert_eq!(t.tod_seconds(), 43_200);
@@ -770,7 +914,13 @@ mod tests {
     #[test]
     fn test_from_day_tod_invalid() {
         assert!(matches!(
-            Time::<Glonass>::from_day_tod(0, 86_400.0),
+            Time::<Glonass>::from_day_tod(
+                0,
+                DurationParts {
+                    seconds: 86_400,
+                    nanos: 0
+                }
+            ),
             Err(GnssTimeError::InvalidInput(_))
         ));
     }
@@ -930,7 +1080,14 @@ mod tests {
 
     #[test]
     fn test_gps_display_week_tow_format() {
-        let t = Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap();
+        let t = Time::<Gps>::from_week_tow(
+            2345,
+            DurationParts {
+                seconds: 432_000,
+                nanos: 0,
+            },
+        )
+        .unwrap();
 
         assert_eq!(t.to_string(), "GPS 2345:432000.000");
     }
@@ -945,21 +1102,42 @@ mod tests {
     #[test]
     fn test_gps_display_tow_zero_padded() {
         // TOW = 1 second → should be displayed as 000001
-        let t = Time::<Gps>::from_week_tow(1, 1.0).unwrap();
+        let t = Time::<Gps>::from_week_tow(
+            1,
+            DurationParts {
+                seconds: 1,
+                nanos: 0,
+            },
+        )
+        .unwrap();
 
         assert_eq!(t.to_string(), "GPS 1:000001.000");
     }
 
     #[test]
     fn test_gps_display_with_millis() {
-        let t = Time::<Gps>::from_week_tow(100, 0.5).unwrap();
+        let t = Time::<Gps>::from_week_tow(
+            100,
+            DurationParts {
+                seconds: 0,
+                nanos: 500_000_000,
+            },
+        )
+        .unwrap();
 
         assert_eq!(t.to_string(), "GPS 100:000000.500");
     }
 
     #[test]
     fn test_glonass_display_day_tod_format() {
-        let t = Time::<Glonass>::from_day_tod(10_512, 43_200.0).unwrap();
+        let t = Time::<Glonass>::from_day_tod(
+            10_512,
+            DurationParts {
+                seconds: 43_200,
+                nanos: 0,
+            },
+        )
+        .unwrap();
 
         assert_eq!(t.to_string(), "GLO 10512:43200.000");
     }
@@ -1017,7 +1195,14 @@ mod tests {
 
     #[test]
     fn test_glonass_day_accessor() {
-        let t = Time::<Glonass>::from_day_tod(42, 3600.0).unwrap();
+        let t = Time::<Glonass>::from_day_tod(
+            42,
+            DurationParts {
+                seconds: 3600,
+                nanos: 0,
+            },
+        )
+        .unwrap();
 
         assert_eq!(t.day(), 42);
         assert_eq!(t.tod_seconds(), 3600);

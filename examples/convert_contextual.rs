@@ -1,32 +1,58 @@
-use gnss_time::{prelude::*, ConvertResult};
+use gnss_time::{prelude::*, ConvertResult, DurationParts};
 
-fn main() {
-    // Get the built-in table (static reference)
-    let ls = LeapSeconds::builtin();
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // =========================================================
+    // 1. System configuration (leap second model)
+    // =========================================================
 
-    // Normal conversion (exact)
-    let gps = Time::<Gps>::from_week_tow(2086, 0.0).unwrap();
-    let utc: Time<Utc> = gps.into_scale_with(ls).unwrap();
+    let leap_seconds = LeapSeconds::builtin();
 
-    println!("GPS -> UTC (exact): {} -> {}", gps, utc);
+    // =========================================================
+    // 2. GNSS → UTC (deterministic conversion)
+    // =========================================================
 
-    // Reverse conversion
-    let gps_back: Time<Gps> = utc.into_scale_with(ls).unwrap();
+    let gps = Time::<Gps>::from_week_tow(
+        2086,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
-    assert_eq!(gps, gps_back);
+    let utc: Time<Utc> = gps.into_scale_with(leap_seconds).unwrap();
 
-    println!("Round-trip OK");
+    println!("GNSS → Civil time conversion");
+    println!("  GPS : {gps}");
+    println!("  UTC : {utc}");
 
-    // Check ambiguity a leap second insertion
-    let gps_ambiguous = Time::<Gps>::from_seconds(1_167_264_018);
-    let result: ConvertResult<Time<Utc>> = gps_ambiguous
-        .into_scale_with_checked(LeapSeconds::builtin())
-        .unwrap();
+    // =========================================================
+    // 3. Reverse conversion (consistency check)
+    // =========================================================
+
+    let gps_back: Time<Gps> = utc.into_scale_with(leap_seconds).unwrap();
+
+    debug_assert_eq!(gps, gps_back);
+    println!("Round-trip consistency: OK");
+
+    // =========================================================
+    // 4. Leap second ambiguity handling (edge case)
+    // =========================================================
+
+    let ambiguous = Time::<Gps>::from_seconds(1_167_264_018);
+
+    let result: ConvertResult<Time<Utc>> = ambiguous.into_scale_with_checked(leap_seconds).unwrap();
 
     match result {
-        ConvertResult::Exact(_) => println!("Unexpected exact result"),
+        ConvertResult::Exact(utc) => {
+            println!("Unexpected exact result: {utc}");
+        }
+
         ConvertResult::AmbiguousLeapSecond(utc) => {
-            println!("GPS inside leap second → ambiguous, UTC value: {}", utc);
+            println!("Leap second window detected:");
+            println!("  UTC interpretation: {utc}");
         }
     }
+
+    Ok(())
 }

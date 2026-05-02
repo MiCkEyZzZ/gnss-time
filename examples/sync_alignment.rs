@@ -1,12 +1,35 @@
-use gnss_time::prelude::*;
+use gnss_time::{prelude::*, DurationParts};
 
 fn main() {
-    let gps = Time::<Gps>::from_week_tow(100, 1000.0).unwrap();
+    // =========================================================
+    // Input timestamp (GPS)
+    // =========================================================
 
-    let gal = gps.try_convert::<Galileo>().unwrap();
-    let bdt = gps.try_convert::<Beidou>().unwrap();
+    let gps = Time::<Gps>::from_week_tow(
+        100,
+        DurationParts {
+            seconds: 1000,
+            nanos: 0,
+        },
+    )
+    .unwrap();
+
+    // =========================================================
+    // Convert to other constellations
+    // =========================================================
+
+    let gal: Time<Galileo> = gps.into_scale().unwrap();
+    let bdt: Time<Beidou> = gps.into_scale().unwrap();
+
+    // =========================================================
+    // Alignment check (same physical instant?)
+    // =========================================================
+
+    let gps_ns = gps.as_nanos();
+    let gal_ns = gal.as_nanos();
+    let bdt_ns = bdt.as_nanos();
 
     println!("Alignment check:");
-    println!("GPS = GAL? {}", gps.as_nanos() == gal.as_nanos());
-    println!("GPS = BDT? {}", gps.as_nanos() == bdt.as_nanos());
+    println!("GPS = GAL? {}", gps_ns == gal_ns);
+    println!("GPS = BDT? {}", gps_ns == bdt_ns);
 }

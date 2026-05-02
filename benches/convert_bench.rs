@@ -1,10 +1,21 @@
 use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use gnss_time::{gps_to_utc, utc_to_gps, Beidou, Galileo, Gps, IntoScale, LeapSeconds, Tai, Time};
+use gnss_time::{
+    gps_to_utc, utc_to_gps, Beidou, DurationParts, Galileo, Gps, IntoScale, LeapSeconds, Tai, Time,
+};
 
 fn bench_gps_to_tai(c: &mut Criterion) {
-    let gps = black_box(Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap());
+    let gps = black_box(
+        Time::<Gps>::from_week_tow(
+            2345,
+            DurationParts {
+                seconds: 432_000,
+                nanos: 0,
+            },
+        )
+        .unwrap(),
+    );
 
     c.bench_function("GPS → TAI (fixed +19s)", |b| {
         b.iter(|| {
@@ -15,7 +26,16 @@ fn bench_gps_to_tai(c: &mut Criterion) {
 }
 
 fn bench_gps_to_galileo(c: &mut Criterion) {
-    let gps = black_box(Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap());
+    let gps = black_box(
+        Time::<Gps>::from_week_tow(
+            2345,
+            DurationParts {
+                seconds: 432_000,
+                nanos: 0,
+            },
+        )
+        .unwrap(),
+    );
 
     c.bench_function("GPS → Galileo (identity)", |b| {
         b.iter(|| {
@@ -26,7 +46,16 @@ fn bench_gps_to_galileo(c: &mut Criterion) {
 }
 
 fn bench_gps_to_beidou(c: &mut Criterion) {
-    let gps = black_box(Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap());
+    let gps = black_box(
+        Time::<Gps>::from_week_tow(
+            2345,
+            DurationParts {
+                seconds: 432_000,
+                nanos: 0,
+            },
+        )
+        .unwrap(),
+    );
 
     c.bench_function("GPS → BeiDou (fixed -14s via TAI)", |b| {
         b.iter(|| {
@@ -37,7 +66,14 @@ fn bench_gps_to_beidou(c: &mut Criterion) {
 }
 
 fn bench_tai_to_gps(c: &mut Criterion) {
-    let gps = Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap();
+    let gps = Time::<Gps>::from_week_tow(
+        2345,
+        DurationParts {
+            seconds: 432_000,
+            nanos: 0,
+        },
+    )
+    .unwrap();
     let tai: Time<Tai> = gps.into_scale().unwrap();
     let tai = black_box(tai);
 
@@ -50,7 +86,16 @@ fn bench_tai_to_gps(c: &mut Criterion) {
 }
 
 fn bench_gps_to_utc(c: &mut Criterion) {
-    let gps = black_box(Time::<Gps>::from_week_tow(2086, 0.0).unwrap());
+    let gps = black_box(
+        Time::<Gps>::from_week_tow(
+            2086,
+            DurationParts {
+                seconds: 0,
+                nanos: 0,
+            },
+        )
+        .unwrap(),
+    );
     let ls = LeapSeconds::builtin();
 
     c.bench_function("GPS → UTC (builtin table, 2020)", |b| {
@@ -69,7 +114,14 @@ fn bench_gps_to_utc_at_epoch(c: &mut Criterion) {
 
 fn bench_utc_to_gps(c: &mut Criterion) {
     // Pre-compute a UTC value near 2020
-    let gps = Time::<Gps>::from_week_tow(2086, 0.0).unwrap();
+    let gps = Time::<Gps>::from_week_tow(
+        2086,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
     let ls = LeapSeconds::builtin();
     let utc = black_box(gps_to_utc(gps, ls).unwrap());
 
@@ -79,7 +131,16 @@ fn bench_utc_to_gps(c: &mut Criterion) {
 }
 
 fn bench_gps_utc_roundtrip(c: &mut Criterion) {
-    let gps = black_box(Time::<Gps>::from_week_tow(2086, 0.0).unwrap());
+    let gps = black_box(
+        Time::<Gps>::from_week_tow(
+            2086,
+            DurationParts {
+                seconds: 0,
+                nanos: 0,
+            },
+        )
+        .unwrap(),
+    );
     let ls = LeapSeconds::builtin();
 
     c.bench_function("GPS → UTC → GPS (full roundtrip)", |b| {

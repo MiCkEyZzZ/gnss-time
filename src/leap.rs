@@ -144,12 +144,19 @@ pub struct LeapEntry {
 /// # Examples
 ///
 /// ```rust
-/// use gnss_time::{gps_to_utc, Gps, LeapSeconds, LeapSecondsProvider, Time};
+/// use gnss_time::{gps_to_utc, DurationParts, Gps, LeapSeconds, LeapSecondsProvider, Time};
 ///
 /// // Built-in table (up to 2017)
 /// let ls = LeapSeconds::builtin();
 ///
-/// let gps = Time::<Gps>::from_week_tow(1981, 0.0).unwrap();
+/// let gps = Time::<Gps>::from_week_tow(
+///     1981,
+///     DurationParts {
+///         seconds: 0,
+///         nanos: 0,
+///     },
+/// )
+/// .unwrap();
 /// let utc = gps_to_utc(gps, &ls).unwrap();
 /// // GPS leads UTC by 18 seconds in this period
 /// ```
@@ -526,7 +533,7 @@ mod tests {
     use std::string::ToString;
 
     use super::*;
-    use crate::scale::Gps;
+    use crate::{scale::Gps, DurationParts};
 
     #[test]
     fn test_utc_to_gps_epoch_offset_is_252892800_seconds() {
@@ -644,7 +651,14 @@ mod tests {
     fn test_gps_utc_gps_roundtrip_at_2020() {
         let ls = LeapSeconds::builtin();
         // GPS 2020-01-01 ≈ week 2086
-        let gps = Time::<Gps>::from_week_tow(2086, 0.0).unwrap();
+        let gps = Time::<Gps>::from_week_tow(
+            2086,
+            DurationParts {
+                seconds: 0,
+                nanos: 0,
+            },
+        )
+        .unwrap();
         let utc = gps_to_utc(gps, &ls).unwrap();
         let back = utc_to_gps(utc, &ls).unwrap();
 
@@ -767,7 +781,14 @@ mod tests {
 
     #[test]
     fn test_glonass_utc_glonass_roundtrip() {
-        let glo = Time::<Glonass>::from_day_tod(10_000, 43_200.0).unwrap();
+        let glo = Time::<Glonass>::from_day_tod(
+            10_000,
+            DurationParts {
+                seconds: 43_200,
+                nanos: 0,
+            },
+        )
+        .unwrap();
         let utc = glonass_to_utc(glo).unwrap();
         let back = utc_to_glonass(utc).unwrap();
 
@@ -797,7 +818,14 @@ mod tests {
     fn test_gps_to_glonass_to_gps_roundtrip() {
         let ls = LeapSeconds::builtin();
         // GPS time in 2020 (after the last leap second in 2017)
-        let gps = Time::<Gps>::from_week_tow(2100, 86400.0).unwrap();
+        let gps = Time::<Gps>::from_week_tow(
+            2100,
+            DurationParts {
+                seconds: 86400,
+                nanos: 0,
+            },
+        )
+        .unwrap();
         let glo = gps_to_glonass(gps, &ls).unwrap();
         let back = glonass_to_gps(glo, &ls).unwrap();
 

@@ -25,9 +25,16 @@
 //! Fixed-offset conversions do not require leap seconds:
 //!
 //! ```rust
-//! use gnss_time::{Galileo, Gps, IntoScale, Tai, Time};
+//! use gnss_time::{DurationParts, Galileo, Gps, IntoScale, Tai, Time};
 //!
-//! let gps = Time::<Gps>::from_week_tow(2345, 0.0).unwrap();
+//! let gps = Time::<Gps>::from_week_tow(
+//!     2345,
+//!     DurationParts {
+//!         seconds: 0,
+//!         nanos: 0,
+//!     },
+//! )
+//! .unwrap();
 //! let tai: Time<Tai> = gps.into_scale().unwrap();
 //! let gal: Time<Galileo> = gps.into_scale().unwrap();
 //! ```
@@ -35,9 +42,16 @@
 //! Leap-second-aware conversions require an explicit [`LeapSecondsProvider`]:
 //!
 //! ```rust
-//! use gnss_time::{Gps, IntoScaleWith, LeapSeconds, Time, Utc};
+//! use gnss_time::{DurationParts, Gps, IntoScaleWith, LeapSeconds, Time, Utc};
 //!
-//! let gps = Time::<Gps>::from_week_tow(2200, 0.0).unwrap();
+//! let gps = Time::<Gps>::from_week_tow(
+//!     2200,
+//!     DurationParts {
+//!         seconds: 0,
+//!         nanos: 0,
+//!     },
+//! )
+//! .unwrap();
 //! let ls = LeapSeconds::builtin();
 //! let utc: Time<Utc> = gps.into_scale_with(ls).unwrap();
 //! ```
@@ -273,10 +287,17 @@ impl IntoScaleWith<Gps> for Time<Utc> {
     /// UTC -> GPS with leap-second context.
     ///
     /// ```rust
-    /// use gnss_time::{Gps, IntoScale, IntoScaleWith, LeapSeconds, Time, Utc};
+    /// use gnss_time::{DurationParts, Gps, IntoScale, IntoScaleWith, LeapSeconds, Time, Utc};
     ///
     /// let ls = LeapSeconds::builtin();
-    /// let gps_orig = Time::<Gps>::from_week_tow(2086, 0.0).unwrap();
+    /// let gps_orig = Time::<Gps>::from_week_tow(
+    ///     2086,
+    ///     DurationParts {
+    ///         seconds: 0,
+    ///         nanos: 0,
+    ///     },
+    /// )
+    /// .unwrap();
     /// let utc: Time<Utc> = gps_orig.into_scale_with(ls).unwrap();
     /// let gps_back: Time<Gps> = utc.into_scale_with(ls).unwrap();
     ///
@@ -440,9 +461,16 @@ impl IntoScale<Utc> for Time<Glonass> {
     /// Therefore conversion is a pure epoch offset.
     ///
     /// ```rust
-    /// use gnss_time::{Glonass, IntoScale, Time, Utc};
+    /// use gnss_time::{DurationParts, Glonass, IntoScale, Time, Utc};
     ///
-    /// let glo = Time::<Glonass>::from_day_tod(0, 0.0).unwrap(); // GLONASS epoch
+    /// let glo = Time::<Glonass>::from_day_tod(
+    ///     0,
+    ///     DurationParts {
+    ///         seconds: 0,
+    ///         nanos: 0,
+    ///     },
+    /// )
+    /// .unwrap(); // GLONASS epoch
     /// let utc: Time<Utc> = glo.into_scale().unwrap();
     ///
     /// // UTC at the GLONASS epoch:
@@ -573,7 +601,7 @@ impl IntoScale<Tai> for Time<Gps> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::LeapSeconds;
+    use crate::{DurationParts, LeapSeconds};
 
     #[test]
     fn test_gps_to_tai_adds_19_seconds() {
@@ -595,7 +623,14 @@ mod tests {
 
     #[test]
     fn test_gps_tai_gps_roundtrip() {
-        let gps = Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap();
+        let gps = Time::<Gps>::from_week_tow(
+            2345,
+            DurationParts {
+                seconds: 432_000,
+                nanos: 0,
+            },
+        )
+        .unwrap();
         let tai: Time<Tai> = gps.into_scale().unwrap();
         let back: Time<Gps> = tai.into_scale().unwrap();
 
@@ -629,7 +664,14 @@ mod tests {
 
     #[test]
     fn test_gps_galileo_gps_roundtrip() {
-        let gps = Time::<Gps>::from_week_tow(2000, 123_456.789).unwrap();
+        let gps = Time::<Gps>::from_week_tow(
+            2000,
+            DurationParts {
+                seconds: 123_456,
+                nanos: 789_000_000,
+            },
+        )
+        .unwrap();
         let gal: Time<Galileo> = gps.into_scale().unwrap();
         let back: Time<Gps> = gal.into_scale().unwrap();
 
@@ -655,7 +697,14 @@ mod tests {
 
     #[test]
     fn test_gps_beidou_gps_roundtrip() {
-        let gps = Time::<Gps>::from_week_tow(2100, 86_400.0).unwrap();
+        let gps = Time::<Gps>::from_week_tow(
+            2100,
+            DurationParts {
+                seconds: 86_400,
+                nanos: 0,
+            },
+        )
+        .unwrap();
         let bdt: Time<Beidou> = gps.into_scale().unwrap();
         let back: Time<Gps> = bdt.into_scale().unwrap();
 
@@ -690,7 +739,14 @@ mod tests {
 
     #[test]
     fn test_glonass_utc_glonass_roundtrip() {
-        let glo = Time::<Glonass>::from_day_tod(10_000, 36_000.0).unwrap();
+        let glo = Time::<Glonass>::from_day_tod(
+            10_000,
+            DurationParts {
+                seconds: 36_000,
+                nanos: 0,
+            },
+        )
+        .unwrap();
         let utc: Time<Utc> = glo.into_scale().unwrap();
         let back: Time<Glonass> = utc.into_scale().unwrap();
 
@@ -718,7 +774,14 @@ mod tests {
     #[test]
     fn test_gps_utc_gps_roundtrip_at_2020() {
         let ls = LeapSeconds::builtin();
-        let gps = Time::<Gps>::from_week_tow(2086, 0.0).unwrap();
+        let gps = Time::<Gps>::from_week_tow(
+            2086,
+            DurationParts {
+                seconds: 0,
+                nanos: 0,
+            },
+        )
+        .unwrap();
         let utc: Time<Utc> = gps.into_scale_with(ls).unwrap();
         let back: Time<Gps> = utc.into_scale_with(ls).unwrap();
 
@@ -764,7 +827,14 @@ mod tests {
     #[test]
     fn test_gps_glonass_gps_roundtrip() {
         let ls = LeapSeconds::builtin();
-        let gps = Time::<Gps>::from_week_tow(2100, 86_400.0).unwrap();
+        let gps = Time::<Gps>::from_week_tow(
+            2100,
+            DurationParts {
+                seconds: 86_400,
+                nanos: 0,
+            },
+        )
+        .unwrap();
         let glo: Time<Glonass> = gps.into_scale_with(ls).unwrap();
         let back: Time<Gps> = glo.into_scale_with(ls).unwrap();
 
@@ -774,7 +844,14 @@ mod tests {
     #[test]
     fn test_normal_gps_gives_exact_convert_result() {
         let ls = LeapSeconds::builtin();
-        let gps = Time::<Gps>::from_week_tow(2086, 0.0).unwrap();
+        let gps = Time::<Gps>::from_week_tow(
+            2086,
+            DurationParts {
+                seconds: 0,
+                nanos: 0,
+            },
+        )
+        .unwrap();
         let result: ConvertResult<Time<Utc>> = gps.into_scale_with_checked(ls).unwrap();
 
         assert!(result.is_exact());
@@ -845,8 +922,22 @@ mod tests {
         let ls = LeapSeconds::builtin();
 
         let gps_values = [
-            Time::<Gps>::from_week_tow(2086, 0.0).unwrap(),
-            Time::<Gps>::from_week_tow(2100, 86_400.0).unwrap(),
+            Time::<Gps>::from_week_tow(
+                2086,
+                DurationParts {
+                    seconds: 0,
+                    nanos: 0,
+                },
+            )
+            .unwrap(),
+            Time::<Gps>::from_week_tow(
+                2100,
+                DurationParts {
+                    seconds: 86_400,
+                    nanos: 0,
+                },
+            )
+            .unwrap(),
             Time::<Gps>::from_nanos(1_167_264_100_123_456_789),
         ];
 
@@ -891,8 +982,22 @@ mod tests {
         let ls = LeapSeconds::builtin();
 
         let gps_values = [
-            Time::<Gps>::from_week_tow(2086, 0.0).unwrap(),
-            Time::<Gps>::from_week_tow(2100, 86_400.0).unwrap(),
+            Time::<Gps>::from_week_tow(
+                2086,
+                DurationParts {
+                    seconds: 0,
+                    nanos: 0,
+                },
+            )
+            .unwrap(),
+            Time::<Gps>::from_week_tow(
+                2100,
+                DurationParts {
+                    seconds: 86_400,
+                    nanos: 0,
+                },
+            )
+            .unwrap(),
             Time::<Gps>::from_nanos(1_167_264_100_123_456_789),
         ];
 
@@ -907,7 +1012,14 @@ mod tests {
     #[test]
     fn test_checked_variants_contract() {
         let ls = LeapSeconds::builtin();
-        let gps = Time::<Gps>::from_week_tow(2000, 0.0).unwrap();
+        let gps = Time::<Gps>::from_week_tow(
+            2000,
+            DurationParts {
+                seconds: 0,
+                nanos: 0,
+            },
+        )
+        .unwrap();
         let res: ConvertResult<Time<Utc>> = gps.into_scale_with_checked(ls).unwrap();
 
         match res {

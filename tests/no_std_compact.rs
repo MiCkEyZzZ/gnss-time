@@ -17,8 +17,8 @@ use std::{
 };
 
 use gnss_time::{
-    Beidou, Duration, Galileo, Glonass, GnssTimeError, Gps, IntoScale, IntoScaleWith, LeapSeconds,
-    Tai, Time, Utc,
+    Beidou, Duration, DurationParts, Galileo, Glonass, GnssTimeError, Gps, IntoScale,
+    IntoScaleWith, LeapSeconds, Tai, Time, Utc,
 };
 
 // Constant initialization in static context
@@ -126,7 +126,14 @@ fn test_gnss_time_error_is_copy_no_drop() {
 // Explicitly check Copy via assignment (not move)
 #[test]
 fn test_copy_semantics_time() {
-    let t = Time::<Gps>::from_week_tow(2345, 432_000.0).unwrap();
+    let t = Time::<Gps>::from_week_tow(
+        2345,
+        DurationParts {
+            seconds: 432_000,
+            nanos: 0,
+        },
+    )
+    .unwrap();
     let t2 = t; // copy, not move
     let _t3 = t; //  t is still usable
 
