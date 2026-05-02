@@ -15,29 +15,6 @@
 //! | **BeiDou** | via UTC+LS  | +14c       | +14c       | —          | +33c       | via LS      |
 //! | **TAI**    | no (ctx)    | −19c       | −19c       | −33c       | —          | via LS      |
 //! | **UTC**    | +757371600s | via LS     | via LS     | via LS     | via LS     | —           |
-//!
-//! Definitions:
-//! - `identity` — equal nanosecond values (GPS and Galileo share the same TAI
-//!   offset of 19 s)
-//! - `+N s` — fixed offset, no leap seconds involved
-//! - `via UTC+LS` — requires an explicit [`LeapSecondsProvider`]
-//! - `via LS` — requires an explicit [`LeapSecondsProvider`]
-//! - `+757371600s` — constant epoch shift between GLONASS and UTC, no leap
-//!   seconds required
-//! - `no (ctx)` — impossible without leap-second context (contextual scale)
-//!
-//! ## Conversion categories
-//!
-//! ### Fixed conversions (no context)
-//! Use [`IntoScale`].
-//! - GLONASS <-> UTC
-//! - GPS <-> TAI, GPS <-> Galileo <-> GPS <-> BeiDou
-//! - Galileo <-> BeiDou, Galileo <-> TAI, BeiDou <-> TAI
-//!
-//! ### Contextual conversions (require `LeapSecondsProvider`)
-//! - GPS <-> UTC, GPS <-> GLONASS
-//! - Galileo <-> UTC, Galileo <-> GLONASS
-//! - BeiDou <-> UTC, BeiDou <-> GLONASS
 
 use crate::{
     Beidou, Glonass, GnssTimeError, Gps, IntoScale, IntoScaleWith, LeapSecondsProvider, Tai, Time,
@@ -57,12 +34,14 @@ pub const TAI_OFFSET_BEIDOU_NS: i64 = 33 * 1_000_000_000;
 pub const TAI_OFFSET_TAI_NS: i64 = 0;
 
 /// Constant epoch shift between GLONASS and UTC in nanoseconds.
+///
 /// GLONASS epoch (1996-01-01 00:00:00 UTC(SU)) is 757_371_600 seconds ahead
 /// of the UTC epoch (1972-01-01).
 pub const GLONASS_UTC_EPOCH_SHIFT_NS: i64 = 757_371_600 * 1_000_000_000;
 
 /// Conversion kind between two time scales.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ConversionKind {
     /// Fixed offset — no context required.
     Fixed,
@@ -82,6 +61,7 @@ pub enum ConversionKind {
 
 /// Runtime time-scale identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ScaleId {
     /// GLONASS time scale.
     Glonass,
@@ -152,6 +132,8 @@ impl ScaleId {
     ];
 
     /// Returns the ASCII name of the scale.
+    #[inline]
+    #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
             ScaleId::Glonass => "GLO",
@@ -172,6 +154,8 @@ impl ScaleId {
     /// # Returns
     /// The conversion kind: fixed, identity, epoch shift, contextual, or same
     /// scale.
+    #[inline]
+    #[must_use]
     pub const fn conversion_kind(
         self,
         target: ScaleId,
@@ -211,6 +195,8 @@ impl ScaleId {
 
     /// Returns `true` if the conversion `self -> target` does not require leap
     /// second context.
+    #[inline]
+    #[must_use]
     pub const fn is_fixed(
         self,
         target: ScaleId,
@@ -222,6 +208,8 @@ impl ScaleId {
     }
 
     /// Returns `true` if the conversion requires a [`LeapSecondsProvider`].
+    #[inline]
+    #[must_use]
     pub const fn needs_leap_seconds(
         self,
         target: ScaleId,
@@ -232,11 +220,14 @@ impl ScaleId {
 
 impl ConversionMatrix {
     /// Creates a new conversion matrix.
+    #[inline]
+    #[must_use]
     pub fn new() -> Self {
         ConversionMatrix
     }
 
     /// Returns the number of paths of the requested type (fixed or contextual).
+    #[must_use]
     pub fn path_count(
         &self,
         contextual: bool,
@@ -260,6 +251,8 @@ impl ConversionMatrix {
     }
 
     /// Returns the conversion kind for `from -> to`.
+    #[inline]
+    #[must_use]
     pub fn kind(
         &self,
         from: ScaleId,

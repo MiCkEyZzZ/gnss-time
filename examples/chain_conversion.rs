@@ -21,8 +21,8 @@ fn main() {
     match result {
         Ok(chain) => {
             println!("\nNormalized GNSS time chain:");
-            println!("  GPS     : {}", chain.gps);
             println!("  GLONASS : {}", chain.glonass);
+            println!("  GPS     : {}", chain.gps);
             println!("  UTC     : {}", chain.utc);
             println!("  TAI     : {}", chain.tai);
         }
