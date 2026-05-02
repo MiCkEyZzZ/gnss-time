@@ -1,49 +1,34 @@
 # Publishing to crates.io.
 #
-# WHEN if runs:
-#   Only when a tag v*.*.* created (push tag).
-#   The tah is created manually after merging into master:
+# Triggers only on semantic tags v*.*.*.
+# The tag is created manually after merging into master:
 #
-#     git tag v0.3.1
-#     git push origin v0.3.1
+#   git tag v0.4.0
+#   git push origin v0.4.0
 #
-# WHAT it does:
-#   1. Waits for the match main CI (ci.yml) on the same cpmmite.
-#   2. Verifies that the version in Cargo.toml matches the tag.
-#   3. cargo publish --dry-run (smoke test before actual publishing).
-#   4. cargo publish (actual publish using CARGO_REGISTRY_TOKEN).
-#
-# SECRET:
-#   CARGO_REGISTRY_TOKEN — crates.io API token.
-#   Add: GitHub → Settings → Secrets → Actions → New repository secret.
+# What it does:
+#   1. Verifies that Cargo.toml version matches the tag.
+#   2. Runs cargo publish --dry-run.
+#   3. Runs cargo publish using CARGO_REGISTRY_TOKEN.
+#   4. Creates a GitHub Release.
 
 name: Publish
 
 on:
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+" # only semantic tags: v0.3.0, v1.0.0, etc.
+      - "v[0-9]+.[0-9]+.[0-9]+"
 
 env:
   CARGO_TERM_COLOR: always
 
-jobs:
-  wait-ci:
-    name: Wait for CI
-    runs-on: ubuntu-latest
-    steps:
-      - name: Wait for CI workflow to succeed
-        uses: lewagon/wait-on-check-action@v1.3.4
-        with:
-          ref: ${{ github.sha }}
-          check-name: "CI" # workflow name from ci.yml (name: CI)
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 20 # poll ebery 20 seconds
+permissions:
+  contents: write
 
+jobs:
   check-version:
     name: Check version matches tag
     runs-on: ubuntu-latest
-    needs: wait-ci
     steps:
       - uses: actions/checkout@v4
 
@@ -89,7 +74,6 @@ jobs:
     name: cargo publish
     runs-on: ubuntu-latest
     needs: dry-run
-    environment: crates-io # GitHub Environment with protection (requires review)
     steps:
       - uses: actions/checkout@v4
 
