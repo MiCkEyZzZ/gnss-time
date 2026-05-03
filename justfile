@@ -98,10 +98,31 @@ hack:
 # -------------------------
 # Tests
 # -------------------------
+#
+# Run the full test suite (unit + integration + determenistic property tests).
+# proptest-based tests in prop_test.rs are compiled automatically on host
 
+# because std is always available in the cargo test harness.
 test-host:
     cargo test
 
+# Run only the deterministic property-based tests (no proptest, no std feature required — always works on any host target).
+test-deterministic:
+    cargo test --test prop_deterministic
+
+# Run proptest-based property tests explicitly with the std feature.
+# This is equivalent to `cargo test` on a host, but is explicit for CI jobs
+
+# that want to isolate the proptest run.
+test-props:
+    cargo test --features std --test prop_tests
+
+# Run all tests: unit, integration, deterministic properties, proptest.
+test-all: test-host test-deterministic test-props
+
+# no_std smoke-test (cannot actually run tests on bare-metal,
+
+# but we verify the lib compiles for that target).
 test-no-std: setup-embedded
     cargo check --lib --no-default-features --target thumbv7em-none-eabihf
 
@@ -109,7 +130,7 @@ test-no-std: setup-embedded
 # CI aggregate
 # -------------------------
 
-ci: fmt-check lint check check-std check-no-std check-no-std-defmt msrv doc hack
+ci: fmt-check lint check check-std check-no-std check-no-std-defmt msrv doc hack test-all
 
 # -------------------------
 # Cleanup

@@ -54,7 +54,11 @@ defmt = { version = "0.3", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.8.2", features = ["html_reports"] }
-proptest = "1.8.0"
+# proptest requires std (thread-local RNG, std::collections).
+# Used only in tests/prop_tests.rs, which is guarded by #[cfg(feature = "std")].
+# On a host `cargo test` run std is always available, so this always compiles.
+# For bare-metal CI (thumbv7em) integration tests are never built.
+proptest = { version = "1.8.0", default-features = false, features = ["std"] }
 
 [[bench]]
 name = "time_bench"
