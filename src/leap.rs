@@ -415,6 +415,7 @@ impl RuntimeLeapSeconds {
     ///
     /// Returns [`LeapExtendError::BufferFull`] if `entries.len() >
     /// RUNTIME_CAPACITY`.
+    #[inline]
     pub fn from_slice(entries: &[LeapEntry]) -> Result<Self, LeapExtendError> {
         if entries.len() > RUNTIME_CAPACITY {
             return Err(LeapExtendError::BufferFull);
