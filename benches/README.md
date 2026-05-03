@@ -42,14 +42,14 @@ operations add a small cost (< 5 ns).
 | Operation                                | Time     | Target  |
 | ---------------------------------------- | -------- | ------- |
 | `GPS → TAI`                              | ~807 ps  | < 2 ns  |
-| `GPS → Galileo`                          | ~779 ps  | < 2 ns  |
+| `GPS → Galileo`                          | ~776 ps  | < 2 ns  |
 | `GPS → BeiDou`                           | ~874 ps  | < 2 ns  |
 | `TAI → GPS`                              | ~787 ps  | < 2 ns  |
 | `GPS → UTC` (table lookup, 2020)         | ~9.6 ns  | < 10 ns |
 | `GPS → UTC` (GPS epoch)                  | ~9.6 ns  | < 10 ns |
 | `UTC → GPS` (two-pass algorithm)         | ~22.0 ns | —       |
 | `GPS → UTC → GPS` (roundtrip)            | ~40.2 ns | —       |
-| `LeapSeconds` binary search (19 entries) | ~7.0 ns  | —       |
+| `LeapSeconds` binary search (19 entries) | ~6.9 ns  | —       |
 
 **Conclusion:** fixed-offset conversions are effectively free (~0.8–0.9 ns).
 Leap-second-aware conversions (< 10 ns for GPS → UTC) are suitable for
