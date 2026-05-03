@@ -8,7 +8,7 @@ repository = "https://github.com/MiCkEyZzZ/gnss-time"
 homepage = "https://github.com/MiCkEyZzZ/gnss-time"
 documentation = "https://docs.rs/gnss-time"
 readme = "README.md"
-keywords = ["glonass", "gnss", "gps", "time", "no-std", "embedded"]
+keywords = ["glonass", "gnss", "gps", "time", "no-std"]
 categories = ["no-std", "science", "date-and-time"]
 authors = ["<zedmfix@gmail.com>"]
 
