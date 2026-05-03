@@ -9,6 +9,22 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Deterministic property tests in `tests/prop_deterministic.rs`:
+  - fixed sample coverage for boundary values, all 18 leap-second transitions,
+    uniform `u64` range coverage, and real IGS epochs
+  - deterministic invariants for GPS→TAI→GPS, GPS→Galileo→GPS, GPS→BeiDou→GPS,
+    GPS→UTC→GPS, arithmetic laws, monotonicity, ambiguity windows, and sub-second
+    edge cases
+- Randomized property tests in `tests/prop_tests.rs` using `proptest`:
+  - GPS domain sampling across the supported range
+  - bounded duration strategies to avoid arithmetic overflow in law checks
+  - leap-second boundary sampling within ±3 seconds
+  - dedicated ambiguity coverage to ensure `ConvertResult::Exact` outside leap windows
+- `justfile` test recipes:
+  - `test-deterministic`
+  - `test-props`
+  - `test-all`
+
 - Compile-time verification for leap second table (`BUILTIN_TABLE`):
   - `_ASSERT_FIRST_ENTRY` — validates initial offset (TAI−UTC = 19)
   - `_ASSERT_TABLE_INVARIANTS` — enforces strict ordering and +1 increments
@@ -54,6 +70,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   for future lint expansion
 
 ### Changed
+
+- Split property-based testing into deterministic and `proptest`-based suites to
+  keep `no_std` compatibility clean while still providing host-side randomized coverage
+- Updated `proptest` dependency configuration in `Cargo.toml` to explicitly
+  require `std`:
+  - `default-features = false`
+  - `features = ["std"]`
+- Added `test-all` to the CI-oriented `just` workflow
 
 - Leap second table (`BUILTIN_TABLE`) fully verified against IERS Bulletin C
   (all 19 entries validated using threshold formula)
