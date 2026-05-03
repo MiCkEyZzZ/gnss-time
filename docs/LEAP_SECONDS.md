@@ -1,32 +1,55 @@
-# Справочник по високосным секундам
+# Leap Seconds
 
-Документация по встроенной таблице високосных секунд в `gnss-time`.
+Документация по встроенной таблице високосных секунд в `gnss-time`, политике
+обновления и runtime-расширению.
 
-## Источник
+## Источник данных
 
 Все данные взяты из IERS Bulletin C:
 <https://hpiers.obspm.fr/iers/bul/bulc/Leap_Second.dat>
 
-Таблица охватывает все события вставки високосных секунд от эпохи GPS
-(1980-01-06) до 2017-01-01 — последней вставки на момент написания.
+**Последняя верификация:** IERS Bulletin C 70 (декабрь 2024) — новых
+високосных секунд до июня 2025 не запланировано.
+**Текущий статус (май 2026):** TAI − UTC = 37 с, без изменений с 2017-01-01.
+
+## Что такое високосная секунда
+
+TAI (International Atomic Time) — непрерывная атомная шкала времени.
+UTC — гражданское время, которое удерживается в пределах 0.9 с от UT1
+(астрономического времени) путём периодической вставки **високосных секунд**.
+
+При вставке: UTC «останавливается» на одну секунду — момент
+`23:59:60 UTC` существует, GPS при этом продолжает идти непрерывно.
+Разница `TAI − UTC` увеличивается на 1.
+
+GPS никогда не вставляет и не пропускает секунды: `GPS = TAI − 19 с` (фиксировано
+с 1980-01-06). Поэтому конверсия GPS ↔ UTC требует знания текущей разницы
+`TAI − UTC`.
 
 ## Формат таблицы
 
-Каждая запись имеет вид `(tai_nanos_threshold, tai_minus_utc)`:
+Каждая запись: `(tai_nanos_threshold, tai_minus_utc)`:
 
-- `tai_nanos_threshold` — внутреннее значение TAI в наносекундах, с которого
+- `tai_nanos_threshold` — TAI-наносекунды (GPS-относительные), с которых
   начинает действовать новое значение (включительно, нижняя граница)
-- `tai_minus_utc` — значение TAI − UTC в целых секундах, начиная с этого порога
+- `tai_minus_utc` — значение `TAI − UTC` в целых секундах от этого порога
 
-Порог вычисляется как:
+### Формула вычисления порога
 
 ```text
-tai_nanos = (unix_event_timestamp - GPS_EPOCH_UNIX + tai_minus_utc) × 10⁹
+tai_nanos = (unix_event_timestamp − GPS_EPOCH_UNIX + tai_minus_utc) × 10⁹
 ```
 
-где `GPS_EPOCH_UNIX = 315 964 800` (секунд).
+где `GPS_EPOCH_UNIX = 315 964 800` (секунд Unix-времени).
 
-## Полная таблица (эпоха GPS, 19 записей)
+Пример для 2017-01-01 (`unix = 1 483 228 800`, `n = 37`):
+
+```text
+gps_s     = 1_483_228_800 − 315_964_800 = 1_167_264_000
+threshold = (1_167_264_000 + 37) × 10⁹  = 1_167_264_037_000_000_000
+```
+
+## Полная таблица (19 записей, эпоха GPS)
 
 | #   | Дата события | TAI−UTC | GPS−UTC | tai_nanos threshold       |
 | --- | ------------ | ------- | ------- | ------------------------- |
@@ -50,53 +73,163 @@ tai_nanos = (unix_event_timestamp - GPS_EPOCH_UNIX + tai_minus_utc) × 10⁹
 | 17  | 2015-07-01   | 36      | 17      | 1 119 744 036 000 000 000 |
 | 18  | 2017-01-01   | 37      | 18      | 1 167 264 037 000 000 000 |
 
-## Использование
+## Политика обновления таблицы
+
+IERS публикует Bulletin C дважды в год (январь и июль). Каждый выпуск сообщает:
+
+- будет ли добавлена новая високосная секунда в ближайшие 6 месяцев, или
+- подтверждает отсутствие изменений.
+
+### Когда обновлять
+
+Если IERS объявляет новую высокосную секунду:
+
+1. **Вычислить порог** по формуле выше, используя Unix timestamp события.
+2. **Добавить запись** в конец массива `BUILTIN_TABLE` в
+   `src/tables/leap_seconds.rs`:
+
+   ```rust
+   // YYYY-MM-DD: TAI−UTC → N
+   LeapEntry::new(<threshold>, <N>),
+   ```
+
+3. **Обновить комментарий** `// Last verified:` в том же файле.
+4. **Обновить шапку** в этом документе (`LEAP_SECONDS.md`).
+5. **Запустить тесты** — compile-time assertions в `leap_seconds.rs`
+   автоматически проверят сортировку и монотонность:
+
+   ```bash
+   cargo test
+   cargo check --target thumbv7em-none-eabihf
+   ```
+
+6. **Обновить `CHANGELOG.md`** и выпустить patch-версию крейта.
+
+### Автоматическая проверка корректности таблицы
+
+В `src/tables/leap_seconds.rs` определены три `const`-утверждения, которые
+срабатывают во время **компиляции** (не только при тестировании):
+
+| Утверждение                | Что проверяет                                      |
+| -------------------------- | -------------------------------------------------- |
+| `_ASSERT_FIRST_ENTRY`      | `tai_nanos == 0`, `tai_minus_utc == 19`            |
+| `_ASSERT_TABLE_INVARIANTS` | строгий порядок и инкремент +1 по всей таблице     |
+| `_ASSERT_LAST_ENTRY`       | последняя запись совпадает с 2017-01-01, `n == 37` |
+
+Если добавить запись с неверным threshold или пропустить инкремент —
+компилятор откажет **немедленно**, без запуска тестов.
+
+> **Важно:** при добавлении новой записи нужно обновить `_ASSERT_LAST_ENTRY`
+> — изменить ожидаемые значения `tai_nanos` и `tai_minus_utc`.
+
+## Использование встроенной таблицы
 
 ```rust
 use gnss_time::{LeapSeconds, gps_to_utc, LeapSecondsProvider};
 use gnss_time::{Time, Gps, Tai};
 
-// Встроенная таблица покрывает все события эпохи GPS до 2017-01-01
+// Встроенная таблица: охватывает все события GPS-эпохи до 2017-01-01
 let ls = LeapSeconds::builtin();
 
-// Запрос текущего значения TAI−UTC для конкретного момента TAI
-let tai = Time::<Tai>::from_nanos(1_167_264_037_000_000_000);
-assert_eq!(ls.tai_minus_utc_at(tai), 37); // after 2017-01-01
+// Диагностика: когда было последнее событие?
+let last = ls.last_update().unwrap();
 
-// Преобразование GPS в UTC с использованием таблицы
+assert_eq!(last.as_nanos(), 1_167_264_037_000_000_000); // 2017-01-01
+
+// Текущее значение TAI−UTC
+assert_eq!(ls.current_tai_minus_utc(), 37);
+
+// Конверсия GPS → UTC
 let gps = Time::<Gps>::from_seconds(1_167_264_018); // 2017-01-01 GPS
 let utc = gps_to_utc(gps, &ls).unwrap();
 ```
 
-## Предоставление собственной таблицы
+## Runtime-обновление для embedded / receiver
 
-Для приёмников, которые передают собственное расписание високосных секунд (например,
-из GPS альманаха), реализуйте `LeapSecondsProvider`:
+Для GNSS-приёмников, которые загружают таблицу из навигационного сообщения
+или almanac, используйте `RuntimeLeapSeconds`:
 
 ```rust
-use gnss_time::{LeapEntry, LeapSeconds, LeapSecondsProvider, Tai, Time};
+use gnss_time::{LeapEntry, RuntimeLeapSeconds, LeapSecondsProvider};
 
-// Таблица, загруженная из навигационного сообщения GPS во время выполнения
-static RECEIVER_TABLE: [LeapEntry; 1] = [LeapEntry::new(0, 37)];
-let runtime_ls = LeapSeconds::from_table(&RECEIVER_TABLE);
+// Стартуем с compile-time снимка встроенной таблицы
+let mut rt = RuntimeLeapSeconds::from_builtin();
 
-// Или полностью пользовательский тип:
-struct FixedOffset(i32);
-impl LeapSecondsProvider for FixedOffset {
-    fn tai_minus_utc_at(&self, _: Time<Tai>) -> i32 { self.0 }
-}
+// Приёмник сообщает новую секунду из almanac
+// (гипотетическое событие — только для иллюстрации)
+// rt.try_extend(LeapEntry::new(threshold_ns, 38)).unwrap();
+
+// Используется там же, где LeapSeconds::builtin()
+let gps = gnss_time::Time::<gnss_time::Gps>::from_seconds(1_000_000);
+let utc = gnss_time::gps_to_utc(gps, &rt).unwrap();
 ```
 
-## Будущие високосные секунды
+### API `RuntimeLeapSeconds`
 
-Таблица **не содержит записей после 2017-01-01**. Для временных меток после этой
-даты библиотека возвращает TAI−UTC = 37 (последнее известное значение). Это
-стандартный подход «предполагаем отсутствие новых високосных секунд», используемый
-в большинстве GNSS-программ.
+| Метод                      | Описание                               |
+| -------------------------- | -------------------------------------- |
+| `from_builtin()`           | Создаёт таблицу из compile-time снимка |
+| `from_slice(&[LeapEntry])` | Создаёт из произвольного среза         |
+| `try_extend(entry)`        | Добавляет новую запись с валидацией    |
+| `last_update()`            | TAI-момент последнего события          |
+| `current_tai_minus_utc()`  | Текущее значение TAI−UTC               |
+| `len()` / `is_empty()`     | Размер таблицы                         |
+| `entries()`                | Все записи как срез                    |
 
-Чтобы получить обновления, проверяйте страницу IERS Bulletin C и обновляйте
-`BUILTIN_TABLE` в `src/tables/leap_seconds.rs`.
+### Валидация при `try_extend`
 
-Примечание: ITU-R рассматривает отмену високосных секунд с 2012 года. В 2022 году
-было принято решение прекратить их вставку к 2035 году. До этого момента текущая
-таблица остаётся актуальной.
+`try_extend` отклоняет невалидные записи:
+
+```rust
+use gnss_time::{LeapEntry, LeapExtendError, RuntimeLeapSeconds};
+
+let mut rt = RuntimeLeapSeconds::from_builtin();
+
+// Ошибка: порог не строго возрастает
+let err = rt.try_extend(LeapEntry::new(0, 38)).unwrap_err();
+
+assert_eq!(err, LeapExtendError::NotStrictlyAscending);
+
+// Ошибка: инкремент не равен 1
+let err = rt.try_extend(LeapEntry::new(9_999_999_999_000_000_000, 99)).unwrap_err();
+
+assert_eq!(err, LeapExtendError::NonUnitIncrement);
+```
+
+## Пользовательский провайдер
+
+Для полного контроля реализуйте трейт `LeapSecondsProvider`:
+
+```rust
+use gnss_time::{LeapSecondsProvider, Tai, Time};
+
+/// Провайдер с фиксированным значением (например, для тестов).
+struct FixedOffset(i32);
+
+impl LeapSecondsProvider for FixedOffset {
+    fn tai_minus_utc_at(&self, _tai: Time<Tai>) -> i32 {
+        self.0
+    }
+}
+
+let provider = FixedOffset(37);
+```
+
+## Будущие высокосные секунды и отмена
+
+Таблица не содержит записей после 2017-01-01. Для более поздних моментов
+библиотека возвращает `TAI − UTC = 37` (последнее известное значение) —
+стандартный подход «assume no new leap seconds».
+
+**Статус отмены:** На Всемирной конференции по радиосвязи 2022 года (WRC-22)
+было принято решение прекратить вставку высокосных секунд **не позднее 2035 года**.
+До наступления этого срока текущая таблица остаётся актуальной. После 2035
+конверсия UTC ↔ GPS станет полностью детерминированной (как GPS ↔ TAI сегодня).
+
+### Мониторинг IERS
+
+Для отслеживания новых announcements:
+
+- **Bulletin C:** <https://hpiers.obspm.fr/iers/bul/bulc/bulletinC.dat>
+- **Последний файл данных:** <https://hpiers.obspm.fr/iers/bul/bulc/Leap_Second.dat>
+- **IETF LEAPSECOND:** <https://www.ietf.org/timezones/data/leap-seconds.list>
