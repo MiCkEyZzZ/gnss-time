@@ -228,7 +228,7 @@ let provider = FixedOffset(37);
 
 ### Мониторинг IERS
 
-Для отслеживания за новыми объявлениями:
+Для отслеживания новых объявлений:
 
 - **Bulletin C:** <https://hpiers.obspm.fr/iers/bul/bulc/bulletinC.dat>
 - **Последний файл данных:** <https://hpiers.obspm.fr/iers/bul/bulc/Leap_Second.dat>

@@ -23,6 +23,7 @@
 #![no_std]
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
+#![warn(clippy::must_use_candidate)]
 
 #[cfg(any(feature = "std", test))]
 extern crate std;

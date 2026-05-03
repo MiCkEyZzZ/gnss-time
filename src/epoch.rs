@@ -67,6 +67,7 @@ impl CivilDate {
     /// No validation is performed — invalid dates (e.g. 31 February)
     /// do not panic, but may lead to incorrect computations.
     #[inline]
+    #[must_use]
     pub const fn new(
         year: i32,
         month: u8,
@@ -81,12 +82,14 @@ impl CivilDate {
     /// Uses Howard Hinnant’s algorithm:
     /// <http://howardhinnant.github.io/date_algorithms.html>
     #[inline]
+    #[must_use]
     pub const fn days_from_unix(self) -> i64 {
         days_from_unix_impl(self.year, self.month as i32, self.day as i32)
     }
 
     /// Difference in days between dates (`other − self`).
     #[inline]
+    #[must_use]
     pub const fn days_until(
         self,
         other: CivilDate,
@@ -96,6 +99,7 @@ impl CivilDate {
 
     /// Difference in seconds (ignores time-of-day).
     #[inline]
+    #[must_use]
     pub const fn seconds_until(
         self,
         other: CivilDate,
@@ -105,6 +109,7 @@ impl CivilDate {
 
     /// Difference in nanoseconds (ignores time-of-day).
     #[inline]
+    #[must_use]
     pub const fn nanos_until(
         self,
         other: CivilDate,
