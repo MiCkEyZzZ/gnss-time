@@ -16,9 +16,12 @@
 
 pub use crate::{
     // Conversion traits
-    convert::{IntoScale, IntoScaleWith},
-    // Leap seconds
-    leap::LeapSeconds,
+    convert::{ConvertResult, IntoScale, IntoScaleWith},
+    // Leap seconds — static table
+    leap::{
+        gps_to_utc, utc_to_gps, LeapEntry, LeapExtendError, LeapSeconds, LeapSecondsProvider,
+        RuntimeLeapSeconds, RUNTIME_CAPACITY,
+    },
     // Time scales
     scale::{Beidou, Galileo, Glonass, Gps, Tai, Utc},
     // Core types
