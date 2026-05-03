@@ -5,6 +5,10 @@ All notable changes to **gnss-time** are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-05-03
+
+- Updated README file
+
 ## [0.5.0] - 2026-05-03
 
 ### Added
