@@ -7,10 +7,10 @@
 ```toml
 # Cargo.toml
 [dependencies]
-gnss-time = { version = "0.5", default-features = false }
+gnss-time = { version = "0.5.1", default-features = false }
 
 # For embedded logging via probe-rs:
-gnss-time = { version = "0.5", features = ["defmt"] }
+gnss-time = { version = "0.5.1", features = ["defmt"] }
 defmt      = "0.3"
 ```
 

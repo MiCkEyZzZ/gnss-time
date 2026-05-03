@@ -3,8 +3,8 @@
 # Triggers only on semantic tags v*.*.*.
 # The tag is created manually after merging into master:
 #
-#   git tag v0.4.0
-#   git push origin v0.4.0
+#   git tag v0.5.1
+#   git push origin v0.5.1
 #
 # What it does:
 #   1. Verifies that Cargo.toml version matches the tag.
