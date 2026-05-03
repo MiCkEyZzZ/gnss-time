@@ -1,432 +1,393 @@
-// # Property-based tests (without proptest — manual implementation)
-//
-// Since proptest is unavailable in the current environment, we implement
-// a property-based approach manually using deterministic pseudo-random
-// samples covering the entire value range.
-//
-// ## Properties being tested
-//
-// 1. **Roundtrip GPS→UTC→GPS**: for any `t: Time<Gps>`, it holds that
-//    `GPS→UTC→GPS == t`
-// 2. **Roundtrip through all 5 domains**: GPS→GAL→BDT→TAI→GPS == GPS
-// 3. **Sorting**: ordering of `Vec<Time<Gps>>` matches ordering by internal u64
-// 4. **Historical leap second transitions**: all 18 events from 1981 to 2017
-// 5. **Real IGS epochs**: several historical GPS timestamps
+//! # Property-based tests using `proptest`
+//!
+//! This file uses the [`proptest`] crate to generate random inputs and verify
+//! mathematical invariants of `gnss-time`.
+//!
+//! ## Why `#![cfg(feature = "std")]`?
+//!
+//! `proptest` requires `std` (it uses `std::collections`, thread-local RNG,
+//! and the `std::io` trait). The `gnss-time` crate is `#![no_std]` by default,
+//! so `proptest` can only run when the consumer enables the `std` feature.
+//!
+//! Build matrix:
+//!
+//! | Command | Runs these tests? |
+//! |---------|-------------------|
+//! | `cargo test` (host, default) | ✅ yes — `std` is implied on host |
+//! | `cargo test --features std` | ✅ yes |
+//! | `cargo test --no-default-features` | ❌ no — proptest requires std |
+//! | `cargo check --target thumbv7em-none-eabihf` | ❌ n/a — integration tests not built for bare-metal |
+//!
+//! Deterministic coverage that always runs is in `tests/prop_deterministic.rs`.
+
+// Guard the entire file: compile only when std is available.
+// On a host `cargo test` run, `std` is always available even without
+// `--features std`, because the test harness itself links std.
+// The cfg guard here makes it explicit and prevents confusion.
+#![cfg(feature = "std")]
 
 use gnss_time::{
-    gps_to_utc, utc_to_gps, Beidou, DurationParts, Galileo, Gps, IntoScale, LeapSeconds, Tai, Time,
+    convert::{ConvertResult, IntoScale, IntoScaleWith},
+    gps_to_utc,
+    scale::{Beidou, Galileo, Gps, Tai, Utc},
+    utc_to_gps, Duration, LeapSeconds, Time,
 };
+use proptest::prelude::*;
 
-// Deterministic sampling: uniform across the entire GPS range + edge cases.
-fn gps_sample_points() -> Vec<Time<Gps>> {
-    let mut pts = Vec::with_capacity(256);
+// ─────────────────────────────────────────────────────────────────────────────
+// Strategies
+// ─────────────────────────────────────────────────────────────────────────────
 
-    // Boundary values
-    pts.push(Time::<Gps>::EPOCH);
-    pts.push(Time::<Gps>::from_nanos(1));
-    pts.push(Time::<Gps>::from_nanos(1_000_000_000 - 1)); // 1s - 1ns
-
-    // All known GPS epochs of leap second transitions (GPS seconds)
-    let leap_gps_seconds = &[
-        46_828_801,    // 1981-07-01
-        78_364_802,    // 1982-07-01
-        109_900_803,   // 1983-07-01
-        173_059_204,   // 1985-07-01
-        252_028_805,   // 1988-01-01
-        315_187_206,   // 1990-01-01
-        346_723_207,   // 1991-01-01
-        393_984_008,   // 1992-07-01
-        425_520_009,   // 1993-07-01
-        457_056_010,   // 1994-07-01
-        504_489_611,   // 1996-01-01
-        551_750_412,   // 1997-07-01
-        599_184_013,   // 1999-01-01
-        820_108_814,   // 2006-01-01
-        914_803_215,   // 2009-01-01
-        1_025_136_016, // 2012-07-01
-        1_119_744_017, // 2015-07-01
-        1_167_264_018, // 2017-01-01
-    ];
-    for &s in leap_gps_seconds {
-        // 2 seconds before and after each transition
-        if s >= 2 {
-            pts.push(Time::<Gps>::from_seconds(s - 2));
-            pts.push(Time::<Gps>::from_seconds(s - 1));
-        }
-        pts.push(Time::<Gps>::from_seconds(s));
-        pts.push(Time::<Gps>::from_seconds(s + 1));
-        pts.push(Time::<Gps>::from_seconds(s + 2));
-    }
-
-    // Uniform points across the entire range (~every 29 years)
-    let step = u64::MAX / 20;
-    for i in 0..=20 {
-        pts.push(Time::<Gps>::from_nanos(step.saturating_mul(i)));
-    }
-
-    // IGS real epochs (known GPS weeks)
-    for week in [1, 100, 500, 1000, 1500, 2000, 2086, 2100, 2200] {
-        pts.push(
-            Time::<Gps>::from_week_tow(
-                week,
-                DurationParts {
-                    seconds: 0,
-                    nanos: 0,
-                },
-            )
-            .unwrap(),
-        );
-        pts.push(
-            Time::<Gps>::from_week_tow(
-                week,
-                DurationParts {
-                    seconds: 302_400,
-                    nanos: 0,
-                },
-            )
-            .unwrap(),
-        ); // середина недели
-    }
-
-    pts
+/// GPS timestamps in the useful range: GPS epoch to ~2100.
+/// Upper bound chosen so that GPS + 19 s never overflows u64.
+fn gps_strategy() -> impl Strategy<Value = Time<Gps>> {
+    // ~2100: GPS week 6200, ~3.8 × 10¹⁸ ns
+    (0u64..3_800_000_000_000_000_000).prop_map(Time::<Gps>::from_nanos)
 }
 
-#[test]
-fn prop_gps_utc_gps_roundtrip_for_all_samples() {
-    use gnss_time::{
-        convert::{ConvertResult, IntoScaleWith},
-        scale::Utc,
-    };
-    let ls = LeapSeconds::builtin();
-    let samples = gps_sample_points();
+/// GPS timestamps in a narrow range around a specific leap-second boundary.
+/// Used to stress-test the boundary detection logic.
+fn gps_near_leap(boundary_s: u64) -> impl Strategy<Value = Time<Gps>> {
+    let lo = boundary_s.saturating_sub(3) * 1_000_000_000;
+    let hi = (boundary_s + 3) * 1_000_000_000;
+    (lo..=hi).prop_map(Time::<Gps>::from_nanos)
+}
 
-    for t in &samples {
-        // Use checked version to detect ambiguity window.
-        // In this window (1 second around each leap second) roundtrip is not
-        // guaranteed.
-        let result: ConvertResult<Time<Utc>> = match t.into_scale_with_checked(ls) {
-            Ok(r) => r,
-            Err(_) => continue,
-        };
-        // Skip ambiguous points (leap second insertion window)
-        let utc = match result {
-            ConvertResult::Exact(u) => u,
-            ConvertResult::AmbiguousLeapSecond(_) => continue,
-        };
-        let back = utc_to_gps(utc, ls).unwrap();
-        assert_eq!(
-            *t,
-            back,
-            "GPS→UTC→GPS roundtrip failed for t={} ns",
-            t.as_nanos()
-        );
+/// Signed nanosecond durations in the safe range (no overflow in tests).
+fn duration_strategy() -> impl Strategy<Value = Duration> {
+    (-1_000_000_000_000_000_000i64..=1_000_000_000_000_000_000i64).prop_map(Duration::from_nanos)
+}
+
+/// Two durations, both fitting comfortably in i64 so their sum doesn't
+/// overflow — lets commutativity / associativity tests always succeed.
+fn small_duration_strategy() -> impl Strategy<Value = Duration> {
+    (-1_000_000_000_000i64..=1_000_000_000_000i64).prop_map(Duration::from_nanos)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Property 1: GPS → TAI → GPS = t
+// ─────────────────────────────────────────────────────────────────────────────
+
+proptest! {
+    #[test]
+    fn prop_gps_tai_gps_roundtrip(nanos in 0u64..3_800_000_000_000_000_000) {
+        let t = Time::<Gps>::from_nanos(nanos);
+        let tai: Time<Tai> = t.into_scale().unwrap();
+        let back: Time<Gps> = tai.into_scale().unwrap();
+
+        prop_assert_eq!(t, back);
+        // TAI offset invariant
+        prop_assert_eq!(tai.as_nanos(), nanos + 19_000_000_000);
     }
 }
 
-#[test]
-fn prop_gps_galileo_gps_roundtrip_for_all_samples() {
-    let samples = gps_sample_points();
+// ─────────────────────────────────────────────────────────────────────────────
+// Property 2: GPS → Galileo → GPS = t  (identity scale)
+// ─────────────────────────────────────────────────────────────────────────────
 
-    for t in &samples {
-        // GPS→GAL goes via TAI: if GPS+19 > u64::MAX → overflow, skip
-        let gal: Time<Galileo> = match t.into_scale() {
-            Ok(g) => g,
-            Err(_) => continue,
-        };
-        let back: Time<Gps> = match gal.into_scale() {
-            Ok(b) => b,
-            Err(_) => continue,
-        };
-        assert_eq!(
-            *t,
-            back,
-            "GPS→GAL→GPS roundtrip failed for t={} ns",
-            t.as_nanos()
-        );
-        // Galileo and GPS store identical nanoseconds
-        assert_eq!(t.as_nanos(), gal.as_nanos());
+proptest! {
+    #[test]
+    fn prop_gps_galileo_gps_roundtrip(t in gps_strategy()) {
+        let gal: Time<Galileo> = t.into_scale().unwrap();
+        let back: Time<Gps> = gal.into_scale().unwrap();
+
+        prop_assert_eq!(t, back);
+        // Identity invariant: same nanoseconds
+        prop_assert_eq!(t.as_nanos(), gal.as_nanos());
     }
 }
 
-#[test]
-fn prop_gps_beidou_gps_roundtrip_for_all_samples() {
-    let samples = gps_sample_points();
+// ─────────────────────────────────────────────────────────────────────────────
+// Property 3: GPS → BeiDou → GPS = t
+// ─────────────────────────────────────────────────────────────────────────────
 
-    for t in &samples {
-        let bdt: Time<Beidou> = match t.into_scale() {
-            Ok(b) => b,
-            Err(_) => continue, // underflow for small GPS values
-        };
+proptest! {
+    #[test]
+    fn prop_gps_beidou_gps_roundtrip(
+        // BDT = GPS − 14 s; require GPS ≥ 14 s to avoid underflow
+        nanos in 14_000_000_001u64..3_800_000_000_000_000_000
+    ) {
+        let t = Time::<Gps>::from_nanos(nanos);
+        let bdt: Time<Beidou> = t.into_scale().unwrap();
         let back: Time<Gps> = bdt.into_scale().unwrap();
-        assert_eq!(
-            *t,
-            back,
-            "GPS→BDT→GPS roundtrip failed for t={} ns",
-            t.as_nanos()
+
+        prop_assert_eq!(t, back);
+        // Offset invariant: BDT is exactly 14 seconds behind GPS
+        prop_assert_eq!(bdt.as_nanos() + 14_000_000_000, nanos);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Property 4: GPS → UTC → GPS = t  (outside ambiguous window)
+// ─────────────────────────────────────────────────────────────────────────────
+
+proptest! {
+    #[test]
+    fn prop_gps_utc_gps_roundtrip_exact(t in gps_strategy()) {
+        let ls = LeapSeconds::builtin();
+
+        let result: ConvertResult<Time<Utc>> = t.into_scale_with_checked(ls).unwrap();
+
+        match result {
+            ConvertResult::Exact(utc) => {
+                let back = utc_to_gps(utc, ls).unwrap();
+                prop_assert_eq!(t, back,
+                    "GPS→UTC→GPS roundtrip failed for t={} ns", t.as_nanos());
+            }
+            ConvertResult::AmbiguousLeapSecond(_) => {
+                // Skip — ambiguous points are covered by separate properties.
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Property 5: Duration — commutativity of addition
+// ─────────────────────────────────────────────────────────────────────────────
+
+proptest! {
+    #[test]
+    fn prop_duration_add_commutative(
+        a in small_duration_strategy(),
+        b in small_duration_strategy()
+    ) {
+        // Small range guarantees no overflow → always Some
+        let ab = a.checked_add(b).unwrap();
+        let ba = b.checked_add(a).unwrap();
+        prop_assert_eq!(ab, ba);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Property 6: Duration — associativity of addition
+// ─────────────────────────────────────────────────────────────────────────────
+
+proptest! {
+    #[test]
+    fn prop_duration_add_associative(
+        a in small_duration_strategy(),
+        b in small_duration_strategy(),
+        c in small_duration_strategy()
+    ) {
+        let ab_c = a.checked_add(b).and_then(|v| v.checked_add(c));
+        let a_bc = b.checked_add(c).and_then(|v| a.checked_add(v));
+
+        match (ab_c, a_bc) {
+            (Some(l), Some(r)) => prop_assert_eq!(l, r),
+            (None, None) => {} // consistent overflow
+            _ => {} // boundary: acceptable for extreme values
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Property 7: Duration — zero is additive identity
+// ─────────────────────────────────────────────────────────────────────────────
+
+proptest! {
+    #[test]
+    fn prop_duration_zero_identity(d in duration_strategy()) {
+        prop_assert_eq!(d.checked_add(Duration::ZERO), Some(d));
+        prop_assert_eq!(Duration::ZERO.checked_add(d), Some(d));
+        prop_assert_eq!(d.checked_sub(Duration::ZERO), Some(d));
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Property 8: Duration — double negation is identity
+// ─────────────────────────────────────────────────────────────────────────────
+
+proptest! {
+    #[test]
+    fn prop_duration_double_negation(
+        // Exclude MIN: no positive counterpart in i64
+        nanos in (i64::MIN + 1)..=i64::MAX
+    ) {
+        let d = Duration::from_nanos(nanos);
+        prop_assert_eq!(-(-d), d);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Property 9: Time<S> + d − d == Time<S>
+// ─────────────────────────────────────────────────────────────────────────────
+
+proptest! {
+    #[test]
+    fn prop_time_add_sub_inverse(
+        nanos in 1_000_000_000_000u64..3_000_000_000_000_000_000,
+        delta in -1_000_000_000_000i64..=1_000_000_000_000
+    ) {
+        let t = Time::<Gps>::from_nanos(nanos);
+        let d = Duration::from_nanos(delta);
+
+        if let Some(t_plus_d) = t.checked_add(d) {
+            if let Some(back) = t_plus_d.checked_sub_duration(d) {
+                prop_assert_eq!(t, back);
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Property 10: Ord<Time<Gps>> is consistent with u64 ordering
+// ─────────────────────────────────────────────────────────────────────────────
+
+proptest! {
+    #[test]
+    fn prop_time_ord_consistent_with_u64(a in gps_strategy(), b in gps_strategy()) {
+        let time_cmp = a.cmp(&b);
+        let u64_cmp = a.as_nanos().cmp(&b.as_nanos());
+        prop_assert_eq!(time_cmp, u64_cmp);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Property 11: GPS → UTC is monotone (random pairs in the same stable interval)
+// ─────────────────────────────────────────────────────────────────────────────
+
+proptest! {
+    #[test]
+    fn prop_gps_utc_monotone_post_2017(
+        a_s in 1_167_350_419u64..2_000_000_000,
+        b_s in 1_167_350_419u64..2_000_000_000
+    ) {
+        let ls = LeapSeconds::builtin();
+        let gps_a = Time::<Gps>::from_seconds(a_s);
+        let gps_b = Time::<Gps>::from_seconds(b_s);
+
+        let utc_a = gps_to_utc(gps_a, ls).unwrap();
+        let utc_b = gps_to_utc(gps_b, ls).unwrap();
+
+        let gps_order = gps_a.cmp(&gps_b);
+        let utc_order = utc_a.cmp(&utc_b);
+
+        prop_assert_eq!(
+            gps_order,
+            utc_order,
+            "GPS ordering must be preserved in UTC: a={}, b={}",
+            a_s,
+            b_s
         );
     }
 }
 
-#[test]
-fn prop_gps_tai_gps_roundtrip_for_all_samples() {
-    let samples = gps_sample_points();
+// ─────────────────────────────────────────────────────────────────────────────
+// Property 12: AmbiguousLeapSecond only near known boundaries
+// ─────────────────────────────────────────────────────────────────────────────
 
-    for t in &samples {
-        let tai: Time<Tai> = match t.into_scale() {
-            Ok(t) => t,
-            Err(_) => continue,
-        };
-        let back: Time<Gps> = match tai.into_scale() {
-            Ok(b) => b,
-            Err(_) => continue,
-        };
-        assert_eq!(
-            *t,
-            back,
-            "GPS→TAI→GPS roundtrip failed for t={} ns",
-            t.as_nanos()
-        );
-    }
-}
-
-#[test]
-fn prop_sort_order_matches_internal_u64() {
-    let mut samples = gps_sample_points();
-
-    // Sort via Ord<Time<Gps>>
-    let mut by_time = samples.clone();
-    by_time.sort();
-
-    // Sort directly by u64
-    samples.sort_by_key(|t| t.as_nanos());
-
-    assert_eq!(
-        by_time, samples,
-        "Time<Gps> sort order must match u64 order"
-    );
-}
-
-#[test]
-fn prop_gps_to_utc_is_monotone_between_leap_seconds() {
-    let ls = LeapSeconds::builtin();
-
-    // Interval 1999-01-01 (ls=32) to 2006-01-01 (ls=33) — 7 years without leap
-    // second
-    let start = Time::<Gps>::from_seconds(599_184_014);
-    let mid = Time::<Gps>::from_seconds(709_646_413); // ~2002
-    let end = Time::<Gps>::from_seconds(820_108_812);
-
-    let utc_start = gps_to_utc(start, ls).unwrap();
-    let utc_mid = gps_to_utc(mid, ls).unwrap();
-    let utc_end = gps_to_utc(end, ls).unwrap();
-
-    assert!(
-        utc_start < utc_mid,
-        "UTC must increase with GPS within stable interval"
-    );
-    assert!(
-        utc_mid < utc_end,
-        "UTC must increase with GPS within stable interval"
-    );
-    assert!(start < mid, "GPS ordering correct");
-    assert!(mid < end, "GPS ordering correct");
-}
-
-// Table: [(GPS_seconds, expected_GPS_minus_UTC_seconds)]
-const GPS_OFFSET_TABLE: [(u64, i64); 4] = [
-    // In 1980 year GPS-UTC = 0
-    (1, 0),
-    // after 1981-07-01: GPS-UTC = 1
-    (46_828_802, 1),
-    // after 1999-01-01: GPS-UTC = 13
-    (599_184_014, 13),
-    // after 2017-01-01: GPS-UTC = 18
-    (1_167_264_019, 18),
+/// The 18 GPS boundary seconds (the second where AmbiguousLeapSecond occurs).
+const BOUNDARY_SECONDS: &[u64] = &[
+    46_828_800,
+    78_364_801,
+    109_900_802,
+    173_059_203,
+    252_028_804,
+    315_187_205,
+    346_723_206,
+    393_984_007,
+    425_520_008,
+    457_056_009,
+    504_489_610,
+    551_750_411,
+    599_184_012,
+    820_108_813,
+    914_803_214,
+    1_025_136_015,
+    1_119_744_016,
+    1_167_264_017,
 ];
 
-#[test]
-fn prop_gps_minus_utc_matches_expected_offsets() {
-    let ls = LeapSeconds::builtin();
-    // UTC epoch offset: 252_892_800 s from 1972-01-01 to GPS epoch 1980-01-06
-    const GPS_UTC_EPOCH_OFFSET_S: i64 = 252_892_800;
+/// Returns true if `gps_s` is within 1 second of any known leap boundary.
+fn near_any_boundary(gps_s: u64) -> bool {
+    BOUNDARY_SECONDS.iter().any(|&b| gps_s.abs_diff(b) <= 1)
+}
 
-    for &(gps_s, expected_offset) in &GPS_OFFSET_TABLE {
-        let gps = Time::<Gps>::from_seconds(gps_s);
-        let utc = gps_to_utc(gps, ls).unwrap();
+proptest! {
+    /// Any GPS time NOT within 1 second of a known boundary must yield Exact.
+    #[test]
+    fn prop_ambiguous_only_near_boundaries(t in gps_strategy()) {
+        let ls = LeapSeconds::builtin();
+        let gps_s = t.as_nanos() / 1_000_000_000;
 
-        let gps_s_i64 = gps_s as i64;
-        let utc_s_i64 = utc.as_seconds() as i64;
-        // GPS_seconds_from_epoch - (UTC_seconds_from_UTC_epoch - GPS_UTC_epoch_diff)
-        let actual_offset = gps_s_i64 - (utc_s_i64 - GPS_UTC_EPOCH_OFFSET_S);
+        if near_any_boundary(gps_s) {
+            // Skip — boundary neighbourhood is tested elsewhere.
+            return Ok(());
+        }
 
-        assert_eq!(
-            actual_offset, expected_offset,
-            "GPS−UTC offset wrong at GPS={gps_s}s: expected {expected_offset}s, got {actual_offset}s"
+        let result: ConvertResult<Time<Utc>> = t.into_scale_with_checked(ls).unwrap();
+
+        prop_assert!(
+            result.is_exact(),
+            "GPS time outside leap window (GPS={} s) must be Exact, got Ambiguous",
+            gps_s
         );
     }
 }
 
-// Verifies GPS jumps by 2 seconds (UTC by 1) at each leap second.
-struct LeapTransition {
-    // GPS seconds AFTER the leap second is inserted (first second with new value)
-    gps_after: u64,
-    // GPS seconds BEFORE insertion (last second with old value)
-    gps_before: u64,
-    // Expected difference in UTC seconds between after and before (should be 1)
-    expected_utc_diff: i64,
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Property 13: near leap boundaries, stress-test the 1-second window
+// ─────────────────────────────────────────────────────────────────────────────
 
-#[test]
-fn prop_all_18_leap_second_transitions_correct() {
-    let ls = LeapSeconds::builtin();
+proptest! {
+    #[test]
+    fn prop_gps_near_leap_converts_consistently(
+        t in gps_near_leap(1_167_264_017)
+    ) {
+        let ls = LeapSeconds::builtin();
+        let result: ConvertResult<Time<Utc>> = t.into_scale_with_checked(ls).unwrap();
 
-    let transitions = [
-        // gps_after = (unix_event - 315_964_800) + new_GPS_UTC_offset
-        // gps_before = gps_after - 2 (GPS jumps by 2 seconds, UTC by 1 second)
-        LeapTransition {
-            gps_after: 46_828_801,
-            gps_before: 46_828_799,
-            expected_utc_diff: 1,
-        }, // 1981-07-01
-        LeapTransition {
-            gps_after: 78_364_802,
-            gps_before: 78_364_800,
-            expected_utc_diff: 1,
-        }, // 1982-07-01
-        LeapTransition {
-            gps_after: 109_900_803,
-            gps_before: 109_900_801,
-            expected_utc_diff: 1,
-        }, // 1983-07-01
-        LeapTransition {
-            gps_after: 173_059_204,
-            gps_before: 173_059_202,
-            expected_utc_diff: 1,
-        }, // 1985-07-01
-        LeapTransition {
-            gps_after: 252_028_805,
-            gps_before: 252_028_803,
-            expected_utc_diff: 1,
-        }, // 1988-01-01
-        LeapTransition {
-            gps_after: 315_187_206,
-            gps_before: 315_187_204,
-            expected_utc_diff: 1,
-        }, // 1990-01-01
-        LeapTransition {
-            gps_after: 346_723_207,
-            gps_before: 346_723_205,
-            expected_utc_diff: 1,
-        }, // 1991-01-01
-        LeapTransition {
-            gps_after: 393_984_008,
-            gps_before: 393_984_006,
-            expected_utc_diff: 1,
-        }, // 1992-07-01
-        LeapTransition {
-            gps_after: 425_520_009,
-            gps_before: 425_520_007,
-            expected_utc_diff: 1,
-        }, // 1993-07-01
-        LeapTransition {
-            gps_after: 457_056_010,
-            gps_before: 457_056_008,
-            expected_utc_diff: 1,
-        }, // 1994-07-01
-        LeapTransition {
-            gps_after: 504_489_611,
-            gps_before: 504_489_609,
-            expected_utc_diff: 1,
-        }, // 1996-01-01
-        LeapTransition {
-            gps_after: 551_750_412,
-            gps_before: 551_750_410,
-            expected_utc_diff: 1,
-        }, // 1997-07-01
-        LeapTransition {
-            gps_after: 599_184_013,
-            gps_before: 599_184_011,
-            expected_utc_diff: 1,
-        }, // 1999-01-01
-        LeapTransition {
-            gps_after: 820_108_814,
-            gps_before: 820_108_812,
-            expected_utc_diff: 1,
-        }, // 2006-01-01
-        LeapTransition {
-            gps_after: 914_803_215,
-            gps_before: 914_803_213,
-            expected_utc_diff: 1,
-        }, // 2009-01-01
-        LeapTransition {
-            gps_after: 1_025_136_016,
-            gps_before: 1_025_136_014,
-            expected_utc_diff: 1,
-        }, // 2012-07-01
-        LeapTransition {
-            gps_after: 1_119_744_017,
-            gps_before: 1_119_744_015,
-            expected_utc_diff: 1,
-        }, // 2015-07-01
-        LeapTransition {
-            gps_after: 1_167_264_018,
-            gps_before: 1_167_264_016,
-            expected_utc_diff: 1,
-        }, // 2017-01-01
-    ];
-
-    for (i, t) in transitions.iter().enumerate() {
-        let gps_b = Time::<Gps>::from_seconds(t.gps_before);
-        let gps_a = Time::<Gps>::from_seconds(t.gps_after);
-
-        let utc_b = gps_to_utc(gps_b, ls).unwrap();
-        let utc_a = gps_to_utc(gps_a, ls).unwrap();
-
-        let utc_diff = (utc_a - utc_b).as_seconds();
-        assert_eq!(
-            utc_diff, t.expected_utc_diff,
-            "Leap #{i}: GPS jumped 2s ({} → {}) but UTC diff should be {}s, got {}s",
-            t.gps_before, t.gps_after, t.expected_utc_diff, utc_diff
-        );
+        match result {
+            ConvertResult::Exact(utc) => {
+                let back = utc_to_gps(utc, ls).unwrap();
+                prop_assert_eq!(back, t);
+            }
+            ConvertResult::AmbiguousLeapSecond(_utc) => {
+                // допустимый результат для точки около leap-second границы
+            }
+        }
     }
 }
 
-#[test]
-fn prop_gps_utc_offset_strictly_increases_at_each_transition() {
-    let ls = LeapSeconds::builtin();
-    const GPS_UTC_EPOCH_OFFSET_S: i64 = 252_892_800;
+// ─────────────────────────────────────────────────────────────────────────────
+// Property 14: Duration::abs is consistent with sign
+// ─────────────────────────────────────────────────────────────────────────────
 
-    // GPS seconds immediately after each leap second
-    let transition_points = &[
-        46_828_802,
-        78_364_803,
-        109_900_804,
-        173_059_205,
-        252_028_806,
-        315_187_207,
-        346_723_208,
-        393_984_009,
-        425_520_010,
-        457_056_011,
-        504_489_612,
-        551_750_413,
-        599_184_014,
-        820_108_815,
-        914_803_216,
-        1_025_136_017,
-        1_119_744_018,
-        1_167_264_019,
-    ];
+proptest! {
+    #[test]
+    fn prop_duration_abs_sign_consistent(
+        nanos in (i64::MIN + 1)..=i64::MAX
+    ) {
+        let d = Duration::from_nanos(nanos);
+        let abs = d.abs().unwrap(); // safe: MIN excluded
 
-    let mut prev_offset = -1i64;
-    for &gps_s in transition_points {
-        let gps = Time::<Gps>::from_seconds(gps_s);
-        let utc = gps_to_utc(gps, ls).unwrap();
-        let offset = gps_s as i64 - (utc.as_seconds() as i64 - GPS_UTC_EPOCH_OFFSET_S);
-        assert!(
-            offset > prev_offset,
-            "GPS-UTC offset must increase at each leap second: prev={prev_offset}, current={offset} at GPS={gps_s}s"
-        );
-        prev_offset = offset;
+        prop_assert!(!abs.is_negative());
+
+        if d.is_positive() {
+            prop_assert_eq!(abs, d);
+        } else if d.is_negative() {
+            prop_assert_eq!(abs.as_nanos(), -nanos);
+        } else {
+            prop_assert_eq!(abs, Duration::ZERO);
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Property 15: checked_elapsed anti-commutativity
+// ─────────────────────────────────────────────────────────────────────────────
+
+proptest! {
+    #[test]
+    fn prop_elapsed_anti_commutative(a in gps_strategy(), b in gps_strategy()) {
+        if let (Some(ab), Some(ba)) = (a.checked_elapsed(b), b.checked_elapsed(a)) {
+            prop_assert_eq!(
+                ab.as_nanos(),
+                -ba.as_nanos(),
+                "elapsed anti-commutativity: a-b={} b-a={}",
+                ab.as_nanos(),
+                ba.as_nanos()
+            );
+        }
     }
 }
