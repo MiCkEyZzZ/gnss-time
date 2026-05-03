@@ -3,10 +3,10 @@
 //! ## Why this is an explicit parameter, not global state
 //!
 //! ```text
-//! // ❌ Hidden state — bad
+//! // Hidden state — bad
 //! let utc = gps.to_utc(); // where do the leap seconds come from?
 //!
-//! // ✅ Explicit context — good
+//! // Explicit context — good
 //! let utc = gps_to_utc(gps, LeapSeconds::builtin())?;
 //! ```
 //!
@@ -38,6 +38,12 @@
 use crate::{
     tables::BUILTIN_TABLE, Beidou, CivilDate, Galileo, Glonass, GnssTimeError, Gps, Tai, Time, Utc,
 };
+
+/// Maximum number of entries in a [`RuntimeLeapSeconds`] buffer.
+///
+/// 64 entries is far beyond any plausible number of leap seconds in the
+/// foreseeable future (current count from 1972: 27 events).
+pub const RUNTIME_CAPACITY: usize = 64;
 
 static BUILTIN_LEAP_SECONDS: LeapSeconds = LeapSeconds {
     entries: &BUILTIN_TABLE,
@@ -112,6 +118,23 @@ pub trait LeapSecondsProvider {
     ) -> i32;
 }
 
+/// Error returned by [`RuntimeLeapSeconds::try_extend`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[must_use = "handle the extension error; ignoring it means the table was not updated"]
+#[non_exhaustive]
+pub enum LeapExtendError {
+    /// The new entry's `tai_nanos` is not strictly greater than the last
+    /// existing entry — the table would become unsorted.
+    NotStrictlyAscending,
+
+    /// The new entry's `tai_minus_utc` is not exactly one more than the last
+    /// existing entry — every leap second must increment the counter by 1.
+    NonUnitIncrement,
+
+    /// The runtime buffer is full; no more entries can be appended.
+    BufferFull,
+}
+
 /// One leap-second table entry.
 ///
 /// Starting from `tai_minus_utc` (internal TAI nanoseconds), `TAI - UTC =
@@ -162,6 +185,38 @@ pub struct LeapSeconds {
     entries: &'static [LeapEntry], // (Unix seconds, TAI-UTC)
 }
 
+/// A heap-free, fixed-capacity leap-second table for embedded / receiver use.
+///
+/// Suitable for GNSS receivers that receive the current leap-second count from
+/// the GPS navigation message and need an up-to-date table without any heap
+/// allocation.
+///
+/// Start with [`from_builtin`](Self::from_builtin) to pre-populate the
+/// compile-time snapshot, then call [`try_extend`](Self::try_extend) whenever
+/// the receiver almanac reports a new event.
+///
+/// # Capacity
+///
+/// Holds up to [`RUNTIME_CAPACITY`] (64) entries.
+///
+/// # Example
+///
+/// ```rust
+/// use gnss_time::{LeapEntry, LeapSecondsProvider, RuntimeLeapSeconds, Tai, Time};
+///
+/// let mut rt = RuntimeLeapSeconds::from_builtin();
+///
+/// // Hypothetical future event (illustrative only).
+/// // rt.try_extend(LeapEntry::new(9_999_999_999_000_000_000, 38)).unwrap();
+///
+/// assert_eq!(rt.current_tai_minus_utc(), 37);
+/// ```
+#[derive(Debug)]
+pub struct RuntimeLeapSeconds {
+    buf: [LeapEntry; RUNTIME_CAPACITY],
+    len: usize,
+}
+
 impl LeapEntry {
     /// Creates a new leap-second entry.
     ///
@@ -186,7 +241,11 @@ impl LeapEntry {
 impl LeapSeconds {
     /// Built-in table valid through 2017-01-01.
     ///
-    /// Covers all 18 leap-second events in the GPS era.
+    /// Covers all 19 entries in the GPS era (1980-01-06 … 2017-01-01).
+    ///
+    /// **Last verified:** IERS Bulletin C 70 (December 2024) — no new leap
+    /// seconds scheduled through June 2025. Status as of May 2026: TAI−UTC =
+    /// 37, unchanged.
     ///
     /// Source: [IERS Bulletin C](https://www.iers.org/IERS/EN/Publications/Bulletins/bulletins.html)
     #[inline]
@@ -195,8 +254,33 @@ impl LeapSeconds {
         &BUILTIN_LEAP_SECONDS
     }
 
-    /// Creates a table from a custom slice (for example, loaded from a
-    /// receiver).
+    /// Creates a table from a custom static slice.
+    ///
+    /// This is an alias for [`from_table`](Self::from_table), provided for API
+    /// symmetry with [`RuntimeLeapSeconds::from_slice`].
+    ///
+    /// # Requirements
+    ///
+    /// `entries` must be sorted by `tai_nanos` in strictly ascending order and
+    /// each consecutive `tai_minus_utc` must increment by exactly 1.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::{LeapEntry, LeapSeconds};
+    ///
+    /// static MY_TABLE: [LeapEntry; 1] = [LeapEntry::new(0, 37)];
+    /// let ls = LeapSeconds::from_slice(&MY_TABLE);
+    ///
+    /// assert_eq!(ls.len(), 1);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub const fn from_slice(entries: &'static [LeapEntry]) -> Self {
+        Self { entries }
+    }
+
+    /// Creates a table from a custom static slice (canonical name).
     ///
     /// # Requirements
     ///
@@ -227,6 +311,240 @@ impl LeapSeconds {
     pub fn entries(&self) -> &[LeapEntry] {
         self.entries
     }
+
+    /// Returns the TAI timestamp of the most recent leap-second event.
+    ///
+    /// Returns `None` when the table contains only the base entry (threshold
+    /// = 0) or is empty — in those cases there is no recorded event timestamp.
+    ///
+    /// Useful for diagnostics: compare against the current time to detect
+    /// whether the table may be stale.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::LeapSeconds;
+    ///
+    /// let ls = LeapSeconds::builtin();
+    /// let last = ls.last_update().expect("builtin table is non-empty");
+    ///
+    /// // 2017-01-01 TAI threshold
+    /// assert_eq!(last.as_nanos(), 1_167_264_037_000_000_000);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub const fn last_update(&self) -> Option<Time<Tai>> {
+        if self.entries.len() <= 1 {
+            return None;
+        }
+
+        let last = &self.entries[self.entries.len() - 1];
+
+        Some(Time::<Tai>::from_nanos(last.tai_nanos))
+    }
+
+    /// Returns the current TAI − UTC value (the `tai_minus_utc` of the last
+    /// entry), or 19 for an empty table.
+    ///
+    /// Equivalent to `tai_minus_utc_at(Time::<Tai>::MAX)`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::LeapSeconds;
+    ///
+    /// assert_eq!(LeapSeconds::builtin().current_tai_minus_utc(), 37);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub const fn current_tai_minus_utc(&self) -> i32 {
+        if self.entries.is_empty() {
+            return 19;
+        }
+
+        self.entries[self.entries.len() - 1].tai_minus_utc
+    }
+}
+
+impl RuntimeLeapSeconds {
+    /// Creates an empty runtime table.
+    ///
+    /// Call [`try_extend`](Self::try_extend) or use
+    /// [`from_builtin`](Self::from_builtin) before performing conversions.
+    #[inline]
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            buf: [LeapEntry::new(0, 0); RUNTIME_CAPACITY],
+            len: 0,
+        }
+    }
+
+    /// Creates a runtime table pre-populated from built-in static table.
+    ///
+    /// This is the recommended starting point for receivers: begin with the
+    /// compile-time snapshot and extend when the almanac reports new data.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `BUILTIN_YABLE.len() > RUNTIME_CAPACITY` (cannot happen with
+    /// current constants, but asserted for correctness).
+    #[must_use]
+    pub fn from_builtin() -> Self {
+        assert!(
+            BUILTIN_TABLE.len() <= RUNTIME_CAPACITY,
+            "BUILTIN_TABLE exceeds RUNTIME_CAPACITY"
+        );
+
+        let mut rt = Self::new();
+
+        for &entry in BUILTIN_TABLE.iter() {
+            rt.buf[rt.len] = entry;
+            rt.len += 1;
+        }
+
+        rt
+    }
+
+    /// Creates a runtime table from a slice of entries.
+    ///
+    /// Mirrors [`LeapSeconds::from_slice`] for contexts where a mutable /
+    /// extendable table is needed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LeapExtendError::BufferFull`] if `entries.len() >
+    /// RUNTIME_CAPACITY`.
+    pub fn from_slice(entries: &[LeapEntry]) -> Result<Self, LeapExtendError> {
+        if entries.len() > RUNTIME_CAPACITY {
+            return Err(LeapExtendError::BufferFull);
+        }
+
+        let mut rt = Self::new();
+
+        for &entry in entries {
+            rt.buf[rt.len] = entry;
+            rt.len += 1;
+        }
+
+        Ok(rt)
+    }
+
+    /// Appends a new leap-second event to the runtime table.
+    ///
+    /// Internally, the table is treated as a strictly ordered sequence of
+    /// leap-second transitions. Each new entry must extend the sequence
+    /// without breaking its monotonic structure.
+    ///
+    /// # Validation
+    ///
+    /// The new entry must satisfy:
+    /// - `entry.tai_nanos > last().tai_nanos` — strictly ascending order
+    /// - `entry.tai_minus_utc == last().tai_minus_utc + 1` — unit increment
+    ///
+    /// # Errors
+    ///
+    /// - [`LeapExtendError::NotStrictlyAscending`] — threshold not increasing
+    /// - [`LeapExtendError::NonUnitIncrement`] — value does not increment by 1
+    /// - [`LeapExtendError::BufferFull`] — capacity exhausted
+    ///
+    /// # Notes
+    ///
+    /// This method does not attempt to validate whether the provided entry
+    /// corresponds to a *real* leap second published by official sources.
+    /// It only enforces internal consistency of the sequence.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::{LeapEntry, RuntimeLeapSeconds};
+    ///
+    /// let mut rt = RuntimeLeapSeconds::from_builtin();
+    ///
+    /// // Hypothetical future leap second (not a real event).
+    /// rt.try_extend(LeapEntry::new(9_999_999_999_000_000_000, 38))
+    ///     .unwrap();
+    ///
+    /// assert_eq!(rt.current_tai_minus_utc(), 38);
+    /// assert_eq!(rt.len(), 20);
+    /// ```
+    pub fn try_extend(
+        &mut self,
+        entry: LeapEntry,
+    ) -> Result<(), LeapExtendError> {
+        // Prevent writing past the fixed buffer.
+        // This keeps the structure allocation-free and predictable.
+        if self.len >= RUNTIME_CAPACITY {
+            return Err(LeapExtendError::BufferFull);
+        }
+
+        // If there is at least one entry, validate against the last one.
+        if self.len > 0 {
+            let last = &self.buf[self.len - 1];
+
+            // Enforce strict monotonicity in time.
+            // Equal or smaller timestamps would break ordering assumptions.
+            if entry.tai_nanos <= last.tai_nanos {
+                return Err(LeapExtendError::NotStrictlyAscending);
+            }
+
+            // Enforce +1 step in TAI−UTC offset.
+            // Anything else would violate leap second semantics.
+            if entry.tai_minus_utc != last.tai_minus_utc + 1 {
+                return Err(LeapExtendError::NonUnitIncrement);
+            }
+        }
+
+        self.buf[self.len] = entry;
+        self.len += 1;
+
+        Ok(())
+    }
+
+    /// Returns the number of entries currently in the table.
+    #[inline]
+    #[must_use]
+    pub const fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Returns `true` if the table has no entries.
+    #[inline]
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Returns all live entries as a slice.
+    #[inline]
+    #[must_use]
+    pub fn entries(&self) -> &[LeapEntry] {
+        &self.buf[..self.len]
+    }
+
+    /// Returns the TAI timestamp of the most recent event, or `None` for a
+    /// single-entry or empty table.
+    #[inline]
+    #[must_use]
+    pub const fn last_update(&self) -> Option<Time<Tai>> {
+        if self.len <= 1 {
+            return None;
+        }
+
+        Some(Time::<Tai>::from_nanos(self.buf[self.len - 1].tai_nanos))
+    }
+
+    /// Returns the current TAI - UTC value (last entry), or 19 for an empty
+    /// table.
+    #[inline]
+    #[must_use]
+    pub const fn current_tai_minus_utc(&self) -> i32 {
+        if self.len == 0 {
+            return 19;
+        }
+
+        self.buf[self.len - 1].tai_minus_utc
+    }
 }
 
 impl LeapSecondsProvider for LeapSeconds {
@@ -248,6 +566,26 @@ impl LeapSecondsProvider for LeapSeconds {
             // nanos is before first entry: return initial value
             Err(0) => entries[0].tai_minus_utc,
             // Standard case: entry before insertion point
+            Err(i) => entries[i - 1].tai_minus_utc,
+        }
+    }
+}
+
+impl LeapSecondsProvider for RuntimeLeapSeconds {
+    fn tai_minus_utc_at(
+        &self,
+        tai: Time<Tai>,
+    ) -> i32 {
+        let entries = self.entries();
+        let nanos = tai.as_nanos();
+
+        if entries.is_empty() {
+            return 19;
+        }
+
+        match entries.binary_search_by_key(&nanos, |e| e.tai_nanos) {
+            Ok(i) => entries[i].tai_minus_utc,
+            Err(0) => entries[0].tai_minus_utc,
             Err(i) => entries[i - 1].tai_minus_utc,
         }
     }
@@ -532,6 +870,34 @@ pub fn utc_to_beidou<P: LeapSecondsProvider>(
     gps.try_convert::<Beidou>()
 }
 
+impl core::fmt::Display for LeapExtendError {
+    fn fmt(
+        &self,
+        f: &mut core::fmt::Formatter<'_>,
+    ) -> core::fmt::Result {
+        match self {
+            LeapExtendError::NotStrictlyAscending => {
+                f.write_str("new entry tai_nanos is not strictly greater than the last entry")
+            }
+            LeapExtendError::NonUnitIncrement => {
+                f.write_str("new entry tai_minus_utc be exactly one more tham the last entry")
+            }
+            LeapExtendError::BufferFull => {
+                f.write_str("runtime leap-second buffer is full; cannot add more entries")
+            }
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for LeapExtendError {}
+
+impl Default for RuntimeLeapSeconds {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Tests
 ////////////////////////////////////////////////////////////////////////////////
@@ -547,6 +913,16 @@ mod tests {
     #[test]
     fn test_utc_to_gps_epoch_offset_is_252892800_seconds() {
         assert_eq!(UTC_TO_GPS_EPOCH_NS / 1_000_000_000, 252_892_800);
+    }
+
+    #[test]
+    fn test_glonass_epoch_offset_is_757371600_seconds() {
+        assert_eq!(GLONASS_FROM_UTC_EPOCH_NS / 1_000_000_000, 757_371_600);
+    }
+
+    #[test]
+    fn test_builtin_table_length() {
+        assert_eq!(LeapSeconds::builtin().len(), 19);
     }
 
     #[test]
@@ -576,13 +952,12 @@ mod tests {
 
     #[test]
     fn test_builtin_table_starts_with_tai_minus_utc_19() {
-        assert_eq!(BUILTIN_TABLE[0].tai_minus_utc, 19);
+        assert_eq!(LeapSeconds::builtin().entries()[0].tai_minus_utc, 19);
     }
 
     #[test]
     fn test_builtin_table_ends_with_tai_minus_utc_37() {
-        let last = *BUILTIN_TABLE.last().unwrap();
-
+        let last = *LeapSeconds::builtin().entries().last().unwrap();
         assert_eq!(last.tai_minus_utc, 37);
     }
 
@@ -591,18 +966,136 @@ mod tests {
         let entries = LeapSeconds::builtin().entries();
 
         for w in entries.windows(2) {
-            assert!(
-                w[1].tai_minus_utc == w[0].tai_minus_utc + 1,
+            assert_eq!(
+                w[1].tai_minus_utc,
+                w[0].tai_minus_utc + 1,
                 "expected each entry to increment by 1"
             );
         }
     }
 
+    // Cross-reference against raw IERS Bulletin C data.
+    //
+    // Each TAI threshold is independently recomputed from the Unix event
+    // timestamp using the canonical formula and compared to the compiled
+    // table.
+    #[test]
+    fn test_builtin_table_matches_iers_bulletin_c() {
+        const GPS_EPOCH_UNIX: u64 = 315_964_800;
+
+        // (unix_event_timestamp, expected_tai_minus_utc)
+        let iers_events: &[(u64, i32)] = &[
+            (362_793_600, 20),   // 1981-07-01
+            (394_329_600, 21),   // 1982-07-01
+            (425_865_600, 22),   // 1983-07-01
+            (489_024_000, 23),   // 1985-07-01
+            (567_993_600, 24),   // 1988-01-01
+            (631_152_000, 25),   // 1990-01-01
+            (662_688_000, 26),   // 1991-01-01
+            (709_948_800, 27),   // 1992-07-01
+            (741_484_800, 28),   // 1993-07-01
+            (773_020_800, 29),   // 1994-07-01
+            (820_454_400, 30),   // 1996-01-01
+            (867_715_200, 31),   // 1997-07-01
+            (915_148_800, 32),   // 1999-01-01
+            (1_136_073_600, 33), // 2006-01-01
+            (1_230_768_000, 34), // 2009-01-01
+            (1_341_100_800, 35), // 2012-07-01
+            (1_435_708_800, 36), // 2015-07-01
+            (1_483_228_800, 37), // 2017-01-01
+        ];
+
+        let entries = LeapSeconds::builtin().entries();
+
+        // Entry 0 is the base value at GPS epoch.
+        assert_eq!(entries[0].tai_nanos, 0);
+        assert_eq!(entries[0].tai_minus_utc, 19);
+
+        // Entries 1..18 must match the IERS events exactly.
+        for (idx, &(unix, expected_n)) in iers_events.iter().enumerate() {
+            let gps_s = unix - GPS_EPOCH_UNIX;
+            let expected_threshold = (gps_s + expected_n as u64) * 1_000_000_000;
+            let entry = &entries[idx + 1];
+
+            assert_eq!(
+                entry.tai_nanos,
+                expected_threshold,
+                "threshold mismatch at IERS event {} (unix={})",
+                idx + 1,
+                unix
+            );
+            assert_eq!(
+                entry.tai_minus_utc,
+                expected_n,
+                "tai_minus_utc mismatch at IERS event {} (unix={})",
+                idx + 1,
+                unix
+            );
+        }
+    }
+
+    #[test]
+    fn test_last_update_builtin_is_2017_threshold() {
+        let last = LeapSeconds::builtin()
+            .last_update()
+            .expect("builtin must have last_update");
+
+        assert_eq!(last.as_nanos(), 1_167_264_037_000_000_000);
+    }
+
+    #[test]
+    fn test_last_update_single_entry_is_none() {
+        static SINGLE: [LeapEntry; 1] = [LeapEntry::new(0, 37)];
+        let ls = LeapSeconds::from_slice(&SINGLE);
+
+        assert!(ls.last_update().is_none());
+    }
+
+    #[test]
+    fn test_last_update_empty_is_none() {
+        static EMPTY: [LeapEntry; 0] = [];
+        let ls = LeapSeconds::from_slice(&EMPTY);
+
+        assert!(ls.last_update().is_none());
+    }
+
+    #[test]
+    fn test_current_tai_minus_utc_builtin_is_37() {
+        assert_eq!(LeapSeconds::builtin().current_tai_minus_utc(), 37);
+    }
+
+    #[test]
+    fn test_current_tai_minus_utc_empty_is_fallback_19() {
+        static EMPTY: [LeapEntry; 0] = [];
+        let ls = LeapSeconds::from_slice(&EMPTY);
+
+        assert_eq!(ls.current_tai_minus_utc(), 19);
+    }
+
+    #[test]
+    fn test_from_slice_and_from_table_are_equivalent() {
+        static TABLE: [LeapEntry; 2] = [LeapEntry::new(0, 19), LeapEntry::new(1_000_000, 20)];
+
+        let ls_slice = LeapSeconds::from_slice(&TABLE);
+        let ls_table = LeapSeconds::from_table(&TABLE);
+
+        assert_eq!(ls_slice.len(), ls_table.len());
+        assert_eq!(
+            ls_slice.entries()[0].tai_nanos,
+            ls_table.entries()[0].tai_nanos
+        );
+    }
+
     #[test]
     fn test_lookup_at_tai_zero_returns_19() {
         let ls = LeapSeconds::builtin();
-
         assert_eq!(ls.tai_minus_utc_at(Time::<Tai>::EPOCH), 19);
+    }
+
+    #[test]
+    fn test_lookup_at_max_tai_returns_37() {
+        let ls = LeapSeconds::builtin();
+        assert_eq!(ls.tai_minus_utc_at(Time::<Tai>::MAX), 37);
     }
 
     #[test]
@@ -871,5 +1364,170 @@ mod tests {
             ls.tai_minus_utc_at(Time::<Tai>::from_seconds(1_000_000)),
             19
         );
+    }
+
+    #[test]
+    fn test_runtime_from_builtin_has_19_entries() {
+        assert_eq!(RuntimeLeapSeconds::from_builtin().len(), 19);
+    }
+
+    #[test]
+    fn test_runtime_from_builtin_current_is_37() {
+        assert_eq!(
+            RuntimeLeapSeconds::from_builtin().current_tai_minus_utc(),
+            37
+        );
+    }
+
+    #[test]
+    fn test_runtime_try_extend_valid() {
+        let mut rt = RuntimeLeapSeconds::from_builtin();
+        rt.try_extend(LeapEntry::new(9_999_999_999_000_000_000, 38))
+            .unwrap();
+
+        assert_eq!(rt.len(), 20);
+        assert_eq!(rt.current_tai_minus_utc(), 38);
+    }
+
+    #[test]
+    fn test_runtime_try_extend_last_update_updated() {
+        let mut rt = RuntimeLeapSeconds::from_builtin();
+        rt.try_extend(LeapEntry::new(9_999_999_999_000_000_000, 38))
+            .unwrap();
+
+        let last = rt.last_update().unwrap();
+        assert_eq!(last.as_nanos(), 9_999_999_999_000_000_000);
+    }
+
+    #[test]
+    fn test_runtime_try_extend_not_ascending_error() {
+        let mut rt = RuntimeLeapSeconds::from_builtin();
+        // Same threshold as last builtin entry — not strictly ascending.
+        let err = rt
+            .try_extend(LeapEntry::new(1_167_264_037_000_000_000, 38))
+            .unwrap_err();
+
+        assert_eq!(err, LeapExtendError::NotStrictlyAscending);
+    }
+
+    #[test]
+    fn test_runtime_try_extend_non_unit_increment_error() {
+        let mut rt = RuntimeLeapSeconds::from_builtin();
+        // Skips to 39 instead of 38.
+        let err = rt
+            .try_extend(LeapEntry::new(9_999_999_999_000_000_000, 39))
+            .unwrap_err();
+
+        assert_eq!(err, LeapExtendError::NonUnitIncrement);
+    }
+
+    #[test]
+    fn test_runtime_from_slice_too_large_returns_buffer_full() {
+        let big: std::vec::Vec<LeapEntry> = (0..RUNTIME_CAPACITY + 1)
+            .map(|i| LeapEntry::new(i as u64 * 1_000_000_000, 19 + i as i32))
+            .collect();
+        let err = RuntimeLeapSeconds::from_slice(&big).unwrap_err();
+
+        assert_eq!(err, LeapExtendError::BufferFull);
+    }
+
+    #[test]
+    fn test_runtime_provider_matches_static_at_all_thresholds() {
+        let rt = RuntimeLeapSeconds::from_builtin();
+        let ls = LeapSeconds::builtin();
+
+        let test_nanos: &[u64] = &[
+            0,
+            46_828_820_000_000_000,
+            599_184_032_000_000_000,
+            1_167_264_037_000_000_000,
+            u64::MAX,
+        ];
+
+        for &nanos in test_nanos {
+            let tai = Time::<Tai>::from_nanos(nanos);
+            assert_eq!(
+                rt.tai_minus_utc_at(tai),
+                ls.tai_minus_utc_at(tai),
+                "mismatch at tai_nanos={}",
+                nanos
+            );
+        }
+    }
+
+    #[test]
+    fn test_runtime_empty_last_update_is_none() {
+        assert!(RuntimeLeapSeconds::new().last_update().is_none());
+    }
+
+    #[test]
+    fn test_runtime_single_entry_last_update_is_none() {
+        let mut rt = RuntimeLeapSeconds::new();
+        rt.try_extend(LeapEntry::new(0, 19)).unwrap();
+        assert!(rt.last_update().is_none());
+    }
+
+    #[test]
+    fn test_gps_utc_gps_roundtrip_with_runtime_table() {
+        let rt = RuntimeLeapSeconds::from_builtin();
+        let gps = Time::<Gps>::from_week_tow(
+            2086,
+            DurationParts {
+                seconds: 0,
+                nanos: 0,
+            },
+        )
+        .unwrap();
+        let utc = gps_to_utc(gps, &rt).unwrap();
+        let back = utc_to_gps(utc, &rt).unwrap();
+
+        assert_eq!(gps, back);
+    }
+
+    #[test]
+    fn test_gps_utc_roundtrip_extended_table() {
+        let mut rt = RuntimeLeapSeconds::from_builtin();
+        rt.try_extend(LeapEntry::new(9_999_999_999_000_000_000, 38))
+            .unwrap();
+
+        let gps = Time::<Gps>::from_week_tow(
+            2086,
+            DurationParts {
+                seconds: 0,
+                nanos: 0,
+            },
+        )
+        .unwrap();
+        let utc = gps_to_utc(gps, &rt).unwrap();
+        let back = utc_to_gps(utc, &rt).unwrap();
+
+        assert_eq!(gps, back);
+    }
+
+    #[test]
+    fn test_gps_epoch_utc_is_correct() {
+        let ls = LeapSeconds::builtin();
+        let utc = gps_to_utc(Time::<Gps>::EPOCH, &ls).unwrap();
+
+        assert_eq!(utc.as_nanos(), 252_892_800_000_000_000);
+    }
+
+    #[test]
+    fn test_custom_provider_roundtrip() {
+        struct Always37;
+        impl LeapSecondsProvider for Always37 {
+            fn tai_minus_utc_at(
+                &self,
+                _: Time<Tai>,
+            ) -> i32 {
+                37
+            }
+        }
+
+        let gps = Time::<Gps>::from_seconds(1_000_000_000);
+        let utc = gps_to_utc(gps, &Always37).unwrap();
+        let back = utc_to_gps(utc, &Always37).unwrap();
+
+        assert_eq!(gps, back);
     }
 }
