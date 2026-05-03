@@ -9,12 +9,35 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Compile-time verification for leap second table (`BUILTIN_TABLE`):
+  - `_ASSERT_FIRST_ENTRY` — validates initial offset (TAI−UTC = 19)
+  - `_ASSERT_TABLE_INVARIANTS` — enforces strict ordering and +1 increments
+  - `_ASSERT_LAST_ENTRY` — validates last entry (2017-01-01, TAI−UTC = 37)
+- `LeapSeconds::last_update() -> Option<Time<Tai>>` — returns last leap second
+  event (TAI)
+- `LeapSeconds::current_tai_minus_utc() -> i32` — accessor for current offset
+- `RuntimeLeapSeconds`:
+  - fixed-capacity, heap-free runtime leap second table (`RUNTIME_CAPACITY = 64`)
+  - `from_builtin()` — initialize from compile-time snapshot
+  - `from_slice()` — construct from external data
+  - `try_extend()` — validated append API
+- `LeapExtendError` (`#[non_exhaustive]`) with variants:
+  - `NotStrictlyAscending`
+  - `NonUnitIncrement`
+  - `BufferFull`
+- Prelude exports:
+  - `RuntimeLeapSeconds`, `LeapExtendError`, `LeapEntry`, `RUNTIME_CAPACITY`
+  - helper functions `gps_to_utc`, `utc_to_gps`
+- Test `test_builtin_table_matches_iers_bulletin_c`:
+  - full cross-verification against IERS data
+
 - Added `#[must_use]` annotations across core types and APIs:
   - `Time<S>`, `Duration`, `GnssTimeError`, `ConvertResult<T>`
   - all arithmetic helpers (`checked_*`, `saturating_*`)
   - accessors (`as_nanos`, `as_seconds`, `week`, `tow_seconds`, etc.)
   - conversion traits (`IntoScale`, `IntoScaleWith`)
-- Added diagnostic messages to `#[must_use]` where ignoring results is likely a bug
+- Added diagnostic messages to `#[must_use]` where ignoring results is likely a
+  bug
 - Added `#[non_exhaustive]` to:
   - `GnssTimeError`
   - `ConvertResult<T>`
@@ -31,6 +54,18 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   for future lint expansion
 
 ### Changed
+
+- Leap second table (`BUILTIN_TABLE`) fully verified against IERS Bulletin C
+  (all 19 entries validated using threshold formula)
+- Updated leap second documentation:
+  - added update policy and maintenance workflow
+  - documented compile-time invariants
+  - added runtime extension examples and validation rules
+  - included IERS monitoring references and current status (TAI−UTC = 37 as of 2026)
+- `LeapSeconds` API symmetry improved:
+  - `from_slice` added as alias to `from_table` for clarity
+- Enabled crate-wide lint:
+  - `#![warn(clippy::must_use_candidate)]`
 
 - Improved API correctness by enforcing explicit result usage via `#[must_use]`
 - Strengthened forward-compatibility guarantees using `#[non_exhaustive]`
