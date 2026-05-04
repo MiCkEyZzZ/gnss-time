@@ -89,7 +89,7 @@ pub enum OffsetToTai {
     Contextual,
 }
 
-/// Defines how a [`Time<S>`] value is formatted for display.
+/// Defines how a [`crate::Time<S>`] value is formatted for display.
 ///
 /// This affects `Display` and debug output.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
