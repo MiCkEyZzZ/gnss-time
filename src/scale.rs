@@ -1,27 +1,41 @@
-//! # GNSS time scale marker types
+//! # GNSS Time Scale Marker Types
 //!
-//! Each GNSS system operates on its own time scale with a fixed relationship
-//! to TAI (International Atomic Time).
+//! This module defines **compile-time marker types** for GNSS and atomic
+//! time scales.
+//!
+//! Each GNSS system operates on its own time scale with a fixed or
+//! contextual relationship to **TAI (International Atomic Time)**.
+//!
+//! ## Design principles
+//!
+//! - Each scale is a **zero-sized type (ZST)**
+//! - No runtime state is stored
+//! - All conversions are expressed through **TAI as a pivot scale**
+//! - The trait [`TimeScale`] is **sealed** to prevent external implementations
 //!
 //! ## Sealed trait
 //!
-//! [`TimeScale`] cannot be implemented outside this crate — the sealed pattern
-//! prevents accidental addition of custom time scales.
+//! [`TimeScale`] cannot be implemented outside this crate.
+//! This ensures:
+//!
+//! - correctness of offset invariants
+//! - consistency of conversion rules
+//! - prevention of user-defined incompatible scales
 //!
 //! ## Display formats
 //!
-//! | Scale   | Example format              |
-//! |---------|-----------------------------|
-//! | GLONASS | `"GLO 10512:43200.000"`     |
-//! | GPS     | `"GPS 2345:432000.000"`     |
-//! | Galileo | `"GAL 1303:432000.000"`     |
-//! | BeiDou  | `"BDT 960:432000.000"`      |
-//! | TAI     | `"TAI +1000000000s 0ns"`    |
-//! | UTC     | `"UTC +1000000000s 0ns"`    |
+//! | Scale   | Format                     |
+//! |---------|----------------------------|
+//! | GPS     | `GPS 2345:432000.000`      |
+//! | GLONASS | `GLO 10512:43200.000`      |
+//! | Galileo | `GAL 1303:432000.000`      |
+//! | BeiDou  | `BDT 960:432000.000`       |
+//! | TAI     | `TAI +1000000000s 0ns`     |
+//! | UTC     | `UTC +1000000000s 0ns`     |
 
 use crate::epoch::CivilDate;
 
-// Sealed pattern — prevents external implementations
+/// Internal module implementing the sealed trait pattern.
 mod private {
     pub trait Sealed {}
 }
@@ -54,65 +68,78 @@ pub(crate) const NANOS_PER_SECOND: i64 = 1_000_000_000;
 
 /// Relationship between a time scale and TAI.
 ///
-/// Strict contract:
-///     T_tai = T_self + offset
+/// The defining invariant is:
 ///
-/// This must be consistent for all scales.
-/// Violating it breaks cross-scale conversions.
+/// ```text
+/// T_tai = T_scale + offset
+/// ```
+///
+/// ## Variants
+///
+/// - `Fixed`: constant offset (no external dependencies)
+/// - `Contextual`: depends on runtime leap-second information
+///
+/// Contextual scales require a leap-second provider for correct conversion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum OffsetToTai {
-    /// Fixed offset (does not require leap seconds)
+    /// Constant offset relative to TAI.
     Fixed(i64),
 
-    /// Depends on external context (UTC, GLONASS)
+    /// Offset depends on external context (e.g. leap seconds).
     Contextual,
 }
 
-/// Controls how [`crate::Time`]`<S>` is formatted via
-/// [`core::fmt::Display`].
+/// Defines how a [`Time<S>`] value is formatted for display.
+///
+/// This affects `Display` and debug output.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DisplayStyle {
-    /// `"NAME WWW:SSSSSS.mm"` — week : time-of-week (GPS, Galileo, BeiDou)
+    /// Week-based format:
+    /// `NAME WWW:SSSSSS.mm`
     ///
-    /// The TOW seconds field is always zero-padded to **6 digits**
-    /// (maximum 604_799 s).
+    /// Used by GPS, Galileo, BeiDou.
     WeekTow,
 
-    /// `"NAME DDDDD:SSSSS.mmm"` — day : time-of-day (GLONASS)
+    /// Day-based format:
+    /// `NAME DDDDD:SSSSS.mmm`
     ///
-    /// The TOD seconds field is always zero-padded to **5 digits**
-    /// (maximum 86_399 s).
+    /// Used by GLONASS.
     DayTod,
 
-    /// `"NAME +Ss Nns"` — simple nanosecond format for (TAI, UTC)
+    /// Simple scalar format:
+    /// `NAME +Ss Nns`
+    ///
+    /// Used by TAI and UTC.
     Simple,
 }
 
-/// Marker trait for GNSS / atomic time scales.
+/// Marker trait for GNSS and atomic time scales.
 ///
-/// This trait is **sealed** and cannot be implemented outside this crate.
+/// This trait is **sealed** and cannot be implemented externally.
 ///
-/// Each scale defines:
-/// - [`TimeScale::NAME`] — short name
-/// - [`TimeScale::OFFSET_TO_TAI`] — conversion to TAI
+/// ## Contract
+///
+/// Each implementation MUST define:
+///
+/// - a unique name (`NAME`)
+/// - a consistent offset to TAI (`OFFSET_TO_TAI`)
+/// - a reference epoch (`EPOCH_CIVIL`)
+/// - a display format (`DISPLAY_STYLE`)
 pub trait TimeScale: private::Sealed + Copy + Clone + Eq + PartialEq + core::fmt::Debug {
-    /// Short ASCII name of the scale, used in Display/debug output.
+    /// Short identifier used in formatting.
     const NAME: &'static str;
 
     /// Offset relative to TAI:
     ///
-    /// STRICT CONTRACT:
-    ///     T_tai = T_self + offset
-    ///
-    /// For contextual scales (UTC, GLONASS),
-    /// leap-second handling is required.
+    /// ```text
+    /// T_tai = T_self + offset
+    /// ```
     const OFFSET_TO_TAI: OffsetToTai;
 
-    /// Civil date of the scale's epoch
-    /// (where `Time<S>::EPOCH == 0 ns`)
+    /// Civil epoch of the scale (where time == 0).
     const EPOCH_CIVIL: CivilDate;
 
-    /// Time display format
+    /// Formatting style for display output.
     const DISPLAY_STYLE: DisplayStyle;
 }
 

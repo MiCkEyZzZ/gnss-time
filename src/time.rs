@@ -64,25 +64,22 @@ use crate::{
     LeapSecondsProvider, OffsetToTai, Tai, TimeScale, Utc,
 };
 
-/// Временная метка в шкале времени `S`, хранимая как наносекунды от эпохи
-/// шкалы.
+/// A timestamp in time scale `S`, stored as nanoseconds since the epoch of the
+/// scale.
 ///
-/// # Примеры
+/// # Examples
 ///
 /// ```rust
-/// use gnss_time::{
-///     scale::{Glonass, Gps},
-///     Duration, Time,
-/// };
+/// use gnss_time::{Duration, Glonass, Gps, Time};
 ///
-/// let t: Time<Gps> = Time::from_nanos(0); // эпоха GPS
+/// let t: Time<Gps> = Time::from_nanos(0); // GPS epoch
 /// let later = t + Duration::from_seconds(3600);
 ///
 /// assert_eq!((later - t).as_seconds(), 3600);
 ///
-/// // Ошибка компиляции — разные шкалы несовместимы:
+/// // Compile-time error — different time scales are incompatible:
 /// // let glo: Time<Glonass> = Time::from_nanos(0);
-/// // let _ = later - glo; // ← ОШИБКА
+/// // let _ = later - glo; // ← ERROR
 /// ```
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 #[must_use = "Time<S> is a value type; ignoring it has no effect"]
@@ -635,24 +632,24 @@ impl Time<Gps> {
         Ok(Time::from_nanos(total))
     }
 
-    /// Преобразование GPS времени в UTC с использованием встроенной таблицы
-    /// leap seconds.
+    /// Conversion of GPS time to UTC using the built-in leap seconds table.
     ///
-    /// # Точность
+    /// # Accuracy
     ///
-    /// Для большинства временных меток преобразование точно до наносекунды.
-    /// Во время окна вставки високосной секунды (например, 2016-12-31 23:59:60
-    /// UTC) результат может отличаться до 1 секунды. Если это критично,
-    /// используйте [`to_utc_with`](Self::to_utc_with) и собственный
-    /// провайдер, который корректно обрабатывает неоднозначность.
+    /// For most timestamps, the conversion is accurate to the nanosecond.
+    /// During a leap second insertion window (e.g. 2016-12-31 23:59:60 UTC),
+    /// the result may differ by up to 1 second. If this is critical, use
+    /// [`to_utc_with`](Self::to_utc_with) with a custom provider that properly
+    /// handles the ambiguity.
     pub fn to_utc(self) -> Result<Time<Utc>, GnssTimeError> {
         gps_to_utc(self, LeapSeconds::builtin())
     }
 
-    /// Преобразование GPS времени в UTC с использованием пользовательского
-    /// провайдера leap seconds.
+    /// Conversion of GPS time to UTC using a custom leap seconds provider.
     ///
-    /// Тот же комментарий по точности, что и для [`to_utc`](Self::to_utc).
+    /// The same accuracy notes apply as for [`to_utc`](Self::to_utc):
+    /// the conversion is precise for most timestamps, but during a leap second
+    /// insertion window it may differ by up to 1 second.
     pub fn to_utc_with<P: LeapSecondsProvider>(
         self,
         ls: &P,
@@ -683,20 +680,19 @@ impl Time<Gps> {
 }
 
 impl Time<Utc> {
-    /// Преобразование UTC в GPS с использованием встроенной таблицы leap
-    /// seconds.
+    /// Conversion of UTC time to GPS using the built-in leap seconds table.
     ///
-    /// # Точность
-    /// То же, что и в [`to_utc`](Time::<Gps>::to_utc) — возможна
-    /// неоднозначность во время вставки високосной секунды.
+    /// # Accuracy
+    /// Same as in [`to_utc`](Time::<Gps>::to_utc) — ambiguity may occur during
+    /// leap second insertion events.
     pub fn to_gps(self) -> Result<Time<Gps>, GnssTimeError> {
         utc_to_gps(self, LeapSeconds::builtin())
     }
 
-    /// Преобразование UTC в GPS с использованием пользовательского
-    /// провайдера leap seconds.
+    /// Conversion of UTC time to GPS using a custom leap seconds provider.
     ///
-    /// Тот же комментарий по точности, что и для [`to_gps`](Self::to_gps).
+    /// The same accuracy notes apply as for [`to_gps`](Self::to_gps):
+    /// ambiguity may occur during leap second insertion events.
     pub fn to_gps_with<P: LeapSecondsProvider>(
         self,
         ls: &P,
@@ -735,13 +731,13 @@ impl<S: TimeScale> fmt::Debug for Time<S> {
 }
 
 impl<S: TimeScale> fmt::Display for Time<S> {
-    /// Формат зависит от [`DisplayStyle`] шкалы:
+    /// Formatting depends on the [`DisplayStyle`] of the time scale:
     ///
-    /// | Стиль      | Пример                     |
-    /// |------------|----------------------------|
-    /// | `WeekTow`  | `"GPS 2345:432000.000"`    |
-    /// | `DayTod`   | `"GLO 10512:43200.000"`    |
-    /// | `Simple`   | `"TAI +1000000000s 0ns"`   |
+    /// | Style      | Example                    |
+    /// |------------|---------------------------|
+    /// | `WeekTow`  | `"GPS 2345:432000.000"`   |
+    /// | `DayTod`   | `"GLO 10512:43200.000"`   |
+    /// | `Simple`   | `"TAI +1000000000s 0ns"`  |
     fn fmt(
         &self,
         f: &mut fmt::Formatter<'_>,

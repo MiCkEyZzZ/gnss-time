@@ -151,14 +151,19 @@ This is intentional and modeled explicitly.
 ```rust
 use gnss_time::prelude::*;
 
-let gps = Time::<Gps>::from_week_tow(2200, DurationParts {
-    seconds: 0,
-    nanos: 0,
-}).unwrap();
+let gps = Time::<Gps>::from_week_tow(
+        2200,
+        DurationParts {
+            seconds: 0,
+            nanos: 0,
+        },
+    )
+    .unwrap();
 
 let ls = LeapSeconds::builtin();
+let result: ConvertResult<Time<Utc>> = gps.into_scale_with_checked(ls).unwrap();
 
-match gps.into_scale_with(ls).unwrap() {
+match result {
     ConvertResult::Exact(utc) => {
         println!("UTC: {}", utc);
     }

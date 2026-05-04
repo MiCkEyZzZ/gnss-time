@@ -1,6 +1,6 @@
 //! # Leap seconds — conversion context
 //!
-//! ## Why this is an explicit parameter, not global state
+//! ## Why this is an explicit parameter instead of global state
 //!
 //! ```text
 //! // Hidden state — bad
@@ -11,11 +11,10 @@
 //! ```
 //!
 //! Reasons:
-//! - `no_std` / embedded: there is no global mutable memory
-//! - Embedded GNSS receiver: the table is read from the almanac and updated at
-//!   runtime
-//! - Testing: easy to inject the desired state without mocks
-//! - Determinism: compiled code does not depend on future IERS updates
+//! - `no_std` / embedded environments: no global mutable state
+//! - GNSS receivers: leap-second table may be updated at runtime
+//! - Testing: easy dependency injection without mocks
+//! - Determinism: results do not depend on future IERS updates
 //!
 //! ## Supported conversions
 //!
@@ -31,9 +30,12 @@
 //! ## GLONASS and leap seconds
 //!
 //! GLONASS tracks UTC(SU) = UTC + 3 hours, including leap-second insertions.
-//! Therefore GLONASS ↔ UTC conversion is a **constant shift** in nanoseconds
-//! (the difference between epochs), without any leap-second adjustments.
-//! Leap seconds are only needed when crossing into GPS/Galileo/BeiDou.
+//!
+//! Therefore GLONASS ↔ UTC conversion is a **constant nanosecond shift**
+//! relative to epoch alignment.
+//!
+//! Leap seconds are only required when converting into GPS / Galileo / BeiDou
+//! time scales.
 
 use crate::{
     tables::BUILTIN_TABLE, Beidou, CivilDate, Galileo, Glonass, GnssTimeError, Gps, Tai, Time, Utc,
