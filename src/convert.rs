@@ -1,28 +1,29 @@
-//! # Unified type-safe conversion API
+//! # GNSS time scale conversion
 //!
-//! This module provides the [`IntoScale`] and [`IntoScaleWith`] traits for
-//! converting between GNSS time scales, plus [`ConvertResult`] for handling the
-//! one-second ambiguity window that can occur during leap-second insertion.
+//! Type-safe conversion between GNSS time scales.
 //!
-//! ## Conversion overview
+//! This module provides:
 //!
-//! | From → To       | API                                | Leap seconds?          |
-//! |-----------------|------------------------------------|------------------------|
-//! | `Galileo → GPS` | [`IntoScale::into_scale`]          | No                     |
-//! | `GPS → TAI`     | [`IntoScale::into_scale`]          | No                     |
-//! | `GPS → Galileo` | [`IntoScale::into_scale`]          | No                     |
-//! | `GPS → BeiDou`  | [`IntoScale::into_scale`]          | No                     |
-//! | `BeiDou → GPS`  | [`IntoScale::into_scale`]          | No                     |
-//! | `GPS → UTC`     | [`IntoScaleWith::into_scale_with`] | Yes                    |
-//! | `UTC → GPS`     | [`IntoScaleWith::into_scale_with`] | Yes                    |
-//! | `GLO → UTC`     | [`IntoScale::into_scale`]          | No (fixed epoch shift) |
-//! | `UTC → GLO`     | [`IntoScale::into_scale`]          | No (fixed epoch shift) |
-//! | `GPS → GLO`     | [`IntoScaleWith::into_scale_with`] | Yes                    |
-//! | `GLO → GPS`     | [`IntoScaleWith::into_scale_with`] | Yes                    |
+//! - [`IntoScale`] — conversions with fixed offsets
+//! - [`IntoScaleWith`] — conversions requiring leap-second data
+//! - [`ConvertResult`] — representation of leap-second ambiguity
+//!
+//! ## Overview
+//!
+//! | Source → Target | Trait                           | Leap seconds |
+//! |----------------|----------------------------------|--------------|
+//! | GPS → TAI      | [`IntoScale`]                    | No           |
+//! | GPS → Galileo  | [`IntoScale`]                    | No           |
+//! | GPS → BeiDou   | [`IntoScale`]                    | No           |
+//! | UTC ↔ GPS      | [`IntoScaleWith`]                | Yes          |
+//! | GPS ↔ GLONASS  | [`IntoScaleWith`]                | Yes          |
+//!
+//! Fixed-offset conversions are lossless and do not require external data.
+//! Leap-second-aware conversions require a [`LeapSecondsProvider`].
 //!
 //! ## Usage
 //!
-//! Fixed-offset conversions do not require leap seconds:
+//! Fixed-offset conversions:
 //!
 //! ```rust
 //! use gnss_time::{DurationParts, Galileo, Gps, IntoScale, Tai, Time};
@@ -39,7 +40,7 @@
 //! let gal: Time<Galileo> = gps.into_scale().unwrap();
 //! ```
 //!
-//! Leap-second-aware conversions require an explicit [`LeapSecondsProvider`]:
+//! Leap-second-aware conversions:
 //!
 //! ```rust
 //! use gnss_time::{DurationParts, Gps, IntoScaleWith, LeapSeconds, Time, Utc};
@@ -58,9 +59,11 @@
 //!
 //! ## Leap-second ambiguity
 //!
-//! During leap-second insertion, `GPS → UTC` may map to a one-second window
-//! that cannot be represented as a single unambiguous civil-time value.
-//! Use [`IntoScaleWith::into_scale_with_checked`] to detect that case:
+//! During leap-second insertion, `GPS → UTC` conversion may map into a
+//! one-second interval that cannot be represented as a single unambiguous
+//! civil-time instant.
+//!
+//! Use [`IntoScaleWith::into_scale_with_checked`] to detect ambiguity.
 //!
 //! ```rust
 //! use gnss_time::{ConvertResult, Gps, IntoScaleWith, LeapSeconds, Time, Utc};
@@ -80,85 +83,78 @@ use crate::{
     LeapSecondsProvider, Tai, Time, TimeScale, Utc,
 };
 
-/// Converts `Time<Self>` into `Time<Target>` using a fixed offset.
+/// Fixed-offset conversion between time scales.
 ///
-/// This trait is implemented only for conversions whose offset is known at
-/// compile time.
-///
-/// Typical examples:
-/// - `GPS ↔ TAI`
-/// - `GPS ↔ Galileo`
-/// - `GPS ↔ BeiDou`
-/// - `GLONASS ↔ UTC`
-///
-/// # Errors
-///
-/// Returns [`GnssTimeError::Overflow`] if the converted value does not fit into
-/// the destination time representation.
+/// This trait is implemented for conversions where the relationship between
+/// time scales is constant and independent of leap seconds.
 #[must_use = "conversion result must be used; ignoring it discards the converted time"]
 pub trait IntoScale<Target: TimeScale>: Sized {
-    /// Converts using a fixed offset.
+    /// Converts the value into the target time scale.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GnssTimeError::Overflow`] if the result cannot be represented
+    /// in the target scale.
     fn into_scale(self) -> Result<Time<Target>, GnssTimeError>;
 }
 
-/// Converts `Time<Self>` into `Time<Target>` using an explicit leap-second
-/// table.
+/// Leap-second-aware conversion between time scales.
 ///
-/// This trait is required for conversions that depend on civil time, such as
-/// `UTC ↔ GPS` and `GLONASS ↔ GPS`.
+/// Required for conversions involving UTC or any scale derived from UTC.
+///
+/// This trait uses an external [`LeapSecondsProvider`] to resolve
+/// discontinuities introduced by leap seconds.
 #[must_use = "conversion result must be used; ignoring it discards the converted time"]
 pub trait IntoScaleWith<Target: TimeScale>: Sized {
-    /// Converts using the provided leap-second source.
-    ///
-    /// Returns [`GnssTimeError::Overflow`] if the result cannot be represented.
+    /// Converts using leap-second data.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
     ) -> Result<Time<Target>, GnssTimeError>;
 
-    /// Converts using the provided leap-second source and reports leap-second
-    /// ambiguity when applicable.
+    /// Converts and reports whether the result is ambiguous due to a
+    /// leap-second insertion.
     fn into_scale_with_checked<P: LeapSecondsProvider>(
         self,
         ls: P,
     ) -> Result<ConvertResult<Time<Target>>, GnssTimeError>;
 }
 
-/// Result of a conversion that may be ambiguous during leap-second insertion.
+/// Result of a leap-second-aware conversion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[must_use = "ConvertResult carries ambiguity information; call .into_inner() or match on it"]
+#[must_use = "ConvertResult contains ambiguity information; call .into_inner() or match explicitly"]
 pub enum ConvertResult<T> {
-    /// The conversion is fully unambiguous.
+    /// Unambiguous conversion result.
     Exact(T),
 
-    /// The source time falls inside a leap-second window.
+    /// Conversion falls inside a leap-second insertion window.
     ///
-    /// The inner value is the closest representable UTC timestamp.
+    /// The value represents the closest representable instant.
     AmbiguousLeapSecond(T),
 }
 
 impl<T> ConvertResult<T> {
-    /// Returns the inner value regardless of the variant.
+    /// Returns the inner value.
     #[inline]
     #[must_use]
     pub fn into_inner(self) -> T {
         match self {
-            ConvertResult::Exact(t) | ConvertResult::AmbiguousLeapSecond(t) => t,
+            Self::Exact(t) | Self::AmbiguousLeapSecond(t) => t,
         }
     }
 
-    /// Returns `true` if the result is exact.
+    /// Returns `true` if the result is unambiguous.
     #[inline]
     #[must_use]
     pub fn is_exact(&self) -> bool {
-        matches!(self, ConvertResult::Exact(_))
+        matches!(self, Self::Exact(_))
     }
 
-    /// Returns `true` if the result is ambiguous.
+    /// Returns `true` if the result is ambiguous due to a leap second.
     #[inline]
     #[must_use]
     pub fn is_ambiguous(&self) -> bool {
-        matches!(self, ConvertResult::AmbiguousLeapSecond(_))
+        matches!(self, Self::AmbiguousLeapSecond(_))
     }
 }
 
@@ -463,8 +459,8 @@ impl IntoScaleWith<Beidou> for Time<Glonass> {
 impl IntoScale<Utc> for Time<Glonass> {
     /// GLONASS -> UTC: fixed epoch shift.
     ///
-    /// GLONASS tracks UTC(SU) = UTC + 3 hours including leap seconds.
-    /// Therefore conversion is a pure epoch offset.
+    /// GLONASS uses UTC(SU), a time scale offset from UTC by +3 hours and
+    /// including leap seconds.
     ///
     /// ```rust
     /// use gnss_time::{DurationParts, Glonass, IntoScale, Time, Utc};
@@ -592,7 +588,7 @@ impl IntoScale<Tai> for Time<Gps> {
     /// let gps = Time::<Gps>::from_seconds(100);
     /// let tai: Time<Tai> = gps.into_scale().unwrap();
     ///
-    /// assert_eq!(tai.as_seconds(), 119); // 100 + 19
+    /// assert_eq!(tai.as_seconds(), 119);
     /// ```
     #[inline]
     fn into_scale(self) -> Result<Time<Tai>, GnssTimeError> {

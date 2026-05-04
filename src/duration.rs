@@ -1,16 +1,31 @@
 //! # Duration
 //!
-//! A signed, nanosecond-resolution time interval with no attachment to any
-//! particular [`TimeScale`](crate::scale::TimeScale).
+//! A signed, fixed-precision time interval represented in nanoseconds.
 //!
-//! ## Design decisions
+//! A `Duration` expresses the difference between two instants and is
+//! independent of any calendar system or time scale.
 //!
-//! - **`i64` nanoseconds** — covers ±292 years, more than enough for any
-//!   realistic GNSS differential measurement.
-//! - **No scale phantom** — a `Duration` is just an interval; it means the same
-//!   thing regardless of which constellation produced it.
-//! - **No allocations** — `Copy` type, works in `#[no_std]` environments.
-//! - **Checked and saturating arithmetic** — you choose the overflow policy
+//! ## Representation
+//!
+//! Internally stored as a signed 64-bit integer number of nanoseconds.
+//!
+//! ## Range
+//!
+//! Approximately ±292 years (`i64` nanoseconds).
+//!
+//! ## Characteristics
+//!
+//! - Domain-independent (no [`TimeScale`](crate::scale::TimeScale))
+//! - `Copy`, `Clone`, `Eq`, `Ord`
+//! - `#[repr(transparent)]` over `i64`
+//! - `no_std` compatible
+//! - Lossless integer arithmetic where possible
+//! - Provides checked, saturating, and fallible operations
+//!
+//! ## Notes
+//!
+//! This type is intentionally minimal and does not model calendar concepts
+//! such as months or days of variable length.
 
 use core::{
     fmt,
@@ -23,27 +38,30 @@ const NANOS_PER_SECOND: i64 = 1_000_000_000;
 const NANOS_PER_MILLI: i64 = 1_000_000;
 const NANOS_PER_MICRO: i64 = 1_000;
 
-/// A signed time interval measured in nanoseconds.
+/// A signed time interval with nanosecond precision.
 ///
-/// `Duration` is domain-agnostic: it represents the *difference* between two
-/// instants and can be added to or subtracted from any [`crate::Time<S>`].
+/// `Duration` represents a span of time and is independent of any time scale,
+/// reference system, or calendar.
 ///
-/// # Range
+/// ## Precision
 ///
-/// `i64` nanoseconds ==> approximately ±292 years.
+/// Nanosecond resolution.
 ///
-/// # Examples
+/// ## Range
+///
+/// Approximately ±2^63 nanoseconds (~292 years).
+///
+/// ## Examples
 ///
 /// ```rust
 /// use gnss_time::Duration;
 ///
-/// let one_sec = Duration::from_seconds(1);
-/// let half_sec = Duration::from_millis(500);
+/// let a = Duration::from_seconds(1);
+/// let b = Duration::from_millis(500);
 ///
-/// assert_eq!(one_sec - half_sec, half_sec);
+/// assert_eq!(a - b, b);
 ///
-/// let neg = -one_sec;
-///
+/// let neg = -a;
 /// assert_eq!(neg.as_nanos(), -1_000_000_000);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -55,61 +73,61 @@ impl Duration {
     /// Zero duration.
     pub const ZERO: Duration = Duration(0);
 
-    /// Maximum representable duration (~292 years).
+    /// Maximum representable duration.
     pub const MAX: Duration = Duration(i64::MAX);
 
-    /// Minimum representable duration (~ -292 years).
+    /// Minimum representable duration.
     pub const MIN: Duration = Duration(i64::MIN);
 
     /// One nanosecond.
     pub const ONE_NANOSECOND: Duration = Duration(1);
 
-    /// One second expressed as a `Duration`.
+    /// One second.
     pub const ONE_SECOND: Duration = Duration(NANOS_PER_SECOND);
 
-    /// Create from a raw nanosecond count. Prefer the types constructors below.
+    /// Creates a `Duration` from nanoseconds.
     #[inline(always)]
     pub const fn from_nanos(nanos: i64) -> Self {
         Duration(nanos)
     }
 
-    /// Create from whole microseconds.
+    /// Creates a `Duration` from microseconds.
     #[inline]
     pub const fn from_micros(micros: i64) -> Self {
         Duration(micros * NANOS_PER_MICRO)
     }
 
-    /// Create from whole milliseconds.
+    /// Creates a `Duration` from milliseconds.
     #[inline]
     pub const fn from_millis(millis: i64) -> Self {
         Duration(millis * NANOS_PER_MILLI)
     }
 
-    /// Create from whole seconds.
+    /// Creates a `Duration` from seconds.
     #[inline]
     pub const fn from_seconds(secs: i64) -> Self {
         Duration(secs * NANOS_PER_SECOND)
     }
 
-    /// Create from whole minutes.
+    /// Creates a `Duration` from minutes.
     #[inline]
     pub const fn from_minutes(mins: i64) -> Self {
         Duration(mins * 60 * NANOS_PER_SECOND)
     }
 
-    /// Create from whole hours.
+    /// Creates a `Duration` from hours.
     #[inline]
     pub const fn from_hours(hours: i64) -> Self {
         Duration(hours * 3_600 * NANOS_PER_SECOND)
     }
 
-    /// Create from whole days.
+    /// Creates a `Duration` from days.
     #[inline]
     pub const fn from_days(days: i64) -> Self {
         Duration(days * 86_400 * NANOS_PER_SECOND)
     }
 
-    /// Create from microseconds, returning `None` on overflow.
+    /// Creates a `Duration` from microseconds, returning `None` on overflow.
     #[inline]
     #[must_use = "returns None on overflow; check the result"]
     pub const fn checked_from_micros(micros: i64) -> Option<Self> {
@@ -119,7 +137,7 @@ impl Duration {
         }
     }
 
-    /// Create from milliseconds, returning `None` on overflow.
+    /// Creates a `Duration` from milliseconds, returning `None` on overflow.
     #[inline]
     #[must_use = "returns None on overflow; check the result"]
     pub const fn checked_from_millis(millis: i64) -> Option<Self> {
@@ -129,7 +147,7 @@ impl Duration {
         }
     }
 
-    /// Create from whole seconds, returning `None` on overflow.
+    /// Creates a `Duration` from seconds, returning `None` on overflow.
     #[inline]
     #[must_use = "returns None on overflow; check the result"]
     pub const fn checked_from_seconds(secs: i64) -> Option<Self> {
@@ -138,69 +156,64 @@ impl Duration {
             None => None,
         }
     }
-}
 
-impl Duration {
-    /// Raw nanosecond count (may be negative).
+    /// Returns the raw nanosecond value.
     #[inline(always)]
     #[must_use]
     pub const fn as_nanos(self) -> i64 {
         self.0
     }
 
-    /// Whole microseconds (truncated toward zero).
+    /// Returns whole microseconds (truncated toward zero).
     #[inline]
     #[must_use]
     pub const fn as_micros(self) -> i64 {
         self.0 / NANOS_PER_MICRO
     }
 
-    /// Whole millisecond (truncated toward zero).
+    /// Returns whole milliseconds (truncated toward zero).
     #[inline]
     #[must_use]
     pub const fn as_millis(self) -> i64 {
         self.0 / NANOS_PER_MILLI
     }
 
-    /// Whole seconds (truncated toward zero).
+    /// Returns whole seconds (truncated toward zero).
     #[inline]
     #[must_use]
     pub const fn as_seconds(self) -> i64 {
         self.0 / NANOS_PER_SECOND
     }
 
-    /// Floating-point seconds. Precision is limited by `f64` mantissa (~15
-    /// significant decimal digits), sufficient for sub-nanosecond accuracy up
-    /// to ~10 000 seconds.
+    /// Returns seconds as `f64`.
     #[inline]
     #[must_use]
     pub fn as_seconds_f64(self) -> f64 {
         self.0 as f64 / NANOS_PER_SECOND as f64
     }
 
-    /// Returns `true` if the duration is positive (> 0).
+    /// Returns `true` if positive.
     #[inline]
     #[must_use]
     pub const fn is_positive(self) -> bool {
         self.0 > 0
     }
 
-    /// Returns `true` if the duration is negative (< 0).
+    /// Returns `true` if negative.
     #[inline]
     #[must_use]
     pub const fn is_negative(self) -> bool {
         self.0 < 0
     }
 
-    /// Returns `true` if the duration is zero.
+    /// Returns `true` if zero.
     #[inline]
     #[must_use]
     pub const fn is_zero(self) -> bool {
         self.0 == 0
     }
 
-    /// Absolute value. Returns `None` for `Duration::MIN` (no positive
-    /// counterpart in `i64`).
+    /// Returns absolute value, or `None` on overflow.
     #[inline]
     #[must_use = "returns None for Duration::MIN; check the result"]
     pub const fn abs(self) -> Option<Self> {
@@ -209,10 +222,8 @@ impl Duration {
             None => None,
         }
     }
-}
 
-impl Duration {
-    /// Add, returning `None` on overflow.
+    /// Checked addition.
     #[inline]
     #[must_use = "returns None on overflow; check the result"]
     pub const fn checked_add(
@@ -225,7 +236,7 @@ impl Duration {
         }
     }
 
-    /// Subtract, returning `None` on overflow.
+    /// Checked subtraction.
     #[inline]
     #[must_use = "returns None on overflow; check the result"]
     pub const fn checked_sub(
@@ -238,7 +249,7 @@ impl Duration {
         }
     }
 
-    /// Add, saturating at `i64::MAX` / `i64::MIN`.
+    /// Saturating addition.
     #[inline]
     #[must_use = "saturating_add returns a new Duration; the original is unchanged"]
     pub const fn saturating_add(
@@ -248,7 +259,7 @@ impl Duration {
         Duration(self.0.saturating_add(rhs.0))
     }
 
-    /// Subtract, saturating at `i64::MAX` / `i64::MIN`.
+    /// Saturating subtraction.
     #[inline]
     #[must_use = "saturating_sub returns a new Duration; the original is unchanged"]
     pub const fn saturating_sub(
@@ -258,7 +269,7 @@ impl Duration {
         Duration(self.0.saturating_sub(rhs.0))
     }
 
-    /// Fallible addition - returns [`GnssTimeError::Overflow`] on overflow.
+    /// Fallible addition.
     #[inline]
     pub fn try_add(
         self,
@@ -267,7 +278,7 @@ impl Duration {
         self.checked_add(rhs).ok_or(GnssTimeError::Overflow)
     }
 
-    /// Fallible subtraction — returns [`GnssTimeError::Overflow`] on overflow.
+    /// Fallible subtraction.
     #[inline]
     pub fn try_sub(
         self,
@@ -280,10 +291,6 @@ impl Duration {
 impl Add for Duration {
     type Output = Duration;
 
-    /// # Panics / Overflow
-    ///
-    /// In debug builds, panics on overflow.
-    /// In release builds, wraps around (same semantics as `i64`).
     #[inline]
     fn add(
         self,
@@ -335,18 +342,15 @@ impl Neg for Duration {
 }
 
 impl fmt::Display for Duration {
-    /// Formats as `[−]Xs Ynano_s` preserving full precision.
-    ///
-    /// Examples: `"1s 0ns"`, `"-3s 141592654ns"`, `"0s 500000000ns"`.
     fn fmt(
         &self,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
-        let total = self.0;
-        let sign = if total < 0 { "-" } else { "" };
-        let abs = total.unsigned_abs(); // u64
-        let secs = abs / 1_000_000_000u64;
-        let nanos = abs % 1_000_000_000u64;
+        let abs = self.0.unsigned_abs();
+        let sign = if self.0 < 0 { "-" } else { "" };
+
+        let secs = abs / 1_000_000_000;
+        let nanos = abs % 1_000_000_000;
 
         write!(f, "{sign}{secs}s {nanos}ns")
     }

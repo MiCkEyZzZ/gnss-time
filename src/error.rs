@@ -1,24 +1,54 @@
 //! Error types for the `gnss-time` crate.
+//!
+//! This module defines the unified error type used across all fallible
+//! operations in the crate, including conversions, arithmetic, and
+//! time-scale transformations.
+//!
+//! The design follows a strict principle:
+//!
+//! - **No hidden failure modes** — all fallible operations return `Result`
+//! - **Explicit error context** — each variant describes a recoverable class of
+//!   failure
+//! - **`#[non_exhaustive]` for forward compatibility**
 
 use core::fmt;
 
-/// All errors that `gnss-time` operations can produce.
+/// Errors returned by fallible `gnss-time` operations.
 ///
-/// This type is marked `#[must_use]`: ignoring an error from a fallible
-/// conversion silently discards the failure reason.
+/// `GnssTimeError` is used throughout the crate for arithmetic overflow,
+/// invalid inputs, and missing auxiliary data (e.g. leap seconds).
+///
+/// This type is intentionally `#[non_exhaustive]` to allow new error cases
+/// without breaking semver compatibility.
+///
+/// # Usage
+///
+/// ```rust
+/// use gnss_time::GnssTimeError;
+///
+/// fn example() -> Result<(), GnssTimeError> {
+///     Err(GnssTimeError::Overflow)
+/// }
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[must_use = "errors must be handled; use `?` or `match` to inspect the failure"]
 #[non_exhaustive]
 pub enum GnssTimeError {
-    /// Integer arithmetic overflowed the `u64` nanosecond range.
+    /// Arithmetic overflow occurred during nanosecond-based computations.
+    ///
+    /// This indicates that an operation exceeded the representable range of
+    /// the underlying `i64` nanosecond storage.
     Overflow,
 
-    /// A coordinate or parameter was outside its valid domain.
+    /// The provided input value is invalid for the requested operation.
     ///
-    /// Carries a static description of which parameter was invalid.
+    /// The attached string provides a short static description of the issue.
     InvalidInput(&'static str),
 
-    /// A conversion required leap-second context that was not provided.
+    /// The operation requires leap-second information that is not available.
+    ///
+    /// This is typically required for conversions between UTC-based and
+    /// atomic time scales (e.g. GPS ↔ UTC, GLONASS ↔ GPS).
     LeapSecondsRequired,
 }
 
@@ -28,16 +58,13 @@ impl fmt::Display for GnssTimeError {
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
         match self {
-            GnssTimeError::Overflow => {
-                f.write_str("nanosecond arithmetic overflowed the u64 range")
-            }
+            GnssTimeError::Overflow => f.write_str("arithmetic overflow in nanosecond computation"),
             GnssTimeError::InvalidInput(msg) => {
                 write!(f, "invalid input: {msg}")
             }
-            GnssTimeError::LeapSecondsRequired => f.write_str(
-                "this conversion requires a LeapSeconds context \
-                 (GLONASS <-> GPS or GPS <-> UTC)",
-            ),
+            GnssTimeError::LeapSecondsRequired => {
+                f.write_str("leap-second data required for this conversion")
+            }
         }
     }
 }
@@ -55,13 +82,13 @@ impl defmt::Format for GnssTimeError {
     ) {
         match self {
             GnssTimeError::Overflow => {
-                defmt::write!(f, "nanosecond arithmetic overflowed the u64 range")
+                defmt::write!(f, "arithmetic overflow in nanoseconds")
             }
             GnssTimeError::InvalidInput(msg) => {
                 defmt::write!(f, "invalid input: {}", msg)
             }
             GnssTimeError::LeapSecondsRequired => {
-                defmt::write!(f, "conversion requires LeapSeconds context")
+                defmt::write!(f, "leap-second data required")
             }
         }
     }

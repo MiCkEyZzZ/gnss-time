@@ -1,71 +1,71 @@
 //! # Epochs and calendar arithmetic
 //!
-//! Every GNSS system anchors its time scale to a fixed calendar point — the
-//! *epoch*. This module provides:
+//! This module defines calendar epochs used by GNSS time scales and provides
+//! a minimal civil calendar type for epoch arithmetic.
 //!
-//! - [`CivilDate`] — proleptic Gregorian calendar date (no time-of-day or
-//!   timezone)
-//! - Named epoch constants for all supported time scales
-//! - `const fn` day arithmetic for compile-time validation of epochs
-//! - Nanosecond offset constants for time conversion layers
+//! ## Overview
 //!
-//! ## Epoch table
+//! GNSS time scales are anchored to fixed calendar epochs. This module
+//! provides:
 //!
-//! | Scale   | Calendar epoch (UTC)              | TAI − UTC at epoch |
-//! |---------|-----------------------------------|---------------------|
-//! | GLONASS | 1996-01-01 00:00:00 UTC(SU)       | 30 s                |
-//! | GPS     | 1980-01-06 00:00:00 UTC           | 19 s                |
-//! | Galileo | 1999-08-22 00:00:00 UTC           | 32 s                |
-//! | BeiDou  | 2006-01-01 00:00:00 UTC           | 33 s                |
-//! | TAI     | 1958-01-01 00:00:00 (definition)  | —                   |
-//! | Unix    | 1970-01-01 00:00:00 UTC           | 10 s                |
+//! - [`CivilDate`] — proleptic Gregorian calendar date (UTC, no time-of-day)
+//! - Canonical epoch constants for supported GNSS time scales
+//! - Compile-time day and nanosecond offsets between epochs
 //!
-//! ## Calendar representation and internal time
+//! ## Epoch reference table
 //!
-//! `Time<S>::EPOCH` (0 nanoseconds) corresponds to the calendar epoch listed
-//! above, for GPS and GLONASS, where time conversion starts directly from
-//! these dates.
+//! | Scale   | Epoch (UTC)                      | TAI − UTC |
+//! |---------|----------------------------------|-----------|
+//! | GLONASS | 1996-01-01 00:00:00 UTC(SU)      | 30 s      |
+//! | GPS     | 1980-01-06 00:00:00 UTC          | 19 s      |
+//! | Galileo | 1999-08-22 00:00:00 UTC          | 32 s      |
+//! | BeiDou  | 2006-01-01 00:00:00 UTC          | 33 s      |
+//! | TAI     | 1958-01-01 00:00:00 (definition) | —         |
+//! | Unix    | 1970-01-01 00:00:00 UTC          | 10 s      |
 //!
-//! For cross-scale operations, all systems use a common internal TAI pivot
-//! defined in [`OffsetToTai`](crate::scale::OffsetToTai). The constants in
-//! this module define calendar distances between epochs and form the basis of
-//! future conversion layers that include leap seconds.
+//! ## Notes on representation
+//!
+//! Each `Time<S>::EPOCH` corresponds to the epoch listed above. For all
+//! systems, internal representation is ultimately aligned through a TAI
+//! reference pivot defined in [`OffsetToTai`](crate::scale::OffsetToTai).
+//!
+//! The constants in this module define *calendar offsets only* and do not
+//! include leap second handling.
 
-/// Proleptic Gregorian calendar date (year, month, day).
+/// Proleptic Gregorian calendar date.
 ///
-/// `CivilDate` is a helper type for documentation and arithmetic purposes.
-/// It does not contain time-of-day, timezone, or leap second information.
+/// A minimal date type used for epoch definitions and calendar arithmetic.
 ///
-/// All methods are `const fn`, allowing compile-time verification of epochs.
+/// This type does not include time-of-day, timezone, or leap second
+/// information.
 ///
-/// # Examples
+/// ## Validity
+///
+/// No validation is performed. Invalid dates are allowed and may produce
+/// undefined calendar results.
+///
+/// ## Examples
 ///
 /// ```rust
 /// use gnss_time::{CivilDate, GALILEO_EPOCH, GPS_EPOCH};
 ///
-/// let delta_s = GPS_EPOCH.seconds_until(GALILEO_EPOCH);
-///
-/// assert_eq!(delta_s, 619_315_200); // well-known GPS → Galileo offset
+/// let delta = GPS_EPOCH.seconds_until(GALILEO_EPOCH);
+/// assert_eq!(delta, 619_315_200);
 /// ```
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct CivilDate {
     /// Year (e.g. 1980)
     pub year: i32,
-
-    /// Month (1..=12)
+    /// Month (1–12)
     pub month: u8,
-
-    /// Day of month (1..=31)
+    /// Day of month (1–31)
     pub day: u8,
 }
 
 impl CivilDate {
-    /// Creates a calendar date.
+    /// Creates a new calendar date.
     ///
-    /// # Important
-    ///
-    /// No validation is performed — invalid dates (e.g. 31 February)
-    /// do not panic, but may lead to incorrect computations.
+    /// No validation is performed.
     #[inline]
     #[must_use]
     pub const fn new(
@@ -76,18 +76,18 @@ impl CivilDate {
         CivilDate { year, month, day }
     }
 
-    /// Number of days since the Unix epoch (`1970-01-01`).
+    /// Returns the number of days since the Unix epoch (`1970-01-01`).
     ///
-    /// Negative for dates before 1970.
-    /// Uses Howard Hinnant’s algorithm:
-    /// <http://howardhinnant.github.io/date_algorithms.html>
+    /// Negative values indicate dates before the epoch.
+    ///
+    /// Uses Howard Hinnant’s algorithm.
     #[inline]
     #[must_use]
     pub const fn days_from_unix(self) -> i64 {
         days_from_unix_impl(self.year, self.month as i32, self.day as i32)
     }
 
-    /// Difference in days between dates (`other − self`).
+    /// Returns the signed difference in days (`other - self`).
     #[inline]
     #[must_use]
     pub const fn days_until(
@@ -97,7 +97,9 @@ impl CivilDate {
         other.days_from_unix() - self.days_from_unix()
     }
 
-    /// Difference in seconds (ignores time-of-day).
+    /// Returns the difference in whole seconds.
+    ///
+    /// Time-of-day is not considered.
     #[inline]
     #[must_use]
     pub const fn seconds_until(
@@ -107,7 +109,9 @@ impl CivilDate {
         self.days_until(other) * 86_400
     }
 
-    /// Difference in nanoseconds (ignores time-of-day).
+    /// Returns the difference in nanoseconds.
+    ///
+    /// Time-of-day is not considered.
     #[inline]
     #[must_use]
     pub const fn nanos_until(
@@ -118,12 +122,10 @@ impl CivilDate {
     }
 }
 
-/// Converts a calendar date to days since Unix epoch.
+/// Converts a civil date to days since Unix epoch.
 ///
-/// Howard Hinnant’s algorithm:
+/// Implementation based on Howard Hinnant’s algorithm:
 /// <http://howardhinnant.github.io/date_algorithms.html>
-///
-/// Uses integer arithmetic only (no floating point).
 const fn days_from_unix_impl(
     y: i32,
     m: i32,
@@ -145,103 +147,72 @@ const fn days_from_unix_impl(
     era * 146_097 + doe as i64 - 719_468
 }
 
-/// TAI epoch: **1958-01-01 00:00:00 TAI**.
-///
-/// Reference point of international atomic time.
+/// TAI epoch (1958-01-01).
 pub const TAI_EPOCH: CivilDate = CivilDate::new(1958, 1, 1);
 
-/// Unix epoch: **1970-01-01 00:00:00 UTC**.
-///
-/// Reference point for Unix time; at this date TAI − UTC = 10 s.
+/// Unix epoch (1970-01-01).
 pub const UNIX_EPOCH: CivilDate = CivilDate::new(1970, 1, 1);
 
-/// GPS epoch: **1980-01-06 00:00:00 UTC**.
-///
-/// `Time<Gps>::EPOCH` corresponds to this moment.
-/// At this date TAI − UTC = 19 s, so `GPS = TAI − 19 s`.
+/// GPS epoch (1980-01-06).
 pub const GPS_EPOCH: CivilDate = CivilDate::new(1980, 1, 6);
 
-/// GLONASS epoch: **1996-01-01 00:00:00 UTC(SU)**.
-///
-/// UTC(SU) = UTC + 3 hours (Moscow standard time, no DST).
-/// `Time<Glonass>::EPOCH` counts from this date.
-/// At this moment TAI − UTC = 30 s (including leap second of 1995-12-31).
+/// GLONASS epoch (1996-01-01 UTC(SU)).
 pub const GLONASS_EPOCH: CivilDate = CivilDate::new(1996, 1, 1);
 
-/// Galileo epoch: **1999-08-22 00:00:00 UTC** (= GPS week 1024, TOW 0).
-///
-/// Galileo System Time uses the same TAI offset as GPS (`GAL = TAI − 19 s`).
-/// GPS and Galileo timestamps with identical nanosecond values represent the
-/// same physical moment.
+/// Galileo epoch (1999-08-22).
 pub const GALILEO_EPOCH: CivilDate = CivilDate::new(1999, 8, 22);
 
-/// BeiDou epoch: **2006-01-01 00:00:00 UTC**.
-///
-/// `Time<Beidou>::EPOCH` corresponds to this date.
-/// At this moment TAI − UTC = 33 s, so `BDT = TAI − 33 s`.
-/// Relation to GPS: `BDT = GPS − 14 s`.
+/// BeiDou epoch (2006-01-01).
 pub const BEIDOU_EPOCH: CivilDate = CivilDate::new(2006, 1, 1);
 
-/// TAI − UTC at GPS epoch (1980-01-06): **19 seconds**.
+/// TAI − UTC at GPS epoch.
 pub const LEAP_SECONDS_AT_GPS_EPOCH: i64 = 19;
 
-/// TAI − UTC at GLONASS epoch (1996-01-01): **30 seconds**.
+/// TAI − UTC at GLONASS epoch.
 pub const LEAP_SECONDS_AT_GLONASS_EPOCH: i64 = 30;
 
-/// TAI − UTC at Galileo epoch (1999-08-22): **32 seconds**.
+/// TAI − UTC at Galileo epoch.
 pub const LEAP_SECONDS_AT_GALILEO_EPOCH: i64 = 32;
 
-/// TAI − UTC at BeiDou epoch (2006-01-01): **33 seconds**.
+/// TAI − UTC at BeiDou epoch.
 pub const LEAP_SECONDS_AT_BEIDOU_EPOCH: i64 = 33;
 
-/// Days from GPS epoch to Galileo epoch: **7168 days**.
-///
-/// `1999-08-22 − 1980-01-06 = 7168 days = 619 315 200 s`
+/// Days between GPS and Galileo epochs.
 pub const DAYS_GPS_TO_GALILEO: i64 = GPS_EPOCH.days_until(GALILEO_EPOCH);
 
-/// Days from GPS epoch to BeiDou epoch: **9492 days**.
-///
-/// `2006-01-01 − 1980-01-06 = 9492 days = 820 108 800 s`
+/// Days between GPS and BeiDou epochs.
 pub const DAYS_GPS_TO_BEIDOU: i64 = GPS_EPOCH.days_until(BEIDOU_EPOCH);
 
-/// Days from GPS epoch to GLONASS epoch: **5839 days**.
-///
-/// `1996-01-01 − 1980-01-06 = 5839 days`
+/// Days between GPS and GLONASS epochs.
 pub const DAYS_GPS_TO_GLONASS: i64 = GPS_EPOCH.days_until(GLONASS_EPOCH);
 
-/// Days from Unix epoch to GPS epoch: **3657 days**.
+/// Days between Unix and GPS epochs.
 pub const DAYS_UNIX_TO_GPS: i64 = UNIX_EPOCH.days_until(GPS_EPOCH);
 
-/// Calendar nanoseconds from GPS epoch to Galileo epoch.
-///
-/// `619_315_200 s × 10⁹ ns/s = 619_315_200_000_000_000 ns`
+/// Nanoseconds between GPS and Galileo epochs.
 pub const NANOS_GPS_TO_GALILEO_EPOCH: i64 = GPS_EPOCH.nanos_until(GALILEO_EPOCH);
 
-/// Calendar nanoseconds from GPS epoch to BeiDou epoch (before leap second
-/// adjustment).
-///
-/// Actual GPS−BDT offset also includes accumulated leap difference:
-/// `BDT = GPS − 14 s`.
+/// Nanoseconds between GPS and BeiDou epochs (calendar only).
 pub const NANOS_GPS_TO_BEIDOU_EPOCH_CALENDAR: i64 = GPS_EPOCH.nanos_until(BEIDOU_EPOCH);
 
-/// Galileo−GPS calendar delta must equal 619 315 200 s.
+// Galileo−GPS calendar delta must equal 619 315 200 s.
 const _VERIFY_GALILEO: () = {
     let s = NANOS_GPS_TO_GALILEO_EPOCH / 1_000_000_000;
     assert!(s == 619_315_200, "Galileo epoch offset check failed");
 };
 
-/// BeiDou−GPS calendar delta must equal 820 108 800 s.
+// BeiDou−GPS calendar delta must equal 820 108 800 s.
 const _VERIFY_BEIDOU: () = {
     let s = NANOS_GPS_TO_BEIDOU_EPOCH_CALENDAR / 1_000_000_000;
     assert!(s == 820_108_800, "BeiDou epoch offset check failed");
 };
 
-/// GPS epoch must be 3657 days from Unix epoch.
+// GPS epoch must be 3657 days from Unix epoch.
 const _VERIFY_GPS_UNIX: () = {
     assert!(DAYS_UNIX_TO_GPS == 3657, "GPS Unix offset check failed");
 };
 
-/// GLONASS epoch must be 5839 days from GPS epoch.
+// GLONASS epoch must be 5839 days from GPS epoch.
 const _VERIFY_GLONASS: () = {
     assert!(
         DAYS_GPS_TO_GLONASS == 5839,
