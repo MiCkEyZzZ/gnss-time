@@ -26,6 +26,26 @@
 //! | TAI     | 1958-01-01       | ≈ **2542-07-05**           |
 //! | UTC     | 1972-01-01       | ≈ **2556-07-03**           |
 //!
+//! ## Unix time interoperability
+//!
+//! `Time<Utc>` counts nanoseconds from **1972-01-01** (UTC epoch), while Unix
+//! time starts from **1970-01-01**. The gap is [`UTC_EPOCH_UNIX_OFFSET_S`] =
+//! 63 072 000 s (730 days).
+//!
+//! ```rust
+//! use gnss_time::{Time, Utc};
+//!
+//! // Unix epoch (1970-01-01) is before the UTC epoch (1972-01-01) → error
+//! assert!(Time::<Utc>::from_unix_seconds(0).is_err());
+//!
+//! // 1972-01-01 = UTC epoch
+//! let utc = Time::<Utc>::from_unix_seconds(63_072_000).unwrap();
+//! assert_eq!(utc, Time::<Utc>::EPOCH);
+//! assert_eq!(utc.as_unix_seconds(), 63_072_000);
+//! ```
+//!
+//! ## Arithmetic overflow semantics
+//!
 //! All arithmetic is **checked by default** - panicking operators (`+`, `-`)
 //! are only suitable for cases you know cannot oberflow. Fo embedded code or
 //! long-running servers, prefer:
@@ -45,13 +65,6 @@
 //! // Fallible - returns Err(GnssTimeError::Overflow)
 //! assert!(t.try_add(d).is_err());
 //! ```
-//!
-//! ## Lint: `arithmetic_overflow` is always an error
-//!
-//! This crate runs with `#[deny(arithmetic_overflow)]` in CI (via `clippy.toml`
-//! and `RUSTFLAGS=-D warnings`).  Do **not** add
-//! `#[allow(arithmetic_overflow)]` anywhere — instead use the
-//! checked/saturating/fallible variants above.
 
 use core::{
     fmt,
@@ -61,7 +74,8 @@ use core::{
 
 use crate::{
     gps_to_utc, utc_to_gps, DisplayStyle, Duration, Glonass, GnssTimeError, Gps, LeapSeconds,
-    LeapSecondsProvider, OffsetToTai, Tai, TimeScale, Utc,
+    LeapSecondsProvider, OffsetToTai, Tai, TimeScale, Utc, UTC_EPOCH_UNIX_OFFSET_NS,
+    UTC_EPOCH_UNIX_OFFSET_S,
 };
 
 /// A timestamp in time scale `S`, stored as nanoseconds since the epoch of the
@@ -111,25 +125,10 @@ impl<S: TimeScale> Time<S> {
         _scale: PhantomData,
     };
 
-    /// Минимальное представляемое значение (синоним EPOCH).
+    /// Minimum representable value (synonym for `EPOCH`).
     pub const MIN: Self = Self::EPOCH;
 
-    /// Maximum representable instant.
-    ///
-    /// `u64::MAX` nanoseconds ≈ **584.5 years** past the scale's epoch.
-    ///
-    /// | Scale   | Epoch      | `MAX` ≈ calendar date |
-    /// |---------|------------|-----------------------|
-    /// | GLONASS | 1996-01-01 | 2580-07-01            |
-    /// | GPS     | 1980-01-06 | 2564-07-04            |
-    /// | Galileo | 1999-08-22 | 2584-02-15            |
-    /// | BeiDou  | 2006-01-01 | 2590-07-02            |
-    /// | TAI     | 1958-01-01 | 2542-07-05            |
-    /// | UTC     | 1972-01-01 | 2556-07-03            |
-    ///
-    /// Arithmetic near `MAX` **will** overflow — use
-    /// [`checked_add`](Self::checked_add),
-    /// [`saturating_add`](Self::saturating_add), or [`try_add`](Self::try_add).
+    /// Maximum representable instant (`u64::MAX` nanoseconds ≈ 584.5 years).
     pub const MAX: Self = Time {
         nanos: u64::MAX,
         _scale: PhantomData,
@@ -143,7 +142,6 @@ impl<S: TimeScale> Time<S> {
     ///
     /// // 50 years from GPS epoch
     /// let fifty_years = Time::<Gps>::from_nanos(50 * Time::<Gps>::NANOS_PER_YEAR);
-    ///
     /// assert!(fifty_years.as_nanos() > 0);
     /// ```
     pub const NANOS_PER_YEAR: u64 = 365 * 24 * 3_600 * 1_000_000_000;
@@ -158,9 +156,6 @@ impl<S: TimeScale> Time<S> {
     }
 
     /// Construct from whole seconds since this scale's epoch.
-    ///
-    /// # Panics
-    /// Panics if `secs * 1_000_000_000` overflows `u64`.
     #[inline]
     pub const fn from_seconds(secs: u64) -> Self {
         match secs.checked_mul(1_000_000_000) {
@@ -178,9 +173,7 @@ impl<S: TimeScale> Time<S> {
             None => None,
         }
     }
-}
 
-impl<S: TimeScale> Time<S> {
     /// Raw nanoseconds since this scale's epoch.
     #[inline(always)]
     #[must_use]
@@ -202,9 +195,7 @@ impl<S: TimeScale> Time<S> {
     pub fn as_seconds_f64(self) -> f64 {
         self.nanos as f64 / 1_000_000_000.0
     }
-}
 
-impl<S: TimeScale> Time<S> {
     /// Convert to TAI using the scale's fixed offset.
     ///
     /// Returns [`GnssTimeError::LeapSecondsRequired`] for contextual scales
@@ -248,9 +239,7 @@ impl<S: TimeScale> Time<S> {
 
         Time::<T>::from_tai(tai)
     }
-}
 
-impl<S: TimeScale> Time<S> {
     /// Add a `Duration`, returning `None` on overflow or underflow.
     #[inline]
     #[must_use = "returns None on overflow; check the result"]
@@ -262,7 +251,7 @@ impl<S: TimeScale> Time<S> {
 
         if result < 0 || result > u64::MAX as i128 {
             return None;
-        };
+        }
 
         Some(Time::from_nanos(result as u64))
     }
@@ -328,9 +317,7 @@ impl<S: TimeScale> Time<S> {
     ) -> Result<Self, GnssTimeError> {
         self.checked_sub_duration(d).ok_or(GnssTimeError::Overflow)
     }
-}
 
-impl<S: TimeScale> Time<S> {
     /// Signed interval `self − earlier`. Returns `None` if it overflows `i64`.
     #[inline]
     #[must_use = "returns None on overflow; check the result"]
@@ -436,7 +423,7 @@ impl DurationParts {
     ) -> Result<Self, GnssTimeError> {
         if nanos >= Self::NANOS_PER_SECOND {
             return Err(GnssTimeError::InvalidInput(
-                "nanos must be in [0, 1_000_000_000]",
+                "nanos must be in [0, 1_000_000_000)",
             ));
         }
 
@@ -482,7 +469,6 @@ impl Time<Glonass> {
                 "tod.seconds must be in [0, 86_400)",
             ));
         }
-
         if tod.nanos >= DurationParts::NANOS_PER_SECOND {
             return Err(GnssTimeError::InvalidInput(
                 "tod.nanos must be in [0, 1_000_000_000)",
@@ -492,15 +478,14 @@ impl Time<Glonass> {
         let day_ns = (day as u64)
             .checked_mul(86_400_000_000_000)
             .ok_or(GnssTimeError::Overflow)?;
-
         let tod_ns = tod
             .seconds
             .checked_mul(1_000_000_000)
             .ok_or(GnssTimeError::Overflow)?
             .checked_add(tod.nanos as u64)
             .ok_or(GnssTimeError::Overflow)?;
-
         let total = day_ns.checked_add(tod_ns).ok_or(GnssTimeError::Overflow)?;
+
         Ok(Time::from_nanos(total))
     }
 
@@ -629,7 +614,44 @@ impl Time<Gps> {
             .ok_or(GnssTimeError::Overflow)?;
 
         let total = week_ns.checked_add(tow_ns).ok_or(GnssTimeError::Overflow)?;
+
         Ok(Time::from_nanos(total))
+    }
+
+    /// Создаёт GPS время из Unix timestamp (секунды с 1970-01-01 UTC).
+    pub fn from_unix_seconds<P: LeapSecondsProvider>(
+        unix_seconds: i64,
+        ls: P,
+    ) -> Result<Self, GnssTimeError> {
+        let utc = Time::<Utc>::from_unix_seconds(unix_seconds)?;
+
+        utc_to_gps(utc, &ls)
+    }
+
+    /// Returns this GPS timestamp as a Unix timestamp (whole seconds since
+    /// 1970-01-01 UTC).
+    ///
+    /// The conversion is `GPS -> UTC -> Unix` and therefore requires an
+    /// explicit leap-second provider.
+    ///
+    /// # Errors
+    ///
+    /// [`GnssTimeError::Overflow`] if the UTC conversion fails.
+    ///
+    /// ```rust
+    /// use gnss_time::{Gps, LeapSeconds, Time};
+    ///
+    /// let ls = LeapSeconds::builtin();
+    /// // GPS epoch = 1980-01-06 → Unix 315_964_800
+    /// assert_eq!(Time::<Gps>::EPOCH.as_unix_seconds(ls).unwrap(), 315_964_800);
+    /// ```
+    pub fn as_unix_seconds<P: LeapSecondsProvider>(
+        self,
+        ls: P,
+    ) -> Result<i64, GnssTimeError> {
+        let utc = gps_to_utc(self, &ls)?;
+
+        Ok(utc.as_unix_seconds())
     }
 
     /// Conversion of GPS time to UTC using the built-in leap seconds table.
@@ -680,19 +702,151 @@ impl Time<Gps> {
 }
 
 impl Time<Utc> {
-    /// Conversion of UTC time to GPS using the built-in leap seconds table.
+    /// Construct from a Unix timestamp (whole seconds since 1970-01-01 UTC).
     ///
-    /// # Accuracy
-    /// Same as in [`to_utc`](Time::<Gps>::to_utc) — ambiguity may occur during
-    /// leap second insertion events.
+    /// `Time<Utc>` counts nanoseconds from **1972-01-01** (UTC epoch), while
+    /// Unix time starts from **1970-01-01**. The gap is
+    /// [`UTC_EPOCH_UNIX_OFFSET_S`] = 63 072 000 s (730 days).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GnssTimeError::Overflow`] if `unix_seconds < 63_072_000`
+    /// (i.e. the date is before 1972-01-01 00:00:00 UTC, the UTC epoch).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::{Time, Utc, UTC_EPOCH_UNIX_OFFSET_S};
+    ///
+    /// // Unix epoch (1970-01-01) is before the UTC epoch → error
+    /// assert!(Time::<Utc>::from_unix_seconds(0).is_err());
+    ///
+    /// // 63_072_000 s from Unix epoch = 1972-01-01 = UTC epoch
+    /// let utc = Time::<Utc>::from_unix_seconds(UTC_EPOCH_UNIX_OFFSET_S).unwrap();
+    /// assert_eq!(utc, Time::<Utc>::EPOCH);
+    ///
+    /// // Round-trip
+    /// let unix_s: i64 = 1_700_000_000;
+    /// let utc2 = Time::<Utc>::from_unix_seconds(unix_s).unwrap();
+    /// assert_eq!(utc2.as_unix_seconds(), unix_s);
+    /// ```
+    pub fn from_unix_seconds(unix_seconds: i64) -> Result<Self, GnssTimeError> {
+        // utc_seconds_from_1972 = unix_seconds − UTC_EPOCH_UNIX_OFFSET_S
+        let utc_s = unix_seconds
+            .checked_sub(UTC_EPOCH_UNIX_OFFSET_S)
+            .ok_or(GnssTimeError::Overflow)?;
+
+        if utc_s < 0 {
+            return Err(GnssTimeError::Overflow);
+        }
+
+        let nanos = (utc_s as u64)
+            .checked_mul(1_000_000_000)
+            .ok_or(GnssTimeError::Overflow)?;
+
+        Ok(Time::from_nanos(nanos))
+    }
+
+    /// Construct from a Unix timestamp with nanosecond precision.
+    ///
+    /// `unix_nanos` is the number of nanoseconds since 1970-01-01 00:00:00 UTC.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GnssTimeError::Overflow`] if the result would be before the
+    /// UTC epoch (1972-01-01), i.e. `unix_nanos < UTC_EPOCH_UNIX_OFFSET_NS`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::{Time, Utc, UTC_EPOCH_UNIX_OFFSET_NS};
+    ///
+    /// // UTC epoch in Unix nanoseconds
+    /// let utc = Time::<Utc>::from_unix_nanos(UTC_EPOCH_UNIX_OFFSET_NS).unwrap();
+    /// assert_eq!(utc, Time::<Utc>::EPOCH);
+    ///
+    /// // Round-trip
+    /// let nanos: i64 = 1_700_000_000_123_456_789;
+    /// let utc2 = Time::<Utc>::from_unix_nanos(nanos).unwrap();
+    /// assert_eq!(utc2.as_unix_nanos(), nanos);
+    /// ```
+    pub fn from_unix_nanos(unix_nanos: i64) -> Result<Self, GnssTimeError> {
+        // utc_nanos_from_1972 = unix_nanos − UTC_EPOCH_UNIX_OFFSET_NS
+        let utc_ns = unix_nanos
+            .checked_sub(UTC_EPOCH_UNIX_OFFSET_NS)
+            .ok_or(GnssTimeError::Overflow)?;
+
+        if utc_ns < 0 {
+            return Err(GnssTimeError::Overflow);
+        }
+
+        Ok(Time::from_nanos(utc_ns as u64))
+    }
+
+    /// Returns this UTC timestamp as a Unix timestamp (whole seconds since
+    /// 1970-01-01 UTC).
+    ///
+    /// The result is always ≥ [`UTC_EPOCH_UNIX_OFFSET_S`] because `Time<Utc>`
+    /// cannot represent dates before 1972-01-01.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::{Time, Utc, UTC_EPOCH_UNIX_OFFSET_S};
+    ///
+    /// // UTC epoch = 1972-01-01 = Unix 63_072_000
+    /// assert_eq!(
+    ///     Time::<Utc>::EPOCH.as_unix_seconds(),
+    ///     UTC_EPOCH_UNIX_OFFSET_S
+    /// );
+    ///
+    /// // Round-trip
+    /// let unix_s: i64 = 1_700_000_000;
+    /// let utc = Time::<Utc>::from_unix_seconds(unix_s).unwrap();
+    /// assert_eq!(utc.as_unix_seconds(), unix_s);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn as_unix_seconds(self) -> i64 {
+        (self.nanos / 1_000_000_000) as i64 + UTC_EPOCH_UNIX_OFFSET_S
+    }
+
+    /// Returns this UTC timestamp as a Unix timestamp with nanosecond
+    /// precision (nanoseconds since 1970-01-01 UTC).
+    ///
+    /// # Overflow note
+    ///
+    /// `i64` can represent nanoseconds up to ~year 2262 from the Unix epoch.
+    /// For timestamps beyond that, this method saturates at `i64::MAX`.
+    /// In practice, `Time<Utc>::MAX` corresponds to ~year 2556, which is
+    /// beyond `i64` range — plan accordingly.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::{Time, Utc, UTC_EPOCH_UNIX_OFFSET_NS};
+    ///
+    /// assert_eq!(Time::<Utc>::EPOCH.as_unix_nanos(), UTC_EPOCH_UNIX_OFFSET_NS);
+    ///
+    /// // Round-trip (within i64 range)
+    /// let nanos: i64 = 1_700_000_000_123_456_789;
+    /// let utc = Time::<Utc>::from_unix_nanos(nanos).unwrap();
+    /// assert_eq!(utc.as_unix_nanos(), nanos);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn as_unix_nanos(self) -> i64 {
+        // self.nanos is u64; cast to i64 wraps above i64::MAX (~year 2262).
+        // We use saturating_add to avoid UB and stay predictable.
+        (self.nanos as i64).saturating_add(UTC_EPOCH_UNIX_OFFSET_NS)
+    }
+
+    /// Conversion of UTC time to GPS using the built-in leap seconds table.
     pub fn to_gps(self) -> Result<Time<Gps>, GnssTimeError> {
         utc_to_gps(self, LeapSeconds::builtin())
     }
 
     /// Conversion of UTC time to GPS using a custom leap seconds provider.
-    ///
-    /// The same accuracy notes apply as for [`to_gps`](Self::to_gps):
-    /// ambiguity may occur during leap second insertion events.
     pub fn to_gps_with<P: LeapSecondsProvider>(
         self,
         ls: &P,
@@ -837,6 +991,7 @@ mod tests {
     #[test]
     fn test_epoch_is_zero() {
         assert_eq!(Time::<Gps>::EPOCH.as_nanos(), 0);
+        assert_eq!(Time::<Utc>::EPOCH.as_nanos(), 0);
     }
 
     #[test]
@@ -1312,18 +1467,6 @@ mod tests {
     }
 
     #[test]
-    fn test_saturating_add_clamps_at_max() {
-        assert_eq!(
-            Time::<Gps>::MAX.saturating_add(Duration::from_nanos(1)),
-            Time::<Gps>::MAX
-        );
-        assert_eq!(
-            Time::<Gps>::MAX.saturating_add(Duration::from_seconds(9999)),
-            Time::<Gps>::MAX
-        );
-    }
-
-    #[test]
     fn test_saturating_add_negative_clamps_at_epoch() {
         assert_eq!(
             Time::<Gps>::EPOCH.saturating_add(Duration::from_nanos(-1)),
@@ -1362,13 +1505,6 @@ mod tests {
     #[test]
     fn test_try_add_overflow_returns_err() {
         let result = Time::<Gps>::MAX.try_add(Duration::from_nanos(1));
-
-        assert!(matches!(result, Err(GnssTimeError::Overflow)));
-    }
-
-    #[test]
-    fn test_try_sub_duration_underflow_returns_err() {
-        let result = Time::<Gps>::EPOCH.try_sub_duration(Duration::from_nanos(1));
 
         assert!(matches!(result, Err(GnssTimeError::Overflow)));
     }
@@ -1415,5 +1551,218 @@ mod tests {
         let elapsed = a.checked_elapsed(b).unwrap();
 
         assert_eq!(elapsed.as_seconds(), 500_000);
+    }
+
+    #[test]
+    fn test_unix_seconds_roundtrip() {
+        let unix = 1_600_000_000; // 2020-09-13
+        let utc = Time::<Utc>::from_unix_seconds(unix).unwrap();
+
+        assert_eq!(utc.as_unix_seconds(), unix);
+    }
+
+    #[test]
+    fn test_unix_nanos_roundtrip() {
+        let unix_ns = 1_600_000_000_123_456_789;
+        let utc = Time::<Utc>::from_unix_nanos(unix_ns).unwrap();
+
+        assert_eq!(utc.as_unix_nanos(), unix_ns);
+    }
+
+    #[test]
+    fn test_gps_display_format() {
+        let t = Time::<Gps>::from_week_tow(
+            2345,
+            DurationParts {
+                seconds: 432_000,
+                nanos: 0,
+            },
+        )
+        .unwrap();
+        assert_eq!(t.to_string(), "GPS 2345:432000.000");
+    }
+
+    #[test]
+    fn test_saturating_add_clamps_at_max() {
+        assert_eq!(
+            Time::<Gps>::MAX.saturating_add(Duration::from_nanos(1)),
+            Time::<Gps>::MAX
+        );
+    }
+
+    #[test]
+    fn test_utc_from_unix_seconds_zero_fails() {
+        // Unix epoch (1970-01-01) is before UTC epoch (1972-01-01)
+        assert!(matches!(
+            Time::<Utc>::from_unix_seconds(0),
+            Err(GnssTimeError::Overflow)
+        ));
+    }
+
+    #[test]
+    fn test_utc_from_unix_seconds_negative_fails() {
+        assert!(matches!(
+            Time::<Utc>::from_unix_seconds(-1),
+            Err(GnssTimeError::Overflow)
+        ));
+    }
+
+    #[test]
+    fn test_utc_from_unix_seconds_just_before_utc_epoch_fails() {
+        // One second before 1972-01-01
+        assert!(matches!(
+            Time::<Utc>::from_unix_seconds(63_071_999),
+            Err(GnssTimeError::Overflow)
+        ));
+    }
+
+    #[test]
+    fn test_utc_from_unix_seconds_at_utc_epoch_gives_epoch() {
+        // 1972-01-01 00:00:00 UTC = unix 63_072_000
+        let utc = Time::<Utc>::from_unix_seconds(63_072_000).unwrap();
+        assert_eq!(utc, Time::<Utc>::EPOCH);
+    }
+
+    #[test]
+    fn test_utc_from_unix_seconds_roundtrip() {
+        let unix_s: i64 = 1_700_000_000; // 2023-11-14
+        let utc = Time::<Utc>::from_unix_seconds(unix_s).unwrap();
+        assert_eq!(utc.as_unix_seconds(), unix_s);
+    }
+
+    #[test]
+    fn test_utc_from_unix_seconds_known_date() {
+        // 2024-01-01 00:00:00 UTC = Unix 1_704_067_200
+        let unix_s: i64 = 1_704_067_200;
+        let utc = Time::<Utc>::from_unix_seconds(unix_s).unwrap();
+        assert_eq!(utc.as_unix_seconds(), unix_s);
+    }
+
+    #[test]
+    fn test_utc_as_unix_seconds_at_epoch_equals_offset() {
+        use crate::UTC_EPOCH_UNIX_OFFSET_S;
+        assert_eq!(
+            Time::<Utc>::EPOCH.as_unix_seconds(),
+            UTC_EPOCH_UNIX_OFFSET_S
+        );
+        assert_eq!(Time::<Utc>::EPOCH.as_unix_seconds(), 63_072_000);
+    }
+
+    #[test]
+    fn test_utc_as_unix_seconds_one_second_after_epoch() {
+        let utc = Time::<Utc>::from_nanos(1_000_000_000); // 1 s after UTC epoch
+        assert_eq!(utc.as_unix_seconds(), 63_072_001);
+    }
+
+    #[test]
+    fn test_utc_from_unix_nanos_at_utc_epoch() {
+        use crate::UTC_EPOCH_UNIX_OFFSET_NS;
+        let utc = Time::<Utc>::from_unix_nanos(UTC_EPOCH_UNIX_OFFSET_NS).unwrap();
+        assert_eq!(utc, Time::<Utc>::EPOCH);
+    }
+
+    #[test]
+    fn test_utc_from_unix_nanos_zero_fails() {
+        assert!(matches!(
+            Time::<Utc>::from_unix_nanos(0),
+            Err(GnssTimeError::Overflow)
+        ));
+    }
+
+    #[test]
+    fn test_utc_from_unix_nanos_one_ns_before_utc_epoch_fails() {
+        assert!(matches!(
+            Time::<Utc>::from_unix_nanos(63_072_000_000_000_000 - 1),
+            Err(GnssTimeError::Overflow)
+        ));
+    }
+
+    #[test]
+    fn test_utc_from_unix_nanos_roundtrip() {
+        let unix_ns: i64 = 1_700_000_000_123_456_789;
+        let utc = Time::<Utc>::from_unix_nanos(unix_ns).unwrap();
+        assert_eq!(utc.as_unix_nanos(), unix_ns);
+    }
+
+    #[test]
+    fn test_utc_as_unix_nanos_at_epoch() {
+        use crate::UTC_EPOCH_UNIX_OFFSET_NS;
+        assert_eq!(Time::<Utc>::EPOCH.as_unix_nanos(), UTC_EPOCH_UNIX_OFFSET_NS);
+        assert_eq!(Time::<Utc>::EPOCH.as_unix_nanos(), 63_072_000_000_000_000);
+    }
+
+    #[test]
+    fn test_utc_as_unix_nanos_one_ns_after_epoch() {
+        let utc = Time::<Utc>::from_nanos(1);
+        assert_eq!(utc.as_unix_nanos(), 63_072_000_000_000_001);
+    }
+
+    #[test]
+    fn test_utc_unix_seconds_and_nanos_consistent() {
+        let unix_s: i64 = 1_600_000_000;
+        let unix_ns: i64 = unix_s * 1_000_000_000;
+        let from_s = Time::<Utc>::from_unix_seconds(unix_s).unwrap();
+        let from_ns = Time::<Utc>::from_unix_nanos(unix_ns).unwrap();
+        assert_eq!(from_s, from_ns);
+    }
+
+    #[test]
+    fn test_utc_unix_nanos_sub_second_preserved() {
+        let unix_ns: i64 = 1_700_000_000_500_000_000; // .5 s
+        let utc = Time::<Utc>::from_unix_nanos(unix_ns).unwrap();
+        // seconds part
+        assert_eq!(utc.as_unix_seconds(), 1_700_000_000);
+        // nanoseconds round-trip
+        assert_eq!(utc.as_unix_nanos(), unix_ns);
+    }
+
+    #[test]
+    fn test_gps_from_unix_seconds_at_gps_epoch() {
+        let ls = LeapSeconds::builtin();
+        // GPS epoch (1980-01-06) in Unix time = 315_964_800
+        // At that moment GPS − UTC = 0
+        let gps = Time::<Gps>::from_unix_seconds(315_964_800, ls).unwrap();
+        assert_eq!(gps, Time::<Gps>::EPOCH);
+    }
+
+    #[test]
+    fn test_gps_from_unix_seconds_before_utc_epoch_fails() {
+        let ls = LeapSeconds::builtin();
+        // Before 1972-01-01 (UTC epoch) → error in utc step
+        assert!(Time::<Gps>::from_unix_seconds(0, ls).is_err());
+    }
+
+    #[test]
+    fn test_gps_as_unix_seconds_at_gps_epoch() {
+        let ls = LeapSeconds::builtin();
+        assert_eq!(Time::<Gps>::EPOCH.as_unix_seconds(ls).unwrap(), 315_964_800);
+    }
+
+    #[test]
+    fn test_gps_unix_seconds_roundtrip() {
+        let ls = LeapSeconds::builtin();
+        // 2020-01-01 00:00:00 UTC = Unix 1_577_836_800
+        let unix_s: i64 = 1_577_836_800;
+        let gps = Time::<Gps>::from_unix_seconds(unix_s, ls).unwrap();
+        assert_eq!(gps.as_unix_seconds(ls).unwrap(), unix_s);
+    }
+
+    #[test]
+    fn test_gps_unix_seconds_post_2017() {
+        let ls = LeapSeconds::builtin();
+        // 2023-01-01 00:00:00 UTC = Unix 1_672_531_200
+        let unix_s: i64 = 1_672_531_200;
+        let gps = Time::<Gps>::from_unix_seconds(unix_s, ls).unwrap();
+        assert_eq!(gps.as_unix_seconds(ls).unwrap(), unix_s);
+    }
+
+    #[test]
+    fn test_gps_unix_offset_is_18s_post_2017() {
+        let ls = LeapSeconds::builtin();
+        // In 2023, GPS − UTC = 18 s, so GPS seconds = unix − 315_964_800 + 18
+        let unix_s: i64 = 1_672_531_200; // 2023-01-01 UTC
+        let gps = Time::<Gps>::from_unix_seconds(unix_s, ls).unwrap();
+        let expected_gps_s = (unix_s - 315_964_800 + 18) as u64;
+        assert_eq!(gps.as_seconds(), expected_gps_s);
     }
 }

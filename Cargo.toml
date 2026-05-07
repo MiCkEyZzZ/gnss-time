@@ -1,18 +1,15 @@
 [package]
 name = "gnss-time"
 version = "0.5.2"
-edition = "2021"
 description = "Type-safe GNSS time scales: GPS, GLONASS, Galileo, BeiDou, TAI, UTC — no_std by default"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/MiCkEyZzZ/gnss-time"
-homepage = "https://github.com/MiCkEyZzZ/gnss-time"
 documentation = "https://docs.rs/gnss-time"
-readme = "README.md"
+homepage = "https://github.com/MiCkEyZzZ/gnss-time"
+repository = "https://github.com/MiCkEyZzZ/gnss-time"
 keywords = ["glonass", "gnss", "gps", "time", "no-std"]
 categories = ["no-std", "science", "date-and-time"]
-authors = ["<zedmfix@gmail.com>"]
-
-# Minimum supported Rust version
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+edition = "2021"
 rust-version = "1.75"
 
 # List of files included in the crates.io package (excludes dev files)
@@ -60,21 +57,6 @@ criterion = { version = "0.8.2", features = ["html_reports"] }
 # For bare-metal CI (thumbv7em) integration tests are never built.
 proptest = { version = "1.8.0", default-features = false, features = ["std"] }
 
-[[bench]]
-name = "time_bench"
-path = "benches/time_bench.rs"
-harness = false
-
-[[bench]]
-name = "arithmetic_bench"
-path = "benches/arithmetic_bench.rs"
-harness = false
-
-[[bench]]
-name = "convert_bench"
-path = "benches/convert_bench.rs"
-harness = false
-
 [[example]]
 name = "basic_usage"
 path = "examples/basic_usage.rs"
@@ -106,6 +88,10 @@ path = "examples/convert_contextual.rs"
 [[example]]
 name = "matrix_inspection"
 path = "examples/matrix_inspection.rs"
+
+[[example]]
+name = "unix_time"
+path = "examples/unix_time.rs"
 
 [package.metadata.docs.rs]
 # docs.rs builds with features = ["std", "defmt"] to expose full API

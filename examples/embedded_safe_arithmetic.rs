@@ -1,4 +1,4 @@
-use gnss_time::{scale::Gps, Duration, DurationParts, GnssTimeError, Time};
+use gnss_time::{Duration, DurationParts, GnssTimeError, Gps, Time};
 
 fn main() {
     println!("=== Embedded-safe arithmetic demo ===\n");

@@ -5,6 +5,63 @@ All notable changes to **gnss-time** are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Added Unix/UTC/GPS epoch constants:
+  - `UTC_EPOCH_UNIX_OFFSET_S`
+  - `UTC_EPOCH_UNIX_OFFSET_NS`
+  - `GPS_EPOCH_UNIX_S`
+  - `UTC_CIVIL_EPOCH`
+
+- Added Unix time conversion API:
+  - `Time<Utc>::from_unix_seconds`
+  - `Time<Utc>::from_unix_nanos`
+  - `Time<Utc>::as_unix_seconds`
+  - `Time<Utc>::as_unix_nanos`
+  - `Time<Gps>::from_unix_seconds` (with `LeapSecondsProvider`)
+  - `Time<Gps>::as_unix_seconds` (with `LeapSecondsProvider`)
+
+- Enforced UTC epoch lower bound (1972-01-01) for Unix → UTC conversions
+- Added unit tests covering Unix ↔ UTC ↔ GPS round-trips and edge cases
+
+- Added `unix_time.rs` example with 8 sections and complete demonstrations:
+  - Epoch constants — demonstration of constants
+  - Unix epoch before UTC epoch → error case
+  - UTC epoch from Unix → UTC epoch
+  - Round-trip seconds for 8 historical dates
+  - Round-trip nanoseconds with sub-second precision
+  - GPS ↔ Unix via UTC + leap seconds
+  - Verification that GPS−UTC = 18 in 2023
+  - Integration pattern with `std::time::SystemTime`
+
+- Created a new `bench` crate and moved existing benchmark tests into it:
+  - `arithmetic_bench.rs`
+  - `convert_bench.rs`
+  - `time_bench.rs`
+
+### Changed
+
+- Added constants to `prelude.rs`:
+  - `GPS_EPOCH_UNIX_S`
+  - `UTC_EPOCH_UNIX_OFFSET_NS`
+  - `UTC_EPOCH_UNIX_OFFSET_S`
+
+- Updated `prelude.rs` with re-exports:
+  - `UTC_EPOCH_UNIX_OFFSET_S`
+  - `UTC_EPOCH_UNIX_OFFSET_NS`
+  - `GPS_EPOCH_UNIX_S` (now available via `use`)
+
+- Improved code documentation in `duration.rs`
+- Updated `README.md` with minimum required Rust version
+- Added links to license files
+- Added constants to `prelude.rs`
+
+### Removed
+
+- Removed the `benches` directory
+
 ## [0.5.2] - 2026-05-04
 
 ### Added
@@ -201,180 +258,183 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
-- **Бенчмарки (#TIME-12)**: добавлены `benches/arithmetic_bench.rs` и `benches/convert_bench.rs`.
-  - Доказывают zero-cost абстракции: `Time<Gps> + Duration` (512 ps) наравне с
+- **Benchmarks (#TIME-12)**: added `benches/arithmetic_bench.rs` and `benches/convert_bench.rs`.
+  - Demonstrate zero-cost abstractions: `Time<Gps> + Duration` (512 ps) on par with
     `u64 + u64` (517 ps).
-  - Конверсии без leap seconds: ~0.8–0.9 нс.
-  - Конверсия `GPS → UTC` с leap seconds: ~9.5 нс (менее 10 нс).
-  - Используется `criterion` с HTML-отчётами.
+  - Conversions without leap seconds: ~0.8–0.9 ns.
+  - `GPS → UTC` conversion with leap seconds: ~9.5 ns (under 10 ns).
+  - Uses `criterion` with HTML reports.
 
-- **time.rs**: добавлена константа `Time::MIN` (синоним `EPOCH`) для симметрии
-  с `MAX`.
+- **time.rs**: added `Time::MIN` constant (alias of `EPOCH`) for symmetry with `MAX`.
 
-- **time.rs**: добавлена документация о диапазоне значений `Time<S>` (~584 года
-  от эпохи, для GPS до 2554 года).
+- **time.rs**: added documentation describing the value range of `Time<S>` (~584
+  years from the epoch; for GPS up to year 2554).
 
-- **time.rs**: добавлен тест `test_time_max_behavior` для проверки поведения
-  вблизи `u64::MAX`.
+- **time.rs**: added `test_time_max_behavior` to verify behavior near `u64::MAX`.
 
-- **.github/workflows/embedded.yml**: добавлена проверка `clippy::arithmetic_overflow`
-  в lint job.
+- **.github/workflows/embedded.yml**: added `clippy::arithmetic_overflow` check
+  to the lint job.
 
-- **Добавлен шаблон Issue `enhancement.yml`** для предложений по улучшению
-  существующей функциональности.
-  - Категории: производительность, API, конверсии шкал времени, leap seconds,
-    embedded/no_std, форматирование, рефакторинг, тестирование, документация.
+- Added **Issue template `enhancement.yml`** for proposing improvements to existing
+  functionality.
+  - Categories: performance, API, time scale conversions, leap seconds,
+    embedded/no_std, formatting, refactoring, testing, documentation.
 
-- **Добавлен файл `CODEOWNERS`** для автоматического назначения владельцев на разные
-  части репозитория.
-  - Определяет ответственность за код (`/src/`), тесты (`/tests/`), бенчмарки
-    (`/benches/`), примеры (`/examples/`), CI/CD (`/.github/workflows/`), документацию
-    (`/docs/`) и корневые файлы.
-  - Используется GitHub для автоматического ревью и назначения проверяющих на
-    Pull Request.
+- Added **`CODEOWNERS` file** for automatic ownership assignment across repository
+  areas.
+  - Defines responsibility for source (`/src/`), tests (`/tests/`), benchmarks
+    (`/benches/`), examples (`/examples/`), CI/CD (`/.github/workflows/`), documentation
+    (`/docs/`), and root files.
+  - Used by GitHub for automatic reviewer assignment on Pull Requests.
 
-- **Добавлен шаблон Pull Request** (`.github/pull_request_template.md`).
-  - Содержит структурированный чеклист для проверки изменений: указание scope,
-    описание изменений, способов тестирования.
-  - Включает обязательные проверки: `cargo fmt`, `taplo format`, `cargo clippy`,
-    `cargo test`, документацию и обновление CHANGELOG.
+- Added **Pull Request template** (`.github/pull_request_template.md`).
+  - Provides a structured checklist for reviewing changes: scope, description,
+    and testing approach.
+  - Includes required checks: `cargo fmt`, `taplo format`, `cargo clippy`,
+    `cargo test`, documentation, and CHANGELOG updates.
 
-- **CI: добавлен GitHub Actions workflow для проверки семантического формата
-  заголовков Pull Request** (`.github/workflows/semantic-pull-request.yml`).
-  - Автоматически проверяет заголовки PR на соответствие формату `type(scope?):
-описание`.
-  - Поддерживаемые типы: `feat`, `fix`, `docs`, `chore`, `perf`, `refactor`,
+- **CI**: added GitHub Actions workflow to validate semantic Pull Request titles
+  (`.github/workflows/semantic-pull-request.yml`).
+  - Automatically enforces PR title format: `type(scope?): description`.
+  - Supported types: `feat`, `fix`, `docs`, `chore`, `perf`, `refactor`,
     `test`, `ci`, `build`, `style`.
-  - Работает только для нечерновиков PR (draft-игнорируются).
-  - При некорректном заголовке автоматически оставляет комментарий с пояснением.
+  - Runs only on non-draft PRs (drafts are ignored).
+  - Leaves an automatic comment if the title is invalid.
 
 - **.github/workflows**
-  - добавлен файл `embedded.yml` для проверки рамеров типов, сборка под
+  - added `embedded.yml` for type size checks, builds for
     `thumbv7em-none-eabihf`, `thumbv7em-none-eabi`, `riscv32imac-unknown-none-elf`,
-    хостовые тесты, clippy.
+    host tests, and clippy.
 
 - **.cargo**
-  - добавлен файл с конфигурации `config.toml` для кросс-компиляции:
-    - `thumbv7em-none-eabihf`,
-    - `thumbv7em-none-eabi`,
-    - `thumbv6m-none-eabi`,
-    - `riscv32imac-unknown-none-elf`,
-    - `riscv32i-unknown-none-elf`,
-    - `opt-level=s` - минимальный размер для flash-ограниченных устройств
-    - `codegen-units=1` - лучшая оптимизация
-    - `-C link-arg=-Tlink.x` для Cortex-M (нужен linker script из `cortex-m-rt`)
-    - `-D warnings`- предупреждения как ошибки в embedded CI
+  - added `config.toml` for cross-compilation:
+    - `thumbv7em-none-eabihf`
+    - `thumbv7em-none-eabi`
+    - `thumbv6m-none-eabi`
+    - `riscv32imac-unknown-none-elf`
+    - `riscv32i-unknown-none-elf`
+    - `opt-level = "s"` — minimize binary size for flash-constrained devices
+    - `codegen-units = 1` — improved optimization
+    - `-C link-arg=-Tlink.x` for Cortex-M (requires linker script from `cortex-m-rt`)
+    - `-D warnings` — treat warnings as errors in embedded CI
 
 - **tests**
-  - добавлены тесты `no_std_compact.rs` проверяющие на отсутствие `Drop`, `Copy-семантика`,
-    `const fn` в static-контексте, 8-битовое выравнивание для DMA, без аллокаций
-    в conversion paths, `core::fmt` без std, проверка `#![forbid(unsafe_code)]`
+  - added `no_std_compact.rs` tests verifying:
+    - absence of `Drop`
+    - `Copy` semantics
+    - `const fn` usability in static context
+    - 8-byte alignment for DMA
+    - no allocations in conversion paths
+    - `core::fmt` without `std`
+    - enforcement of `#![forbid(unsafe_code)]`
 
 - **time.rs**
-  - добавлена имлементация `impl<S: TimeScale> defmt::Format for Time<S>` для
+  - added `impl<S: TimeScale> defmt::Format for Time<S>` under
     `#[cfg(feature = "defmt")]`
 
 - **error.rs**
-  - добавлена имплементация `impl defmt::Format for GnssTimeError` для
-    `#[cfg(feature = "defmt")]`
+  - added `impl defmt::Format for GnssTimeError` under `#[cfg(feature = "defmt")]`
 
 ### Changed
 
-- `Cargo.toml`: bumped to `0.3.0`; added `defmt = ["dep:defmt"]` with
+- `Cargo.toml`: bumped to `0.3.0`; added `defmt = ["dep:defmt"]` using
   `dep:` syntax (Cargo 1.60+); added `[package.metadata.docs.rs]` for
   docs.rs targets and features.
-- `justfile`: added `setup-embedded`, `check-std`, `check-no-std`,
-  `check-no-std-defmt`, `lint-no-std`, `msrv`, `hack`, `test-host`,
-  `test-no-std`, `ci` commands.
+
+- `justfile`: added commands:
+  `setup-embedded`, `check-std`, `check-no-std`,
+  `check-no-std-defmt`, `lint-no-std`, `msrv`, `hack`,
+  `test-host`, `test-no-std`, `ci`.
 
 ### Fixed
 
 - `leap.rs`: `LeapSeconds::builtin()` now returns `&'static LeapSeconds`
-  (was `const fn` — incompatible with `no_std` static data access).
-- `time.rs`: removed `const` from `as_seconds_f64` (floating-point ops
-  are not `const` in stable Rust 1.75).
+  (previously `const fn`, which is incompatible with `no_std` static data access).
+
+- `time.rs`: removed `const` from `as_seconds_f64` (floating-point operations
+  are not `const` on stable Rust 1.75).
 
 ## [0.2.0] — 2026-04-26
 
 ### Added
 
-- **Полная матрица конверсий (`matrix`)**:
-  - Тип `ScaleId` для идентификации шкал времени в рантайме (GPS, GLONASS, Galileo,
+- **Full conversion matrix (`matrix`)**:
+  - `ScaleId` type for runtime identification of time scales (GPS, GLONASS, Galileo,
     BeiDou, TAI, UTC).
-  - Тип `ConversionKind` – классификация преобразований (Fixed, Identity, EpochShift,
-    Contextual, SameScale).
-  - Структура `ConversionMatrix` – проверка совместимости и статистика по графу
-    конверсий.
-  - Константы смещений относительно TAI: `TAI_OFFSET_GPS_NS`, `TAI_OFFSET_GALILEO_NS`,
-    `TAI_OFFSET_BEIDOU_NS`, `TAI_OFFSET_TAI_NS`, `GLONASS_UTC_EPOCH_SHIFT_NS`.
-  - Функция `beidou_via_gps_to_glonass_via_utc` – пример последовательного преобразования
-    через все шкалы.
-  - Тесты для проверки симметричности и классификации всех 30 внедиагональных путей.
+  - `ConversionKind` type — classification of conversion types (Fixed, Identity,
+    EpochShift, Contextual, SameScale).
+  - `ConversionMatrix` structure — validation of compatibility and statistics over
+    the conversion graph.
+  - TAI offset constants: `TAI_OFFSET_GPS_NS`, `TAI_OFFSET_GALILEO_NS`, `TAI_OFFSET_BEIDOU_NS`,
+    `TAI_OFFSET_TAI_NS`, `GLONASS_UTC_EPOCH_SHIFT_NS`.
+  - `beidou_via_gps_to_glonass_via_utc` function — example of chained conversion
+    across multiple scales.
+  - Tests covering symmetry and classification of all 30 off-diagonal conversion
+    paths.
 
-- **Расширенные возможности конверсий в `leap` и `convert`**:
-  - Функции `galileo_to_utc`, `galileo_to_glonass`, `beidou_to_utc`, `beidou_to_glonass`,
-    а также соответствующие обратные преобразования `utc_to_galileo`, `utc_to_beidou`.
-  - Реализации трейтов `IntoScale` и `IntoScaleWith` для всех пар шкал, включая
+- **Extended conversion capabilities in `leap` and `convert`**:
+  - Functions: `galileo_to_utc`, `galileo_to_glonass`, `beidou_to_utc`, `beidou_to_glonass`,
+    and reverse conversions `utc_to_galileo`, `utc_to_beidou`.
+  - Implementations of `IntoScale` and `IntoScaleWith` for all scale pairs, including
     Galileo ↔ GLONASS, BeiDou ↔ GLONASS, Galileo ↔ UTC, BeiDou ↔ UTC.
-  - Полная поддержка 6×6 матрицы конверсий (всего 30 направлений).
+  - Full support for a 6×6 conversion matrix (30 directional paths).
 
-- **Исправлена опечатка** в doctest `matrix.rs` (метод `needs_leap_seconds` и число
-  контекстных путей 16 вместо 22).
+- Fixed a typo in `matrix.rs` doctest (`needs_leap_seconds` method and corrected
+  number of contextual paths: 16 instead of 22).
 
-- **Новые примеры**:
-  - `matrix_inspection.rs` – вывод матрицы конверсий.
-  - `dynamic_conversion.rs` – динамическая конверсия (рантайм).
-  - `chain_conversion.rs` – сквозная цепочка BeiDou → TAI.
+- **New examples**:
+  - `matrix_inspection.rs` — prints the conversion matrix.
+  - `dynamic_conversion.rs` — runtime (dynamic) conversions.
+  - `chain_conversion.rs` — end-to-end BeiDou → TAI conversion chain.
 
-- **GLONASS‑специфичные методы** (`Time<Glonass>`):
-  - `sub_second_nanos()` – наносекундная доля текущей секунды.
-  - `day_of_week()` – день недели по ISO (1 = Monday … 7 = Sunday), основан на
-    эпохе 1996-01-01 (понедельник).
-  - `is_weekend()` – возвращает `true` для субботы или воскресенья.
+- **GLONASS-specific methods** (`Time<Glonass>`):
+  - `sub_second_nanos()` — nanosecond fraction of the current second.
+  - `day_of_week()` — ISO weekday (1 = Monday … 7 = Sunday), based on the 1996-01-01
+    epoch (Monday).
+  - `is_weekend()` — returns `true` for Saturday or Sunday.
 
-- **Интеграционные тесты GLONASS** (`tests/glonass_test.rs`):
-  - Проверка постоянного сдвига GLO ↔ UTC (без leap seconds).
-  - Roundtrip GLO → UTC → GLO и GLO → GPS → GLO.
-  - Проверка корректности `day_of_week()` на известных датах.
-  - Поведение на границе leap second (2017-01-01).
+- **GLONASS integration tests** (`tests/glonass_test.rs`):
+  - Verification of constant GLO ↔ UTC offset (no leap seconds).
+  - Roundtrip tests: GLO → UTC → GLO and GLO → GPS → GLO.
+  - Validation of `day_of_week()` against known dates.
+  - Behavior at the leap second boundary (2017-01-01).
 
-- **Единый конверсионный API (`convert`)**.
-  - Трейт `IntoScale<Target>` для конверсий с фиксированным смещением (GPS↔TAI,
-    GPS↔Galileo, GPS↔BeiDou, GLO↔UTC).
-  - Трейт `IntoScaleWith<Target>` для контекстных конверсий (GPS↔UTC, GPS↔GLO) с
-    явной передачей `LeapSecondsProvider`.
-  - Тип `ConvertResult<T>` для обработки неоднозначного 1-секундного окна при
-    вставке leap second.
-  - Метод `into_scale_with_checked` для детектирования момента внутри leap second.
+- **Unified conversion API (`convert`)**:
+  - `IntoScale<Target>` trait for fixed-offset conversions (GPS↔TAI, GPS↔Galileo,
+    GPS↔BeiDou, GLO↔UTC).
+  - `IntoScaleWith<Target>` trait for contextual conversions (GPS↔UTC, GPS↔GLO)
+    with explicit `LeapSecondsProvider`.
+  - `ConvertResult<T>` type for handling the ambiguous 1-second window during leap
+    second insertion.
+  - `into_scale_with_checked` method for detecting timestamps within a leap second.
 
-- **Модуль `prelude`** — удобный импорт самых часто используемых типов:
+- **`prelude` module** — convenient import of commonly used types:
 
   ```rust
   use gnss_time::prelude::*;
   ```
 
-- **Новые примеры (`examples/`)**:
-  - `convert_basic.rs` — демонстрация конверсий с фиксированным смещением (без
-    leap seconds).
-  - `convert_contextual.rs` — демонстрация GPS↔UTC конверсий с leap seconds и
-    детекцией неоднозначности.
+- **New examples (`examples/`)**:
+  - `convert_basic.rs` — fixed-offset conversions (no leap seconds).
+  - `convert_contextual.rs` — GPS↔UTC conversions with leap seconds and ambiguity
+    detection.
 
-- **Интеграционные тесты (`tests/`)**:
-  - `roundtrip_test.rs` — проверка roundtrip точности для всех шкал, 18 переходов
-    leap seconds, известные RINEX эпохи.
-  - `time_integration_test.rs` — комплексные сценарии использования.
+- **Integration tests (`tests/`)**:
+  - `roundtrip_test.rs` — roundtrip accuracy across all scales, covering 18 leap
+    second transitions and known RINEX epochs.
+  - `time_integration_test.rs` — end-to-end usage scenarios.
 
 ### Fixed
 
-- `utc_to_gps`: replaced single-pass approximation with a two-pass algorithm.
-  Roundtrip `GPS → UTC → GPS` is now exact (< 1 ns) at all 18 GPS-era
-  leap second boundaries.
+- `utc_to_gps`: replaced a single-pass approximation with a two-pass algorithm.
+  Roundtrip `GPS → UTC → GPS` is now exact (< 1 ns) across all 18 GPS-era leap
+  second boundaries.
 
 ### Documentation
 
-- Добавлена документация к `convert` модулю с таблицей поддерживаемых конверсий
-  и примерами.
-- Добавлен `prelude` для удобного импорта.
+- Added documentation for the `convert` module, including a table of supported
+  conversions and usage examples.
+- Added `prelude` for more convenient imports.
 
 ## [0.1.0] — 2026-04-21
 
