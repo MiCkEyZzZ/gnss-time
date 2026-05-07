@@ -11,7 +11,7 @@
 //!   failure
 //! - **`#[non_exhaustive]` for forward compatibility**
 
-use core::fmt;
+use core::fmt::{self};
 
 /// Errors returned by fallible `gnss-time` operations.
 ///
@@ -50,6 +50,13 @@ pub enum GnssTimeError {
     /// This is typically required for conversions between UTC-based and
     /// atomic time scales (e.g. GPS ↔ UTC, GLONASS ↔ GPS).
     LeapSecondsRequired,
+
+    /// The value lies outside the representable range of the timestamp.
+    ///
+    /// This occurs when a Unix timestamp is earlier than the UTC epoch
+    /// (1972-01-01) or when a conversion would result in a negative
+    /// nanosecond count.
+    OutOfRange,
 }
 
 impl fmt::Display for GnssTimeError {
@@ -65,6 +72,7 @@ impl fmt::Display for GnssTimeError {
             GnssTimeError::LeapSecondsRequired => {
                 f.write_str("leap-second data required for this conversion")
             }
+            GnssTimeError::OutOfRange => f.write_str("timestamp is out of representable range"),
         }
     }
 }
@@ -89,6 +97,9 @@ impl defmt::Format for GnssTimeError {
             }
             GnssTimeError::LeapSecondsRequired => {
                 defmt::write!(f, "leap-second data required")
+            }
+            GnssTimeError::OutOfRange => {
+                defmt::write!(f, "timestamp is out of representable range")
             }
         }
     }

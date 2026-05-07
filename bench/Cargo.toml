@@ -1,0 +1,23 @@
+[package]
+name = "benches"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+gnss-time = { path = ".." }
+
+[dev-dependencies]
+criterion = { version = "0.8.2", features = ["html_reports"] }
+
+[[bench]]
+name = "arithmetic_bench"
+harness = false
+
+[[bench]]
+name = "convert_bench"
+harness = false
+
+[[bench]]
+name = "time_bench"
+harness = false

@@ -1,31 +1,51 @@
 //! # Duration
 //!
-//! A signed, fixed-precision time interval represented in nanoseconds.
+//! A signed, fixed-precision time interval with nanosecond resolution.
 //!
-//! A `Duration` expresses the difference between two instants and is
-//! independent of any calendar system or time scale.
+//! `Duration` represents the difference between two instants and is
+//! independent of any time scale, epoch, or calendar system.
+//!
+//! This type is a thin wrapper around a signed 64-bit integer storing a
+//! count of nanoseconds.
 //!
 //! ## Representation
 //!
-//! Internally stored as a signed 64-bit integer number of nanoseconds.
+//! Internally represented as an `i64` number of nanoseconds.
 //!
 //! ## Range
 //!
-//! Approximately ±292 years (`i64` nanoseconds).
+//! Approximately ±292 years (`i64::MIN..=i64::MAX` nanoseconds).
 //!
-//! ## Characteristics
+//! ## Semantics
 //!
-//! - Domain-independent (no [`TimeScale`](crate::scale::TimeScale))
-//! - `Copy`, `Clone`, `Eq`, `Ord`
+//! - Linear, uniform time (no leap seconds, no calendar irregularities)
+//! - Arithmetic is performed in integer nanoseconds
+//! - Negative durations are fully supported
+//!
+//! ## Guarantees
+//!
 //! - `#[repr(transparent)]` over `i64`
+//! - `Copy`, `Clone`, `Eq`, `Ord`, `Hash`
 //! - `no_std` compatible
-//! - Lossless integer arithmetic where possible
-//! - Provides checked, saturating, and fallible operations
+//! - No hidden allocations
+//!
+//! ## Arithmetic
+//!
+//! - Operator-based arithmetic (`Add`, `Sub`, etc.) does **not** check for
+//!   overflow
+//! - Checked variants (`checked_*`) return `None` on overflow
+//! - Saturating variants clamp to [`Duration::MIN`] / [`Duration::MAX`]
+//! - Fallible variants return [`GnssTimeError`]
 //!
 //! ## Notes
 //!
-//! This type is intentionally minimal and does not model calendar concepts
-//! such as months or days of variable length.
+//! This type intentionally does **not** model:
+//!
+//! - Calendar units (months, years)
+//! - Non-uniform days (leap seconds, DST)
+//! - Any time scale (TAI, UTC, GPS, etc.)
+//!
+//! For such concepts, use higher-level types.
 
 use core::{
     fmt,
@@ -34,22 +54,27 @@ use core::{
 
 use crate::GnssTimeError;
 
+/// The number of nanoseconds in one second.
 const NANOS_PER_SECOND: i64 = 1_000_000_000;
+
+/// The number of nanoseconds in one millisecond.
 const NANOS_PER_MILLI: i64 = 1_000_000;
+
+/// The number of nanoseconds in one microsecond.
 const NANOS_PER_MICRO: i64 = 1_000;
 
 /// A signed time interval with nanosecond precision.
 ///
-/// `Duration` represents a span of time and is independent of any time scale,
-/// reference system, or calendar.
+/// `Duration` is a value type representing a span of time, stored as a
+/// signed 64-bit count of nanoseconds.
 ///
 /// ## Precision
 ///
-/// Nanosecond resolution.
+/// 1 nanosecond.
 ///
 /// ## Range
 ///
-/// Approximately ±2^63 nanoseconds (~292 years).
+/// Approximately ±292 years.
 ///
 /// ## Examples
 ///
