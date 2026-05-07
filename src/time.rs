@@ -200,7 +200,7 @@ impl<S: TimeScale> Time<S> {
     ///
     /// Returns [`GnssTimeError::LeapSecondsRequired`] for contextual scales
     /// (UTC, GLONASS) and [`GnssTimeError::Overflow`] for out-of-range results.
-    pub fn to_tai(self) -> Result<Time<Tai>, GnssTimeError> {
+    pub const fn to_tai(self) -> Result<Time<Tai>, GnssTimeError> {
         match S::OFFSET_TO_TAI {
             OffsetToTai::Fixed(offset) => {
                 let nanos = (self.nanos as i128) + (offset as i128);
@@ -216,7 +216,7 @@ impl<S: TimeScale> Time<S> {
     }
 
     /// Construct `Time<S>` from a TAI timestamp using the scale's fixed offset.
-    pub fn from_tai(tai: Time<Tai>) -> Result<Self, GnssTimeError> {
+    pub const fn from_tai(tai: Time<Tai>) -> Result<Self, GnssTimeError> {
         match S::OFFSET_TO_TAI {
             OffsetToTai::Fixed(offset) => {
                 let nanos = (tai.as_nanos() as i128) - (offset as i128);
@@ -243,7 +243,7 @@ impl<S: TimeScale> Time<S> {
     /// Add a `Duration`, returning `None` on overflow or underflow.
     #[inline]
     #[must_use = "returns None on overflow; check the result"]
-    pub fn checked_add(
+    pub const fn checked_add(
         self,
         d: Duration,
     ) -> Option<Self> {
@@ -259,7 +259,7 @@ impl<S: TimeScale> Time<S> {
     /// Subtract a `Duration`, returning `None` on overflow or underflow.
     #[inline]
     #[must_use = "returns None on underflow; check the result"]
-    pub fn checked_sub_duration(
+    pub const fn checked_sub_duration(
         self,
         d: Duration,
     ) -> Option<Self> {
@@ -807,7 +807,7 @@ impl Time<Utc> {
     /// ```
     #[inline]
     #[must_use]
-    pub fn as_unix_seconds(self) -> i64 {
+    pub const fn as_unix_seconds(self) -> i64 {
         (self.nanos / 1_000_000_000) as i64 + UTC_EPOCH_UNIX_OFFSET_S
     }
 
@@ -838,7 +838,9 @@ impl Time<Utc> {
     pub fn as_unix_nanos(self) -> i64 {
         // self.nanos is u64; cast to i64 wraps above i64::MAX (~year 2262).
         // We use saturating_add to avoid UB and stay predictable.
-        (self.nanos as i64).saturating_add(UTC_EPOCH_UNIX_OFFSET_NS)
+        i64::try_from(self.nanos)
+            .map(|ns| ns.saturating_add(UTC_EPOCH_UNIX_OFFSET_NS))
+            .unwrap_or(i64::MAX)
     }
 
     /// Conversion of UTC time to GPS using the built-in leap seconds table.

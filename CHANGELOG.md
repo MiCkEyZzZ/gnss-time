@@ -24,6 +24,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - `Time<Gps>::as_unix_seconds` (with `LeapSecondsProvider`)
 
 - Enforced UTC epoch lower bound (1972-01-01) for Unix → UTC conversions
+
 - Added unit tests covering Unix ↔ UTC ↔ GPS round-trips and edge cases
 
 - Added `unix_time.rs` example with 8 sections and complete demonstrations:
@@ -57,6 +58,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Updated `README.md` with minimum required Rust version
 - Added links to license files
 - Added constants to `prelude.rs`
+
+### Fixed
+
+- **`Time<Utc>::as_unix_nanos`**: previously a `u64` → `i64` cast could wrap to
+  negative values for timestamps exceeding `i64::MAX`. The method now uses
+  `i64::try_from` and saturates at `i64::MAX`, matching its documented behaviour.
 
 ### Removed
 
