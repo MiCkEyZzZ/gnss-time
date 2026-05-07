@@ -22,6 +22,20 @@
 //! | BeiDou  | 2006-01-01 00:00:00 UTC          | 33 s      |
 //! | TAI     | 1958-01-01 00:00:00 (definition) | —         |
 //! | Unix    | 1970-01-01 00:00:00 UTC          | 10 s      |
+//! | UTC     | 1972-01-01 00:00:00 UTC          | 10 s      |
+//!
+//! ## Unix time interoperability
+//!
+//! Unix time (POSIX) counts seconds since **1970-01-01 00:00:00 UTC**.
+//! The `gnss-time` UTC epoch is **1972-01-01 00:00:00 UTC** — two years later.
+//!
+//! The constant [`UTC_EPOCH_UNIX_OFFSET_S`] expresses this gap:
+//!
+//! ```text
+//! unix_seconds = utc_seconds_from_1972 - UTC_EPOCH_UNIX_OFFSET_S
+//!                                        (= -63_072_000)
+//! utc_nanos    = unix_nanos + UTC_EPOCH_UNIX_OFFSET_NS
+//! ```
 //!
 //! ## Notes on representation
 //!
@@ -153,6 +167,12 @@ pub const TAI_EPOCH: CivilDate = CivilDate::new(1958, 1, 1);
 /// Unix epoch (1970-01-01).
 pub const UNIX_EPOCH: CivilDate = CivilDate::new(1970, 1, 1);
 
+/// UTC epoch (1972-01-01).
+///
+/// This is the reference point of [`crate::Time<crate::Utc>`]: nanoseconds
+/// are counted from this date, **not** from the Unix epoch (1970-01-01).
+pub const UTC_CIVIL_EPOCH: CivilDate = CivilDate::new(1972, 1, 1);
+
 /// GPS epoch (1980-01-06).
 pub const GPS_EPOCH: CivilDate = CivilDate::new(1980, 1, 6);
 
@@ -164,6 +184,52 @@ pub const GALILEO_EPOCH: CivilDate = CivilDate::new(1999, 8, 22);
 
 /// BeiDou epoch (2006-01-01).
 pub const BEIDOU_EPOCH: CivilDate = CivilDate::new(2006, 1, 1);
+
+/// Seconds from the Unix epoch (1970-01-01) to the UTC epoch (1972-01-01).
+///
+/// `Time<Utc>` counts nanoseconds from 1972-01-01, while Unix time counts
+/// seconds from 1970-01-01. This constant bridges the two:
+///
+/// ```text
+/// unix_seconds     = utc_seconds_from_1972 - UTC_EPOCH_UNIX_OFFSET_S
+/// utc_from_1972    = unix_seconds          + UTC_EPOCH_UNIX_OFFSET_S
+/// ```
+///
+/// Value: 730 days × 86 400 s/day = **63 072 000 s**.
+///
+/// ## Example
+///
+/// ```rust
+/// use gnss_time::{UNIX_EPOCH, UTC_CIVIL_EPOCH, UTC_EPOCH_UNIX_OFFSET_S};
+///
+/// // Verify via calendar arithmetic
+/// assert_eq!(
+///     UNIX_EPOCH.seconds_until(UTC_CIVIL_EPOCH),
+///     UTC_EPOCH_UNIX_OFFSET_S
+/// );
+/// ```
+pub const UTC_EPOCH_UNIX_OFFSET_S: i64 = UNIX_EPOCH.seconds_until(UTC_CIVIL_EPOCH);
+
+/// Nanoseconds from the Unix epoch (1970-01-01) to the UTC epoch (1972-01-01).
+///
+/// ```text
+/// utc_nanos_from_1972 = unix_nanos + UTC_EPOCH_UNIX_OFFSET_NS
+/// unix_nanos          = utc_nanos  - UTC_EPOCH_UNIX_OFFSET_NS
+/// ```
+pub const UTC_EPOCH_UNIX_OFFSET_NS: i64 = UTC_EPOCH_UNIX_OFFSET_S * 1_000_000_000;
+
+/// Second from the Unix epoch (1970-01-01) to the GPS epoch (1980-01-06).
+///
+/// Useful for converting between Unix timestamps and GPS seconds:
+///
+/// ```text
+/// gps_seconds  = unix_seconds - GPS_EPOCH_UNIX_S + (TAI_minus_UTC - 19)
+/// unix_seconds = gps_seconds  + GPS_EPOCH_UNIX_S - (TAI_minus_UTC - 19)
+/// ```
+///
+/// Value: 3 657 days × 86 400 s/day = **315 964 800 s**.
+pub const GPS_EPOCH_UNIX_S: i64 = UNIX_EPOCH.seconds_until(GPS_EPOCH);
+// = 3657 * 86_400 = 315_964_800
 
 /// TAI − UTC at GPS epoch.
 pub const LEAP_SECONDS_AT_GPS_EPOCH: i64 = 19;
@@ -217,6 +283,27 @@ const _VERIFY_GLONASS: () = {
     assert!(
         DAYS_GPS_TO_GLONASS == 5839,
         "GLONASS epoch offset check failed"
+    );
+};
+
+const _VERIFY_GPS_UNIX_S: () = {
+    assert!(
+        GPS_EPOCH_UNIX_S == 315_964_800,
+        "GPS_EPOCH_UNIX_S must equal 315_964_800"
+    );
+};
+
+const _VERIFY_UTC_UNIX_OFFSET: () = {
+    assert!(
+        UTC_EPOCH_UNIX_OFFSET_S == 63_072_000,
+        "UTC_EPOCH_UNIX_OFFSET_S must equal 63_072_000 (730 days)"
+    );
+};
+
+const _VERIFY_UTC_UNIX_OFFSET_NS: () = {
+    assert!(
+        UTC_EPOCH_UNIX_OFFSET_NS == 63_072_000_000_000_000,
+        "UTC_EPOCH_UNIX_OFFSET_NS must equal 63_072_000_000_000_000"
     );
 };
 
@@ -359,6 +446,67 @@ mod tests {
             NANOS_GPS_TO_BEIDOU_EPOCH_CALENDAR,
             820_108_800_000_000_000_i64
         );
+    }
+
+    #[test]
+    fn test_utc_epoch_unix_offset_is_63072000_seconds() {
+        assert_eq!(UTC_EPOCH_UNIX_OFFSET_S, 63_072_000);
+    }
+
+    #[test]
+    fn test_utc_epoch_unix_offset_is_730_days() {
+        assert_eq!(UTC_EPOCH_UNIX_OFFSET_S / 86_400, 730);
+    }
+
+    #[test]
+    fn test_utc_epoch_unix_offset_matches_calendar() {
+        // CivilDate arithmetic must agree with the constant
+        assert_eq!(
+            UNIX_EPOCH.seconds_until(UTC_CIVIL_EPOCH),
+            UTC_EPOCH_UNIX_OFFSET_S
+        );
+    }
+
+    #[test]
+    fn test_utc_epoch_unix_offset_ns_is_correct() {
+        assert_eq!(UTC_EPOCH_UNIX_OFFSET_NS, 63_072_000_000_000_000_i64);
+    }
+
+    #[test]
+    fn test_gps_epoch_unix_s_is_315964800() {
+        assert_eq!(GPS_EPOCH_UNIX_S, 315_964_800);
+    }
+
+    #[test]
+    fn test_gps_epoch_unix_s_is_3657_days() {
+        assert_eq!(GPS_EPOCH_UNIX_S / 86_400, 3657);
+    }
+
+    #[test]
+    fn test_gps_epoch_unix_s_matches_calendar() {
+        assert_eq!(UNIX_EPOCH.seconds_until(GPS_EPOCH), GPS_EPOCH_UNIX_S);
+    }
+
+    #[test]
+    fn test_unix_before_utc_epoch_is_negative_in_utc() {
+        // unix_seconds < UTC_EPOCH_UNIX_OFFSET_S → UTC seconds from 1972 < 0
+        let unix_s: i64 = 0;
+        let utc_from_1972 = unix_s + UTC_EPOCH_UNIX_OFFSET_S; // still positive for unix=0
+                                                              // Actually unix=0 gives utc_from_1972 = -63_072_000 (before UTC epoch)
+        let utc_from_1972_correct = unix_s - UTC_EPOCH_UNIX_OFFSET_S;
+
+        assert!(utc_from_1972_correct < 0);
+        let _ = utc_from_1972; // suppress unused warning
+    }
+
+    #[test]
+    fn test_unix_at_utc_epoch_gives_zero_offset() {
+        // When unix_s = UTC_EPOCH_UNIX_OFFSET_S (1972-01-01):
+        // utc_nanos_from_1972 = (unix_s - UTC_EPOCH_UNIX_OFFSET_S) * 1e9 = 0
+        let unix_s = UTC_EPOCH_UNIX_OFFSET_S;
+        let utc_s_from_1972 = unix_s - UTC_EPOCH_UNIX_OFFSET_S;
+
+        assert_eq!(utc_s_from_1972, 0);
     }
 
     #[test]

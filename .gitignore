@@ -18,6 +18,9 @@ out/
 .devcontainer/
 *.code-workspace
 
+# for jetbrains users
+.idea/
+
 # Environment / secrets
 .env
 .env.*
