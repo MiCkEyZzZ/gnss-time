@@ -24,7 +24,10 @@ pub use crate::{
     // Conversion traits
     convert::{ConvertResult, IntoScale, IntoScaleWith},
 
-    // Leap seconds — static table
+    // Unix time epoch offsets
+    epoch::{GPS_EPOCH_UNIX_S, UTC_EPOCH_UNIX_OFFSET_NS, UTC_EPOCH_UNIX_OFFSET_S},
+
+    // Leap seconds — static and runtime tables
     leap::{
         gps_to_utc, utc_to_gps, LeapEntry, LeapExtendError, LeapSeconds, LeapSecondsProvider,
         RuntimeLeapSeconds, RUNTIME_CAPACITY,

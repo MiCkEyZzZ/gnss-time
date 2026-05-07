@@ -213,9 +213,16 @@ let x = gps + utc;
 - [x] Conversion matrix
 - [x] Embedded-safe arithmetic
 
+## Rust version requirements
+
+The Minimum Supported Rust Version (MSRV) is currently **Rust 1.75.0**.
+
+The MSRV is explicitly tested in CI. It may be bumped in minor releases, but this
+is not done lightly.
+
 ## License
 
-Dual-licensed under:
+This project is licensed under either of
 
-- MIT
-- Apache-2.0
+- [Apache License, Version 2.0](LICENSE.APACHE)
+- [MIT License](LICENSE.MIT)

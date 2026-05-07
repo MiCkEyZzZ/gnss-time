@@ -1,4 +1,4 @@
-# Project structure
+# Gnss Time structure
 
 ```text
 gnss-time
@@ -19,10 +19,14 @@ gnss-time
 │   ├── FUNDING.yml
 │   └── pull_request_template.md
 ├── benches
-│   ├── arithmetic_bench.rs
-│   ├── convert_bench.rs
-│   ├── README.md
-│   └── time_bench.rs
+│   ├── benches
+│   │   ├── arithmetic_bench.rs
+│   │   ├── convert_bench.rs
+│   │   └── time_bench.rs
+│   ├── target
+│   ├── Cargo.lock
+│   ├── Cargo.toml
+│   └── README.md
 ├── docs
 │   ├── ARCHITECTURE.md
 │   ├── duration.txt
