@@ -190,7 +190,7 @@ fn test_duration_alignment_is_8_bytes() {
 }
 
 #[test]
-fn no_heap_allocation_in_conversions() {
+fn test_no_heap_allocation_in_conversions() {
     // All these operations are stack-only, no heap allocations
     let gps: Time<Gps> = Time::from_seconds(1_500_000_000);
     let tai: Time<Tai> = gps.into_scale().unwrap();

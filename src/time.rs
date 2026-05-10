@@ -17,14 +17,14 @@
 //! The internal representation is a `u64` counting **nanoseconds from the
 //! scale's epoch**.  `u64::MAX` nanoseconds ≈ **584.5 years**, so:
 //!
-//! | Scale   | Epoch            | `Time::MAX` corresponds to |
-//! |---------|------------------|----------------------------|
-//! | GLONASS | 1996-01-01       | ≈ **2580-07-01**           |
-//! | GPS     | 1980-01-06       | ≈ **2564-07-04**           |
-//! | Galileo | 1999-08-22       | ≈ **2584-02-15**           |
-//! | BeiDou  | 2006-01-01       | ≈ **2590-07-02**           |
-//! | TAI     | 1958-01-01       | ≈ **2542-07-05**           |
-//! | UTC     | 1972-01-01       | ≈ **2556-07-03**           |
+//! | Scale    | Epoch            | `Time::MAX` corresponds to |
+//! |----------|------------------|----------------------------|
+//! | GLONASS  | 1996-01-01       | ≈ **2580-07-01**           |
+//! | GPS      | 1980-01-06       | ≈ **2564-07-04**           |
+//! | Galileo  | 1999-08-22       | ≈ **2584-02-15**           |
+//! | `BeiDou` | 2006-01-01       | ≈ **2590-07-02**           |
+//! | TAI      | 1958-01-01       | ≈ **2542-07-05**           |
+//! | UTC      | 1972-01-01       | ≈ **2556-07-03**           |
 //!
 //! ## Unix time interoperability
 //!
@@ -115,6 +115,10 @@ pub struct DurationParts {
     pub nanos: u32,
 }
 
+#[cfg(feature = "serde")]
+#[expect(dead_code)]
+struct TimeVisitor<S>(PhantomData<S>);
+
 impl<S: TimeScale> Time<S> {
     /// The scale's epoch — 0 nanoseconds.
     ///
@@ -147,7 +151,7 @@ impl<S: TimeScale> Time<S> {
     pub const NANOS_PER_YEAR: u64 = 365 * 24 * 3_600 * 1_000_000_000;
 
     /// Construct from raw nanoseconds since this scale's epoch.
-    #[inline(always)]
+    #[inline]
     pub const fn from_nanos(nanos: u64) -> Self {
         Time {
             nanos,
@@ -156,6 +160,10 @@ impl<S: TimeScale> Time<S> {
     }
 
     /// Construct from whole seconds since this scale's epoch.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `secs * 1_000_000_000` does not fit into `u64`.
     #[inline]
     pub const fn from_seconds(secs: u64) -> Self {
         match secs.checked_mul(1_000_000_000) {
@@ -175,7 +183,7 @@ impl<S: TimeScale> Time<S> {
     }
 
     /// Raw nanoseconds since this scale's epoch.
-    #[inline(always)]
+    #[inline]
     #[must_use]
     pub const fn as_nanos(self) -> u64 {
         self.nanos
@@ -192,40 +200,62 @@ impl<S: TimeScale> Time<S> {
     /// affects even milliseconds
     #[inline]
     #[must_use]
-    pub fn as_seconds_f64(self) -> f64 {
-        self.nanos as f64 / 1_000_000_000.0
+    pub const fn as_parts(self) -> (u64, u32) {
+        (
+            self.nanos / 1_000_000_000,
+            (self.nanos % 1_000_000_000) as u32,
+        )
     }
 
     /// Convert to TAI using the scale's fixed offset.
     ///
-    /// Returns [`GnssTimeError::LeapSecondsRequired`] for contextual scales
-    /// (UTC, GLONASS) and [`GnssTimeError::Overflow`] for out-of-range results.
-    pub const fn to_tai(self) -> Result<Time<Tai>, GnssTimeError> {
+    /// # Errors
+    ///
+    /// Returns:
+    ///
+    /// - [`GnssTimeError::LeapSecondsRequired`] if the time scale is contextual
+    ///   (e.g. UTC or GLONASS) and does not have a fixed TAI offset.
+    /// - [`GnssTimeError::Overflow`] if applying the offset causes the
+    ///   resulting timestamp to fall outside the valid `u64` nanosecond range.
+    pub fn to_tai(self) -> Result<Time<Tai>, GnssTimeError> {
         match S::OFFSET_TO_TAI {
             OffsetToTai::Fixed(offset) => {
-                let nanos = (self.nanos as i128) + (offset as i128);
+                let nanos = i128::from(self.nanos) + i128::from(offset);
 
-                if nanos < 0 || nanos > u64::MAX as i128 {
+                if nanos < 0 || nanos > i128::from(u64::MAX) {
                     return Err(GnssTimeError::Overflow);
                 }
 
-                Ok(Time::from_nanos(nanos as u64))
+                let nanos = u64::try_from(nanos).map_err(|_| GnssTimeError::Overflow)?;
+
+                Ok(Time::from_nanos(nanos))
             }
             OffsetToTai::Contextual => Err(GnssTimeError::LeapSecondsRequired),
         }
     }
 
     /// Construct `Time<S>` from a TAI timestamp using the scale's fixed offset.
-    pub const fn from_tai(tai: Time<Tai>) -> Result<Self, GnssTimeError> {
+    ///
+    /// # Errors
+    ///
+    /// Returns:
+    ///
+    /// - [`GnssTimeError::LeapSecondsRequired`] if the target time scale is
+    ///   contextual and requires leap-second handling (e.g. UTC, GLONASS).
+    /// - [`GnssTimeError::Overflow`] if applying the offset causes the result
+    ///   to underflow below 0 or overflow past `u64::MAX`.
+    pub fn from_tai(tai: Time<Tai>) -> Result<Self, GnssTimeError> {
         match S::OFFSET_TO_TAI {
             OffsetToTai::Fixed(offset) => {
-                let nanos = (tai.as_nanos() as i128) - (offset as i128);
+                let nanos = i128::from(tai.as_nanos()) - i128::from(offset);
 
-                if nanos < 0 || nanos > u64::MAX as i128 {
+                if nanos < 0 || nanos > i128::from(u64::MAX) {
                     return Err(GnssTimeError::Overflow);
                 }
 
-                Ok(Time::from_nanos(nanos as u64))
+                let nanos = u64::try_from(nanos).map_err(|_| GnssTimeError::Overflow)?;
+
+                Ok(Time::from_nanos(nanos))
             }
             OffsetToTai::Contextual => Err(GnssTimeError::LeapSecondsRequired),
         }
@@ -234,6 +264,14 @@ impl<S: TimeScale> Time<S> {
     /// Convert directly between two fixed-offset scales via TAI.
     ///
     /// Fails if either source or target scale requires leap seconds.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GnssTimeError::Overflow`] if the intermediate TAI conversion
+    /// would exceed the representable `u64` range.
+    ///
+    /// Returns [`GnssTimeError::LeapSecondsRequired`] if either the source or
+    /// the target scale is contextual and needs leap seconds.
     pub fn try_convert<T: TimeScale>(self) -> Result<Time<T>, GnssTimeError> {
         let tai = self.to_tai()?;
 
@@ -243,33 +281,27 @@ impl<S: TimeScale> Time<S> {
     /// Add a `Duration`, returning `None` on overflow or underflow.
     #[inline]
     #[must_use = "returns None on overflow; check the result"]
-    pub const fn checked_add(
+    pub fn checked_add(
         self,
         d: Duration,
     ) -> Option<Self> {
-        let result = (self.nanos as i128) + (d.as_nanos() as i128);
+        let result = i128::from(self.nanos) + i128::from(d.as_nanos());
+        let nanos = u64::try_from(result).ok()?;
 
-        if result < 0 || result > u64::MAX as i128 {
-            return None;
-        }
-
-        Some(Time::from_nanos(result as u64))
+        Some(Time::from_nanos(nanos))
     }
 
     /// Subtract a `Duration`, returning `None` on overflow or underflow.
     #[inline]
     #[must_use = "returns None on underflow; check the result"]
-    pub const fn checked_sub_duration(
+    pub fn checked_sub_duration(
         self,
         d: Duration,
     ) -> Option<Self> {
-        let result = (self.nanos as i128) - (d.as_nanos() as i128);
+        let result = i128::from(self.nanos) - i128::from(d.as_nanos());
+        let nanos = u64::try_from(result).ok()?;
 
-        if result < 0 || result > u64::MAX as i128 {
-            return None;
-        }
-
-        Some(Time::from_nanos(result as u64))
+        Some(Time::from_nanos(nanos))
     }
 
     /// Add, saturating at `EPOCH` (below) and `MAX` (above).
@@ -301,6 +333,15 @@ impl<S: TimeScale> Time<S> {
     }
 
     /// Fallible add — [`GnssTimeError::Overflow`] on failure.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GnssTimeError::Overflow`] if the resulting timestamp would
+    /// exceed the representable range of `u64` nanoseconds since the scale’s
+    /// epoch.
+    ///
+    /// Returns [`GnssTimeError::InvalidInput`] if the input duration is not
+    /// valid for this operation (if applicable).
     #[inline]
     pub fn try_add(
         self,
@@ -310,6 +351,15 @@ impl<S: TimeScale> Time<S> {
     }
 
     /// Fallible subtract — [`GnssTimeError::Overflow`] on failure.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GnssTimeError::Overflow`] if the resulting timestamp would
+    /// be less than zero or exceed the representable range of `u64` nanoseconds
+    /// since the scale’s epoch.
+    ///
+    /// This can happen when subtracting a duration larger than the current
+    /// timestamp.
     #[inline]
     pub fn try_sub_duration(
         self,
@@ -321,17 +371,14 @@ impl<S: TimeScale> Time<S> {
     /// Signed interval `self − earlier`. Returns `None` if it overflows `i64`.
     #[inline]
     #[must_use = "returns None on overflow; check the result"]
-    pub const fn checked_elapsed(
+    pub fn checked_elapsed(
         self,
         earlier: Time<S>,
     ) -> Option<Duration> {
-        let diff = (self.nanos as i128) - (earlier.nanos as i128);
+        let diff = i128::from(self.nanos) - i128::from(earlier.nanos);
 
-        if diff > i64::MAX as i128 || diff < i64::MIN as i128 {
-            return None;
-        }
-
-        Some(Duration::from_nanos(diff as i64))
+        let diff = i64::try_from(diff).ok()?;
+        Some(Duration::from_nanos(diff))
     }
 }
 
@@ -354,7 +401,7 @@ impl<S: TimeScale> AddAssign<Duration> for Time<S> {
         &mut self,
         rhs: Duration,
     ) {
-        *self = *self + rhs
+        *self = *self + rhs;
     }
 }
 
@@ -475,14 +522,14 @@ impl Time<Glonass> {
             ));
         }
 
-        let day_ns = (day as u64)
+        let day_ns = u64::from(day)
             .checked_mul(86_400_000_000_000)
             .ok_or(GnssTimeError::Overflow)?;
         let tod_ns = tod
             .seconds
             .checked_mul(1_000_000_000)
             .ok_or(GnssTimeError::Overflow)?
-            .checked_add(tod.nanos as u64)
+            .checked_add(u64::from(tod.nanos))
             .ok_or(GnssTimeError::Overflow)?;
         let total = day_ns.checked_add(tod_ns).ok_or(GnssTimeError::Overflow)?;
 
@@ -510,7 +557,8 @@ impl Time<Glonass> {
         (self.nanos % 1_000_000_000u64) as u32
     }
 
-    /// Day of week: **1 = Monday … 7 = Sunday** (NavIC / ISO 8601 convention).
+    /// Day of week: **1 = Monday … 7 = Sunday** (`NavIC` / ISO 8601
+    /// convention).
     ///
     /// GLONASS epoch (1996-01-01) was a **Monday**, so day 0 → 1 (Monday).
     ///
@@ -521,7 +569,7 @@ impl Time<Glonass> {
     /// The GLONASS Interface Control Document defines the "day number within
     /// the four-year interval" (`N_T`) starting from 1, but for simplicity
     /// this crate uses 0-based day counts from the epoch and exposes the
-    /// ISO / NavIC weekday (1=Mon … 7=Sun) through this method.
+    /// ISO / `NavIC` weekday (1=Mon … 7=Sun) through this method.
     ///
     /// # Examples
     ///
@@ -582,10 +630,19 @@ impl Time<Glonass> {
 }
 
 impl Time<Gps> {
-    /// Construct from GPS week number and time-of-week.
+    /// Constructs a GPS time from GPS week number and time-of-week.
     ///
     /// `tow.seconds` must be in `[0, 604_800)`.
     /// `tow.nanos` must be in `[0, 1_000_000_000)`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GnssTimeError::InvalidInput`] if:
+    /// - `tow.seconds >= 604_800`
+    /// - `tow.nanos >= 1_000_000_000`
+    ///
+    /// Returns [`GnssTimeError::Overflow`] if the resulting nanosecond
+    /// calculation exceeds `u64::MAX`.
     pub fn from_week_tow(
         week: u16,
         tow: DurationParts,
@@ -602,7 +659,7 @@ impl Time<Gps> {
             ));
         }
 
-        let week_ns = (week as u64)
+        let week_ns = u64::from(week)
             .checked_mul(604_800_000_000_000)
             .ok_or(GnssTimeError::Overflow)?;
 
@@ -610,7 +667,7 @@ impl Time<Gps> {
             .seconds
             .checked_mul(1_000_000_000)
             .ok_or(GnssTimeError::Overflow)?
-            .checked_add(tow.nanos as u64)
+            .checked_add(u64::from(tow.nanos))
             .ok_or(GnssTimeError::Overflow)?;
 
         let total = week_ns.checked_add(tow_ns).ok_or(GnssTimeError::Overflow)?;
@@ -619,6 +676,16 @@ impl Time<Gps> {
     }
 
     /// Создаёт GPS время из Unix timestamp (секунды с 1970-01-01 UTC).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GnssTimeError::Overflow`] if:
+    /// - the intermediate UTC conversion overflows internal `u64` nanoseconds
+    /// - the resulting GPS time cannot be represented in the internal range
+    ///
+    /// Returns any error propagated from UTC conversion, such as:
+    /// - [`GnssTimeError::Overflow`] when the Unix timestamp is before the UTC
+    ///   epoch
     pub fn from_unix_seconds<P: LeapSecondsProvider>(
         unix_seconds: i64,
         ls: P,
@@ -660,9 +727,15 @@ impl Time<Gps> {
     ///
     /// For most timestamps, the conversion is accurate to the nanosecond.
     /// During a leap second insertion window (e.g. 2016-12-31 23:59:60 UTC),
-    /// the result may differ by up to 1 second. If this is critical, use
-    /// [`to_utc_with`](Self::to_utc_with) with a custom provider that properly
-    /// handles the ambiguity.
+    /// the result may differ by up to 1 second.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GnssTimeError::Overflow`] if arithmetic overflow occurs during
+    /// conversion.
+    ///
+    /// Returns [`GnssTimeError::LeapSecondsRequired`] if leap second data is
+    /// insufficient or conversion cannot be resolved.
     pub fn to_utc(self) -> Result<Time<Utc>, GnssTimeError> {
         gps_to_utc(self, LeapSeconds::builtin())
     }
@@ -672,6 +745,14 @@ impl Time<Gps> {
     /// The same accuracy notes apply as for [`to_utc`](Self::to_utc):
     /// the conversion is precise for most timestamps, but during a leap second
     /// insertion window it may differ by up to 1 second.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GnssTimeError::Overflow`] if the conversion fails due to
+    /// arithmetic overflow during GPS → UTC transformation.
+    ///
+    /// Returns any error propagated from the underlying conversion logic
+    /// (see [`gps_to_utc`]), such as invalid time ranges.
     pub fn to_utc_with<P: LeapSecondsProvider>(
         self,
         ls: &P,
@@ -740,7 +821,8 @@ impl Time<Utc> {
             return Err(GnssTimeError::Overflow);
         }
 
-        let nanos = (utc_s as u64)
+        let nanos = u64::try_from(utc_s)
+            .map_err(|_| GnssTimeError::Overflow)?
             .checked_mul(1_000_000_000)
             .ok_or(GnssTimeError::Overflow)?;
 
@@ -780,7 +862,9 @@ impl Time<Utc> {
             return Err(GnssTimeError::Overflow);
         }
 
-        Ok(Time::from_nanos(utc_ns as u64))
+        let nanos = u64::try_from(utc_ns).map_err(|_| GnssTimeError::Overflow)?;
+
+        Ok(Time::from_nanos(nanos))
     }
 
     /// Returns this UTC timestamp as a Unix timestamp (whole seconds since
@@ -788,6 +872,10 @@ impl Time<Utc> {
     ///
     /// The result is always ≥ [`UTC_EPOCH_UNIX_OFFSET_S`] because `Time<Utc>`
     /// cannot represent dates before 1972-01-01.
+    ///
+    /// # Overflow behavior
+    ///
+    /// If the result exceeds `i64::MAX`, it saturates at `i64::MAX`.
     ///
     /// # Example
     ///
@@ -807,8 +895,10 @@ impl Time<Utc> {
     /// ```
     #[inline]
     #[must_use]
-    pub const fn as_unix_seconds(self) -> i64 {
-        (self.nanos / 1_000_000_000) as i64 + UTC_EPOCH_UNIX_OFFSET_S
+    pub fn as_unix_seconds(self) -> i64 {
+        let secs = i128::from(self.nanos / 1_000_000_000) + i128::from(UTC_EPOCH_UNIX_OFFSET_S);
+
+        i64::try_from(secs).unwrap_or(i64::MAX)
     }
 
     /// Returns this UTC timestamp as a Unix timestamp with nanosecond
@@ -838,17 +928,32 @@ impl Time<Utc> {
     pub fn as_unix_nanos(self) -> i64 {
         // self.nanos is u64; cast to i64 wraps above i64::MAX (~year 2262).
         // We use saturating_add to avoid UB and stay predictable.
-        i64::try_from(self.nanos)
-            .map(|ns| ns.saturating_add(UTC_EPOCH_UNIX_OFFSET_NS))
-            .unwrap_or(i64::MAX)
+        i64::try_from(self.nanos).map_or(i64::MAX, |ns| ns.saturating_add(UTC_EPOCH_UNIX_OFFSET_NS))
     }
 
     /// Conversion of UTC time to GPS using the built-in leap seconds table.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GnssTimeError::Overflow`] if the conversion fails due to
+    /// arithmetic overflow during UTC → GPS transformation.
+    ///
+    /// Returns [`GnssTimeError::LeapSecondsRequired`] if the conversion cannot
+    /// be resolved due to missing or inconsistent leap second data.
     pub fn to_gps(self) -> Result<Time<Gps>, GnssTimeError> {
         utc_to_gps(self, LeapSeconds::builtin())
     }
 
-    /// Conversion of UTC time to GPS using a custom leap seconds provider.
+    /// Converts UTC time to GPS time using a custom leap seconds provider.
+    ///
+    /// # Errors
+    ///
+    /// Returns:
+    ///
+    /// - [`GnssTimeError::Overflow`] if the resulting GPS timestamp cannot be
+    ///   represented in `u64` nanoseconds
+    /// - [`GnssTimeError::LeapSecondsRequired`] if the conversion cannot be
+    ///   resolved due to missing or invalid leap second data in `ls`
     pub fn to_gps_with<P: LeapSecondsProvider>(
         self,
         ls: &P,
@@ -943,7 +1048,7 @@ impl<S: TimeScale> defmt::Format for Time<S> {
                 let tow_s = tow_ns / 1_000_000_000;
                 let tow_ms = (tow_ns % 1_000_000_000) / 1_000_000;
 
-                defmt::write!(f, "{} {}:{:06}.{:03}", S::NAME, week, tow_s, tow_ms)
+                defmt::write!(f, "{} {}:{:06}.{:03}", S::NAME, week, tow_s, tow_ms);
             }
             DisplayStyle::DayTod => {
                 const DAY_NS: u64 = 86_400_000_000_000;
@@ -952,13 +1057,13 @@ impl<S: TimeScale> defmt::Format for Time<S> {
                 let tod_s = tod_ns / 1_000_000_000;
                 let tod_ms = (tod_ns % 1_000_000_000) / 1_000_000;
 
-                defmt::write!(f, "{} {}:{:05}.{:03}", S::NAME, day, tod_s, tod_ms)
+                defmt::write!(f, "{} {}:{:05}.{:03}", S::NAME, day, tod_s, tod_ms);
             }
             DisplayStyle::Simple => {
                 let secs = self.nanos / 1_000_000_000;
                 let ns_rem = self.nanos % 1_000_000_000;
 
-                defmt::write!(f, "{} +{}s {}ns", S::NAME, secs, ns_rem)
+                defmt::write!(f, "{} +{}s {}ns", S::NAME, secs, ns_rem);
             }
         }
     }
@@ -1145,7 +1250,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "Time<S> + Duration overflowed")]
     fn test_add_overflow_panics() {
         let _ = Time::<Gps>::MAX + Duration::ONE_NANOSECOND;
     }
@@ -1520,13 +1625,13 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "Time<S> + Duration overflowed")]
     fn test_add_operator_panics_at_max() {
         let _ = Time::<Gps>::MAX + Duration::from_nanos(1);
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "Time<S> - Duration underflowed")]
     fn test_sub_operator_panics_at_epoch() {
         let _ = Time::<Gps>::EPOCH - Duration::from_nanos(1);
     }
@@ -1764,7 +1869,7 @@ mod tests {
         // In 2023, GPS − UTC = 18 s, so GPS seconds = unix − 315_964_800 + 18
         let unix_s: i64 = 1_672_531_200; // 2023-01-01 UTC
         let gps = Time::<Gps>::from_unix_seconds(unix_s, ls).unwrap();
-        let expected_gps_s = (unix_s - 315_964_800 + 18) as u64;
+        let expected_gps_s = u64::try_from(i128::from(unix_s) - 315_964_800i128 + 18i128).unwrap();
         assert_eq!(gps.as_seconds(), expected_gps_s);
     }
 }

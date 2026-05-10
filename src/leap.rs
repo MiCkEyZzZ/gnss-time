@@ -34,7 +34,7 @@
 //! Therefore GLONASS ↔ UTC conversion is a **constant nanosecond shift**
 //! relative to epoch alignment.
 //!
-//! Leap seconds are only required when converting into GPS / Galileo / BeiDou
+//! Leap seconds are only required when converting into GPS / Galileo / `BeiDou`
 //! time scales.
 
 use crate::{
@@ -159,7 +159,7 @@ pub struct LeapEntry {
 /// For times after the last entry, the last known value is returned
 /// (the standard "assume no new leap seconds" approach).
 ///
-/// # no_std
+/// # `no_std`
 ///
 /// `LeapSeconds` stores `&'static [LeapEntry]` — there are no allocations, and
 /// it works everywhere.
@@ -296,21 +296,21 @@ impl LeapSeconds {
     /// Returns the number of entries in the table.
     #[inline]
     #[must_use]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.entries.len()
     }
 
     /// Returns `true` if the table is empty.
     #[inline]
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
 
     /// Returns all table entries (for inspection / serialization).
     #[inline]
     #[must_use]
-    pub fn entries(&self) -> &[LeapEntry] {
+    pub const fn entries(&self) -> &[LeapEntry] {
         self.entries
     }
 
@@ -375,7 +375,7 @@ impl RuntimeLeapSeconds {
     /// [`from_builtin`](Self::from_builtin) before performing conversions.
     #[inline]
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             buf: [LeapEntry::new(0, 0); RUNTIME_CAPACITY],
             len: 0,
@@ -400,7 +400,7 @@ impl RuntimeLeapSeconds {
 
         let mut rt = Self::new();
 
-        for &entry in BUILTIN_TABLE.iter() {
+        for &entry in &BUILTIN_TABLE {
             rt.buf[rt.len] = entry;
             rt.len += 1;
         }
@@ -624,18 +624,26 @@ impl<P: LeapSecondsProvider> LeapSecondsProvider for &P {
 ///
 /// [`GnssTimeError::Overflow`] — if UTC < UTC epoch (1972-01-01).
 pub fn glonass_to_utc(glo: Time<Glonass>) -> Result<Time<Utc>, GnssTimeError> {
-    let utc_ns = (glo.as_nanos() as i128) + (GLONASS_FROM_UTC_EPOCH_NS as i128);
+    let utc_ns = i128::from(glo.as_nanos()) + i128::from(GLONASS_FROM_UTC_EPOCH_NS);
 
-    if utc_ns < 0 || utc_ns > u64::MAX as i128 {
+    if utc_ns < 0 || utc_ns > i128::from(u64::MAX) {
         return Err(GnssTimeError::Overflow);
     }
 
-    Ok(Time::<Utc>::from_nanos(utc_ns as u64))
+    let nanos = u64::try_from(utc_ns).map_err(|_| GnssTimeError::Overflow)?;
+
+    Ok(Time::<Utc>::from_nanos(nanos))
 }
 
 /// Converts GLONASS -> GPS via UTC.
 ///
 /// Requires leap-second context (for UTC -> GPS).
+///
+/// # Errors
+///
+/// Propagates:
+/// - [`GnssTimeError::Overflow`] from [`glonass_to_utc`]
+/// - [`GnssTimeError::Overflow`] from [`utc_to_gps`]
 pub fn glonass_to_gps<P: LeapSecondsProvider>(
     glo: Time<Glonass>,
     ls: &P,
@@ -646,6 +654,12 @@ pub fn glonass_to_gps<P: LeapSecondsProvider>(
 }
 
 /// Converts GLONASS -> Galileo via UTC (requires leap-second context).
+///
+/// # Errors
+///
+/// Propagates:
+/// - [`GnssTimeError::Overflow`] from [`glonass_to_utc`]
+/// - [`GnssTimeError::Overflow`] from [`utc_to_galileo`]
 pub fn glonass_to_galileo<P: LeapSecondsProvider>(
     glo: Time<Glonass>,
     ls: &P,
@@ -655,7 +669,13 @@ pub fn glonass_to_galileo<P: LeapSecondsProvider>(
     utc_to_galileo(utc, ls)
 }
 
-/// Converts GLONASS -> BeiDou via UTC (requires leap-second context).
+/// Converts GLONASS -> `BeiDou` via UTC (requires leap-second context).
+///
+/// # Errors
+///
+/// Propagates:
+/// - [`GnssTimeError::Overflow`] from [`glonass_to_utc`]
+/// - [`GnssTimeError::Overflow`] from [`utc_to_beidou`]
 pub fn glonass_to_beidou<P: LeapSecondsProvider>(
     glo: Time<Glonass>,
     ls: &P,
@@ -702,19 +722,28 @@ pub fn gps_to_utc<P: LeapSecondsProvider>(
     let tai = gps.to_tai()?;
     let n = ls.tai_minus_utc_at(tai);
     // UTC_ns = GPS_ns - (n - 19) * 1e9 + epoch_offset
-    let utc_ns = (gps.as_nanos() as i128) - ((n - 19) as i128 * 1_000_000_000_i128)
-        + (UTC_TO_GPS_EPOCH_NS as i128);
+    let utc_ns = i128::from(gps.as_nanos()) - (i128::from(n - 19) * 1_000_000_000_i128)
+        + i128::from(UTC_TO_GPS_EPOCH_NS);
 
-    if utc_ns < 0 || utc_ns > u64::MAX as i128 {
+    if utc_ns < 0 || utc_ns > i128::from(u64::MAX) {
         return Err(GnssTimeError::Overflow);
     }
 
-    Ok(Time::<Utc>::from_nanos(utc_ns as u64))
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let nanos = utc_ns as u64;
+
+    Ok(Time::<Utc>::from_nanos(nanos))
 }
 
 /// Converts GPS -> GLONASS via UTC.
 ///
 /// Requires leap-second context (for GPS -> UTC).
+///
+/// # Errors
+///
+/// Propagates:
+/// - [`GnssTimeError::Overflow`] from [`gps_to_utc`]
+/// - [`GnssTimeError::Overflow`] from [`utc_to_glonass`]
 pub fn gps_to_glonass<P: LeapSecondsProvider>(
     gps: Time<Gps>,
     ls: &P,
@@ -730,8 +759,11 @@ pub fn gps_to_glonass<P: LeapSecondsProvider>(
 
 /// Galileo -> UTC (requires leap-second context).
 ///
-/// Galileo and GPS have the same TAI offset (19 s), so `GAL -> UTC` is
-/// equivalent to `GPS -> UTC` (same nanoseconds, same context).
+/// # Errors
+///
+/// Returns `GnssTimeError` if either:
+/// - the Galileo → GPS time scale conversion fails, or
+/// - the underlying GPS → UTC conversion fails (e.g. overflow).
 pub fn galileo_to_utc<P: LeapSecondsProvider>(
     gal: Time<Galileo>,
     ls: &P,
@@ -743,7 +775,14 @@ pub fn galileo_to_utc<P: LeapSecondsProvider>(
     gps_to_utc(gps, ls)
 }
 
-/// Galileo -> GLONASS via UTC (requires leap-second context).
+/// Converts GLONASS -> Galileo via UTC (requires leap-second context).
+///
+/// # Errors
+///
+/// Returns [`GnssTimeError`] if either:
+/// - the Galileo → GPS → UTC conversion fails (e.g. invalid conversion or
+///   overflow)
+/// - the UTC → GLONASS conversion fails due to overflow
 pub fn galileo_to_glonass<P: LeapSecondsProvider>(
     gal: Time<Galileo>,
     ls: &P,
@@ -757,10 +796,15 @@ pub fn galileo_to_glonass<P: LeapSecondsProvider>(
 // BeiDou -> UTC
 ////////////////////////////////////////////////////////////////////////////////
 
-/// BeiDou -> UTC (requires leap-second context).
+/// `BeiDou` -> UTC (requires leap-second context).
 ///
-/// BDT = GPS − 14 s (via TAI: BDT + 33 s = TAI = GPS + 19 s).
-/// `BDT -> UTC` is converted through GPS as an intermediate step.
+/// This conversion proceeds via GPS as an intermediate time scale.
+///
+/// # Errors
+///
+/// Returns [`GnssTimeError`] if:
+/// - the internal `BeiDou -> GPS` conversion fails (`try_convert::<Gps>`), or
+/// - the resulting GPS -> UTC conversion overflows the valid `u64` time range.
 pub fn beidou_to_utc<P: LeapSecondsProvider>(
     bdt: Time<Beidou>,
     ls: &P,
@@ -770,7 +814,14 @@ pub fn beidou_to_utc<P: LeapSecondsProvider>(
     gps_to_utc(gps, ls)
 }
 
-/// BeiDou -> GLONASS via UTC (requires leap-second context).
+/// `BeiDou` -> GLONASS via UTC (requires leap-second context).
+///
+/// # Errors
+///
+/// This function will return an error if:
+/// - the intermediate `BeiDou -> UTC` conversion fails (see [`beidou_to_utc`])
+/// - the `UTC -> GLONASS` conversion fails due to overflow (see
+///   [`utc_to_glonass`])
 pub fn beidou_to_glonass<P: LeapSecondsProvider>(
     bdt: Time<Beidou>,
     ls: &P,
@@ -791,13 +842,15 @@ pub fn beidou_to_glonass<P: LeapSecondsProvider>(
 /// [`GnssTimeError::Overflow`] — if UTC is earlier than the GLONASS epoch
 /// (1996-01-01 UTC(SU)).
 pub fn utc_to_glonass(utc: Time<Utc>) -> Result<Time<Glonass>, GnssTimeError> {
-    let glo_ns = (utc.as_nanos() as i128) - (GLONASS_FROM_UTC_EPOCH_NS as i128);
+    let glo_ns = i128::from(utc.as_nanos()) - i128::from(GLONASS_FROM_UTC_EPOCH_NS);
 
-    if glo_ns < 0 || glo_ns > u64::MAX as i128 {
+    if glo_ns < 0 || glo_ns > i128::from(u64::MAX) {
         return Err(GnssTimeError::Overflow);
     }
 
-    Ok(Time::<Glonass>::from_nanos(glo_ns as u64))
+    let nanos = u64::try_from(glo_ns).map_err(|_| GnssTimeError::Overflow)?;
+
+    Ok(Time::<Glonass>::from_nanos(nanos))
 }
 
 /// Converts UTC -> GPS.
@@ -819,41 +872,42 @@ pub fn utc_to_gps<P: LeapSecondsProvider>(
     // Two-pass computation for correct leap-second boundary handling.
     //
     // Pass 1: approximate TAI assuming GPS-UTC = 0.
-    // This underestimates TAI by at most (current GPS-UTC) seconds
-    // near boundary conditions.
     let approx_tai_ns =
-        (utc.as_nanos() as i128) - (UTC_TO_GPS_EPOCH_NS as i128) + 19_000_000_000_i128;
+        i128::from(utc.as_nanos()) - i128::from(UTC_TO_GPS_EPOCH_NS) + 19_000_000_000_i128;
 
-    let tai1 = if approx_tai_ns >= 0 && approx_tai_ns <= u64::MAX as i128 {
-        Time::<Tai>::from_nanos(approx_tai_ns as u64)
-    } else {
-        Time::<Tai>::EPOCH
+    let tai1 = match u64::try_from(approx_tai_ns) {
+        Ok(ns) => Time::<Tai>::from_nanos(ns),
+        Err(_) => Time::<Tai>::EPOCH,
     };
 
     let n1 = ls.tai_minus_utc_at(tai1);
 
     // Pass 2: refinement using n1, resolving boundary ambiguity.
-    let refined_tai_ns = (utc.as_nanos() as i128) - (UTC_TO_GPS_EPOCH_NS as i128)
-        + (n1 as i128 * 1_000_000_000_i128);
+    let refined_tai_ns = i128::from(utc.as_nanos()) - i128::from(UTC_TO_GPS_EPOCH_NS)
+        + (i128::from(n1) * 1_000_000_000_i128);
 
-    let tai2 = if refined_tai_ns >= 0 && refined_tai_ns <= u64::MAX as i128 {
-        Time::<Tai>::from_nanos(refined_tai_ns as u64)
-    } else {
-        tai1
+    let tai2 = match u64::try_from(refined_tai_ns) {
+        Ok(ns) => Time::<Tai>::from_nanos(ns),
+        Err(_) => tai1,
     };
 
     let n = ls.tai_minus_utc_at(tai2);
 
-    let gps_ns = (utc.as_nanos() as i128) + ((n - 19) as i128 * 1_000_000_000_i128)
-        - (UTC_TO_GPS_EPOCH_NS as i128);
-    if gps_ns < 0 || gps_ns > u64::MAX as i128 {
-        return Err(GnssTimeError::Overflow);
-    }
+    let gps_ns = i128::from(utc.as_nanos()) + (i128::from(n - 19) * 1_000_000_000_i128)
+        - i128::from(UTC_TO_GPS_EPOCH_NS);
 
-    Ok(Time::<Gps>::from_nanos(gps_ns as u64))
+    let gps_ns = u64::try_from(gps_ns).map_err(|_| GnssTimeError::Overflow)?;
+
+    Ok(Time::<Gps>::from_nanos(gps_ns))
 }
 
 /// Converts UTC -> Galileo (requires leap-second context).
+///
+/// # Errors
+///
+/// Returns [`GnssTimeError`] if either:
+/// - the intermediate UTC → GPS conversion fails (e.g. overflow), or
+/// - the GPS → Galileo time-scale conversion fails.
 pub fn utc_to_galileo<P: LeapSecondsProvider>(
     utc: Time<Utc>,
     ls: &P,
@@ -863,7 +917,13 @@ pub fn utc_to_galileo<P: LeapSecondsProvider>(
     gps.try_convert::<Galileo>()
 }
 
-/// Converts UTC -> BeiDou (requires leap-second context).
+/// Converts UTC -> `BeiDou` (requires leap-second context).
+///
+/// # Errors
+///
+/// This function returns [`GnssTimeError`] if:
+/// - the intermediate UTC → GPS conversion fails (overflow), or
+/// - the GPS → `BeiDou` conversion fails (`try_convert::<Beidou>`).
 pub fn utc_to_beidou<P: LeapSecondsProvider>(
     utc: Time<Utc>,
     ls: &P,
@@ -945,11 +1005,7 @@ mod tests {
         let entries = LeapSeconds::builtin().entries();
 
         for w in entries.windows(2) {
-            assert!(
-                w[0].tai_nanos < w[1].tai_nanos,
-                "table not sorted at {:?}",
-                w
-            );
+            assert!(w[0].tai_nanos < w[1].tai_nanos, "table not sorted at {w:?}",);
         }
     }
 
@@ -1017,7 +1073,7 @@ mod tests {
         // Entries 1..18 must match the IERS events exactly.
         for (idx, &(unix, expected_n)) in iers_events.iter().enumerate() {
             let gps_s = unix - GPS_EPOCH_UNIX;
-            let expected_threshold = (gps_s + expected_n as u64) * 1_000_000_000;
+            let expected_threshold = (gps_s + u64::try_from(expected_n).unwrap()) * 1_000_000_000;
             let entry = &entries[idx + 1];
 
             assert_eq!(
@@ -1426,8 +1482,11 @@ mod tests {
 
     #[test]
     fn test_runtime_from_slice_too_large_returns_buffer_full() {
-        let big: std::vec::Vec<LeapEntry> = (0..RUNTIME_CAPACITY + 1)
-            .map(|i| LeapEntry::new(i as u64 * 1_000_000_000, 19 + i as i32))
+        let big: std::vec::Vec<LeapEntry> = (0..=RUNTIME_CAPACITY)
+            .map(|i| {
+                let i32_i = i32::try_from(i).expect("i fits in i32");
+                LeapEntry::new(i as u64 * 1_000_000_000, 19 + i32_i)
+            })
             .collect();
         let err = RuntimeLeapSeconds::from_slice(&big).unwrap_err();
 
@@ -1452,8 +1511,7 @@ mod tests {
             assert_eq!(
                 rt.tai_minus_utc_at(tai),
                 ls.tai_minus_utc_at(tai),
-                "mismatch at tai_nanos={}",
-                nanos
+                "mismatch at tai_nanos={nanos}",
             );
         }
     }

@@ -43,11 +43,25 @@ std = []
 # defmt versions: https://crates.io/crates/defmt
 defmt = ["dep:defmt"]
 
+# serde: Serialize / Deserialize for Time<S>, Duration, DurationParts.
+#
+# Human-readable (JSON, TOML):
+#   Time<Gps> → { "scale": "GPS", "nanos": 1356566418000000000 }
+#   Duration  → { "nanos": -7000000000 }
+#   DurationParts → { "seconds": 5, "nanos": 500000000 }
+#
+# Compact (postcard, bincode):
+#   Time<Gps> → raw u64 nanoseconds
+#   Duration  → raw i64 nanoseconds
+#   DurationParts → 2-element tuple [u64, u32]
+serde = ["dep:serde"]
+
+# alloc: enables heap-based error messages in serde deserialization.
+alloc = []
+
 [dependencies]
-# defmt — optional dependency for embedded logging.
-# Enabled via features = ["defmt"].
-# Pinned to 0.3 for compatibility with defmt-rtt 0.4+.
 defmt = { version = "0.3", optional = true }
+serde = { version = "1", default-features = false, optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.8.2", features = ["html_reports"] }
@@ -55,6 +69,8 @@ criterion = { version = "0.8.2", features = ["html_reports"] }
 # Used only in tests/prop_tests.rs, which is guarded by #[cfg(feature = "std")].
 # On a host `cargo test` run std is always available, so this always compiles.
 # For bare-metal CI (thumbv7em) integration tests are never built.
+postcard = { version = "1", features = ["alloc"] }
+serde_json = { version = "1" }
 proptest = { version = "1.8.0", default-features = false, features = ["std"] }
 
 [[example]]
@@ -95,6 +111,6 @@ path = "examples/unix_time.rs"
 
 [package.metadata.docs.rs]
 # docs.rs builds with features = ["std", "defmt"] to expose full API
-features = ["std", "defmt"]
+features = ["std", "serde", "defmt"]
 # Targets for documentation builds
 targets = ["x86_64-unknown-linux-gnu", "thumbv7em-none-eabihf"]

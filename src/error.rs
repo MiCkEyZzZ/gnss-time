@@ -65,13 +65,11 @@ impl fmt::Display for GnssTimeError {
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
         match self {
-            GnssTimeError::Overflow => f.write_str("arithmetic overflow in nanosecond computation"),
+            GnssTimeError::Overflow => f.write_str("arithmetic overflow in nanoseconds"),
             GnssTimeError::InvalidInput(msg) => {
                 write!(f, "invalid input: {msg}")
             }
-            GnssTimeError::LeapSecondsRequired => {
-                f.write_str("leap-second data required for this conversion")
-            }
+            GnssTimeError::LeapSecondsRequired => f.write_str("leap-second data required"),
             GnssTimeError::OutOfRange => f.write_str("timestamp is out of representable range"),
         }
     }
@@ -83,6 +81,7 @@ impl std::error::Error for GnssTimeError {}
 
 // defmt support: embedded logging via probe-rs / defmt-rtt.
 #[cfg(feature = "defmt")]
+#[allow(clippy::match_same_arms)]
 impl defmt::Format for GnssTimeError {
     fn format(
         &self,
@@ -90,16 +89,16 @@ impl defmt::Format for GnssTimeError {
     ) {
         match self {
             GnssTimeError::Overflow => {
-                defmt::write!(f, "arithmetic overflow in nanoseconds")
+                defmt::write!(f, "arithmetic overflow in nanoseconds");
             }
             GnssTimeError::InvalidInput(msg) => {
-                defmt::write!(f, "invalid input: {}", msg)
+                defmt::write!(f, "invalid input: {}", msg);
             }
             GnssTimeError::LeapSecondsRequired => {
-                defmt::write!(f, "leap-second data required")
+                defmt::write!(f, "leap-second data required");
             }
             GnssTimeError::OutOfRange => {
-                defmt::write!(f, "timestamp is out of representable range")
+                defmt::write!(f, "timestamp is out of representable range");
             }
         }
     }
