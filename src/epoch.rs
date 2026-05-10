@@ -14,15 +14,15 @@
 //!
 //! ## Epoch reference table
 //!
-//! | Scale   | Epoch (UTC)                      | TAI − UTC |
-//! |---------|----------------------------------|-----------|
-//! | GLONASS | 1996-01-01 00:00:00 UTC(SU)      | 30 s      |
-//! | GPS     | 1980-01-06 00:00:00 UTC          | 19 s      |
-//! | Galileo | 1999-08-22 00:00:00 UTC          | 32 s      |
-//! | BeiDou  | 2006-01-01 00:00:00 UTC          | 33 s      |
-//! | TAI     | 1958-01-01 00:00:00 (definition) | —         |
-//! | Unix    | 1970-01-01 00:00:00 UTC          | 10 s      |
-//! | UTC     | 1972-01-01 00:00:00 UTC          | 10 s      |
+//! | Scale    | Epoch (UTC)                      | TAI − UTC |
+//! |----------|----------------------------------|-----------|
+//! | GLONASS  | 1996-01-01 00:00:00 UTC(SU)      | 30 s      |
+//! | GPS      | 1980-01-06 00:00:00 UTC          | 19 s      |
+//! | Galileo  | 1999-08-22 00:00:00 UTC          | 32 s      |
+//! | `BeiDou` | 2006-01-01 00:00:00 UTC          | 33 s      |
+//! | TAI      | 1958-01-01 00:00:00 (definition) | —         |
+//! | Unix     | 1970-01-01 00:00:00 UTC          | 10 s      |
+//! | UTC      | 1972-01-01 00:00:00 UTC          | 10 s      |
 //!
 //! ## Unix time interoperability
 //!
@@ -151,14 +151,14 @@ const fn days_from_unix_impl(
     let y = y as i64;
     // 400-year era containing year y
     let era = if y >= 0 { y / 400 } else { (y - 399) / 400 };
-    let yoe = (y - era * 400) as u64; // год внутри эры [0, 399]
+    let yoe = y - era * 400; // год внутри эры [0, 399]
 
     // Day of year in shifted month system [0, 365]
-    let doy = ((153 * m as i64 + 2) / 5 + d as i64 - 1) as u64;
+    let doy = (153 * m as i64 + 2) / 5 + d as i64 - 1;
     // Day within 400-year era [0, 146096]
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     // Days since 1970-01-01 (719468 = offset from start of 400-year era to 1970)
-    era * 146_097 + doe as i64 - 719_468
+    era * 146_097 + doe - 719_468
 }
 
 /// TAI epoch (1958-01-01).
@@ -182,7 +182,7 @@ pub const GLONASS_EPOCH: CivilDate = CivilDate::new(1996, 1, 1);
 /// Galileo epoch (1999-08-22).
 pub const GALILEO_EPOCH: CivilDate = CivilDate::new(1999, 8, 22);
 
-/// BeiDou epoch (2006-01-01).
+/// `BeiDou` epoch (2006-01-01).
 pub const BEIDOU_EPOCH: CivilDate = CivilDate::new(2006, 1, 1);
 
 /// Seconds from the Unix epoch (1970-01-01) to the UTC epoch (1972-01-01).
@@ -240,13 +240,13 @@ pub const LEAP_SECONDS_AT_GLONASS_EPOCH: i64 = 30;
 /// TAI − UTC at Galileo epoch.
 pub const LEAP_SECONDS_AT_GALILEO_EPOCH: i64 = 32;
 
-/// TAI − UTC at BeiDou epoch.
+/// TAI − UTC at `BeiDou` epoch.
 pub const LEAP_SECONDS_AT_BEIDOU_EPOCH: i64 = 33;
 
 /// Days between GPS and Galileo epochs.
 pub const DAYS_GPS_TO_GALILEO: i64 = GPS_EPOCH.days_until(GALILEO_EPOCH);
 
-/// Days between GPS and BeiDou epochs.
+/// Days between GPS and `BeiDou` epochs.
 pub const DAYS_GPS_TO_BEIDOU: i64 = GPS_EPOCH.days_until(BEIDOU_EPOCH);
 
 /// Days between GPS and GLONASS epochs.
@@ -258,7 +258,7 @@ pub const DAYS_UNIX_TO_GPS: i64 = UNIX_EPOCH.days_until(GPS_EPOCH);
 /// Nanoseconds between GPS and Galileo epochs.
 pub const NANOS_GPS_TO_GALILEO_EPOCH: i64 = GPS_EPOCH.nanos_until(GALILEO_EPOCH);
 
-/// Nanoseconds between GPS and BeiDou epochs (calendar only).
+/// Nanoseconds between GPS and `BeiDou` epochs (calendar only).
 pub const NANOS_GPS_TO_BEIDOU_EPOCH_CALENDAR: i64 = GPS_EPOCH.nanos_until(BEIDOU_EPOCH);
 
 // Galileo−GPS calendar delta must equal 619 315 200 s.

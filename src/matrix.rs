@@ -27,7 +27,7 @@ pub const TAI_OFFSET_GPS_NS: i64 = 19 * 1_000_000_000;
 /// Galileo offset relative to TAI in nanoseconds (GAL = TAI - 19 s).
 pub const TAI_OFFSET_GALILEO_NS: i64 = 19 * 1_000_000_000;
 
-/// BeiDou offset relative to TAI in nanoseconds (BDT = TAI - 33 s).
+/// `BeiDou` offset relative to TAI in nanoseconds (BDT = TAI - 33 s).
 pub const TAI_OFFSET_BEIDOU_NS: i64 = 33 * 1_000_000_000;
 
 /// TAI offset relative to itself (0 nanoseconds).
@@ -35,7 +35,7 @@ pub const TAI_OFFSET_TAI_NS: i64 = 0;
 
 /// Constant epoch shift between GLONASS and UTC in nanoseconds.
 ///
-/// GLONASS epoch (1996-01-01 00:00:00 UTC(SU)) is 757_371_600 seconds ahead
+/// GLONASS epoch (1996-01-01 00:00:00 UTC(SU)) is `757_371_600` seconds ahead
 /// of the UTC epoch (1972-01-01).
 pub const GLONASS_UTC_EPOCH_SHIFT_NS: i64 = 757_371_600 * 1_000_000_000;
 
@@ -72,7 +72,7 @@ pub enum ScaleId {
     /// Galileo time scale.
     Galileo,
 
-    /// BeiDou time scale.
+    /// `BeiDou` time scale.
     Beidou,
 
     /// International Atomic Time.
@@ -104,7 +104,8 @@ pub enum ScaleId {
 /// ```
 pub struct ConversionMatrix;
 
-/// Result of the end-to-end conversion BeiDou -> GPS -> GLONASS -> UTC -> TAI.
+/// Result of the end-to-end conversion `BeiDou` -> GPS -> GLONASS -> UTC ->
+/// TAI.
 #[derive(Debug)]
 pub struct ConversionChain {
     /// GLONASS time.
@@ -160,35 +161,22 @@ impl ScaleId {
         self,
         target: ScaleId,
     ) -> ConversionKind {
-        use ConversionKind::*;
-        use ScaleId::*;
+        use ConversionKind::{Contextual, EpochShift, Fixed, Identity, SameScale};
+        use ScaleId::{Beidou, Galileo, Glonass, Gps, Tai, Utc};
+
         match (self, target) {
-            // Same scale → no conversion needed
             (a, b) if a as u8 == b as u8 => SameScale,
-            // GPS <-> TAI
-            (Gps, Tai) | (Tai, Gps) => Fixed,
-            // GPS <-> Galileo: identical TAI offset (19 s)
+
             (Gps, Galileo) | (Galileo, Gps) => Identity,
-            // GPS <-> BeiDou: fixed ±14 seconds offset
-            (Gps, Beidou) | (Beidou, Gps) => Fixed,
-            // Galileo <-> BeiDou: same fixed relationship via TAI
-            (Galileo, Beidou) | (Beidou, Galileo) => Fixed,
-            // Galileo <-> TAI, BeiDou <-> TAI
-            (Galileo, Tai) | (Tai, Galileo) => Fixed,
-            (Beidou, Tai) | (Tai, Beidou) => Fixed,
-            // GLONASS <-> UTC: epoch shift, no leap-second handling
+
+            // Fixed relationships
+            (Gps | Galileo | Beidou, Tai)
+            | (Tai, Gps | Galileo | Beidou)
+            | (Gps | Galileo, Beidou)
+            | (Beidou, Gps | Galileo) => Fixed,
+
             (Glonass, Utc) | (Utc, Glonass) => EpochShift,
-            // All conversions involving UTC require leap-second context
-            (Gps, Utc) | (Utc, Gps) => Contextual,
-            (Gps, Glonass) | (Glonass, Gps) => Contextual,
-            (Galileo, Utc) | (Utc, Galileo) => Contextual,
-            (Galileo, Glonass) | (Glonass, Galileo) => Contextual,
-            (Beidou, Utc) | (Utc, Beidou) => Contextual,
-            (Beidou, Glonass) | (Glonass, Beidou) => Contextual,
-            // TAI <-> UTC and TAI <-> GLONASS: context-dependent (leap seconds / epoch)
-            (Tai, Utc) | (Utc, Tai) => Contextual,
-            (Tai, Glonass) | (Glonass, Tai) => Contextual,
-            // Default for future or unknown scales
+
             _ => Contextual,
         }
     }
@@ -222,12 +210,13 @@ impl ConversionMatrix {
     /// Creates a new conversion matrix.
     #[inline]
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         ConversionMatrix
     }
 
     /// Returns the number of paths of the requested type (fixed or contextual).
     #[must_use]
+    #[allow(clippy::unused_self)]
     pub fn path_count(
         &self,
         contextual: bool,
@@ -253,7 +242,8 @@ impl ConversionMatrix {
     /// Returns the conversion kind for `from -> to`.
     #[inline]
     #[must_use]
-    pub fn kind(
+    #[allow(clippy::unused_self)]
+    pub const fn kind(
         &self,
         from: ScaleId,
         to: ScaleId,
@@ -268,7 +258,17 @@ impl Default for ConversionMatrix {
     }
 }
 
-/// Performs the conversion GPS -> BeiDou -> GLONASS -> UTC -> TAI in one call.
+/// Performs the conversion GPS -> `BeiDou` -> GLONASS -> UTC -> TAI in one
+/// call.
+///
+/// # Errors
+///
+/// This function returns [`GnssTimeError`] if any step in the conversion
+/// chain fails:
+/// - `BeiDou -> GPS` conversion (`into_scale`) fails
+/// - `GPS -> GLONASS` conversion with leap-second context fails
+/// - `GLONASS -> UTC` conversion fails (overflow)
+/// - `GPS -> TAI` conversion fails (overflow or invalid scale conversion)
 pub fn beidou_via_gps_to_glonass_via_utc<P: LeapSecondsProvider>(
     bdt: Time<Beidou>,
     ls: &P,
@@ -376,15 +376,11 @@ mod tests {
         for (from, to) in contextual_pairs {
             assert!(
                 from.needs_leap_seconds(to),
-                "{:?} → {:?} should be contextual",
-                from,
-                to
+                "{from:?} -> {to:?} should be contextual",
             );
             assert!(
                 to.needs_leap_seconds(from),
-                "{:?} → {:?} should be contextual",
-                to,
-                from
+                "{to:?} -> {from:?} should be contextual",
             );
         }
     }
@@ -399,8 +395,8 @@ mod tests {
             (ScaleId::Glonass, ScaleId::Utc),
         ];
         for (from, to) in fixed_pairs {
-            assert!(from.is_fixed(to), "{:?} → {:?} should be fixed", from, to);
-            assert!(to.is_fixed(from), "{:?} → {:?} should be fixed", to, from);
+            assert!(from.is_fixed(to), "{from:?} -> {to:?} should be fixed");
+            assert!(to.is_fixed(from), "{to:?} -> {from:?} should be fixed");
         }
     }
 
@@ -438,9 +434,7 @@ mod tests {
                     assert_ne!(
                         kind,
                         ConversionKind::SameScale,
-                        "{:?}→{:?} should not be SameScale",
-                        from,
-                        to
+                        "{from:?} -> {to:?} should not be SameScale",
                     );
                 }
             }
@@ -457,8 +451,7 @@ mod tests {
                     let rev_fixed = to.is_fixed(from);
                     assert_eq!(
                         fwd_fixed, rev_fixed,
-                        "{:?}↔{:?}: fixed classification must be symmetric",
-                        from, to
+                        "{from:?} <-> {to:?}: fixed classification must be symmetric",
                     );
                 }
             }
