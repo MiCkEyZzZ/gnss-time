@@ -111,7 +111,7 @@ impl Duration {
     pub const ONE_SECOND: Duration = Duration(NANOS_PER_SECOND);
 
     /// Creates a `Duration` from nanoseconds.
-    #[inline(always)]
+    #[inline]
     pub const fn from_nanos(nanos: i64) -> Self {
         Duration(nanos)
     }
@@ -183,7 +183,7 @@ impl Duration {
     }
 
     /// Returns the raw nanosecond value.
-    #[inline(always)]
+    #[inline]
     #[must_use]
     pub const fn as_nanos(self) -> i64 {
         self.0
@@ -211,8 +211,13 @@ impl Duration {
     }
 
     /// Returns seconds as `f64`.
+    ///
+    /// # Precision
+    ///
+    /// May lose precision for large durations (> ~2^53 nanoseconds ≈ 104 days).
     #[inline]
     #[must_use]
+    #[allow(clippy::cast_precision_loss)]
     pub fn as_seconds_f64(self) -> f64 {
         self.0 as f64 / NANOS_PER_SECOND as f64
     }
@@ -295,6 +300,10 @@ impl Duration {
     }
 
     /// Fallible addition.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GnssTimeError::Overflow`] if the result cannot be represented.
     #[inline]
     pub fn try_add(
         self,
@@ -304,6 +313,10 @@ impl Duration {
     }
 
     /// Fallible subtraction.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GnssTimeError::Overflow`] if the result cannot be represented.
     #[inline]
     pub fn try_sub(
         self,
@@ -331,7 +344,7 @@ impl AddAssign for Duration {
         &mut self,
         rhs: Self,
     ) {
-        self.0 += rhs.0
+        self.0 += rhs.0;
     }
 }
 
@@ -353,7 +366,7 @@ impl SubAssign for Duration {
         &mut self,
         rhs: Self,
     ) {
-        self.0 -= rhs.0
+        self.0 -= rhs.0;
     }
 }
 
@@ -605,9 +618,9 @@ mod tests {
 
     #[test]
     fn test_nanos_identity() {
-        let d = Duration::from_nanos(123456789);
+        let d = Duration::from_nanos(123_456_789);
 
-        assert_eq!(d.as_nanos(), 123456789);
+        assert_eq!(d.as_nanos(), 123_456_789);
     }
 
     #[test]
