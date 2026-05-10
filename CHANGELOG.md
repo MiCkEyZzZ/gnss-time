@@ -9,6 +9,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- в `Cargo.toml` добавлен serde, как опциональная зависимость
+
 - Added Unix/UTC/GPS epoch constants:
   - `UTC_EPOCH_UNIX_OFFSET_S`
   - `UTC_EPOCH_UNIX_OFFSET_NS`

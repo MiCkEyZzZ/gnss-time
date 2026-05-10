@@ -97,7 +97,7 @@ pub enum DisplayStyle {
     /// Week-based format:
     /// `NAME WWW:SSSSSS.mm`
     ///
-    /// Used by GPS, Galileo, BeiDou.
+    /// Used by GPS, Galileo, `BeiDou`.
     WeekTow,
 
     /// Day-based format:
@@ -186,7 +186,7 @@ define_scale!(
 );
 
 define_scale!(
-    /// BeiDou — Chinese navigation system (BDT)
+    /// `BeiDou` — Chinese navigation system (BDT)
     ///
     /// - Epoch: 2006-01-01 UTC
     /// - BDT = TAI − 33 seconds
@@ -233,7 +233,7 @@ define_scale!(
 
 impl OffsetToTai {
     /// Returns the fixed offset in nanoseconds.
-    #[inline(always)]
+    #[inline]
     #[must_use]
     pub const fn fixed(self) -> Option<i64> {
         match self {
@@ -243,14 +243,14 @@ impl OffsetToTai {
     }
 
     /// Returns `true` for scales that require runtime context (UTC, GLONASS).
-    #[inline(always)]
+    #[inline]
     #[must_use]
     pub const fn is_contextual(self) -> bool {
         matches!(self, OffsetToTai::Contextual)
     }
 
     /// Returns `true` for scale with a fixed TAI offset.
-    #[inline(always)]
+    #[inline]
     #[must_use]
     pub const fn is_fixed(self) -> bool {
         matches!(self, OffsetToTai::Fixed(_))
@@ -421,7 +421,7 @@ mod tests {
                 OffsetToTai::Fixed(0) => assert_eq!(T::NAME, "TAI"),
                 OffsetToTai::Fixed(_) => { /* GPS, GAL, BDT */ }
                 OffsetToTai::Contextual => {
-                    assert!(T::NAME == "UTC" || T::NAME == "GLO")
+                    assert!(T::NAME == "UTC" || T::NAME == "GLO");
                 }
             }
         }

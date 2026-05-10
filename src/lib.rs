@@ -7,7 +7,7 @@
 //! - UTC
 //! - GLONASS
 //! - Galileo
-//! - BeiDou
+//! - `BeiDou`
 //! - TAI
 //!
 //! Leap seconds are handled explicitly via a provider trait, ensuring
@@ -43,12 +43,20 @@
 #![no_std]
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
+#![deny(clippy::all)]
+#![deny(clippy::pedantic)]
+#![allow(clippy::similar_names)]
 #![warn(clippy::must_use_candidate)]
+#![warn(clippy::missing_const_for_fn)]
+#![warn(clippy::semicolon_if_nothing_returned)]
 
 #[cfg(any(feature = "std", test))]
 extern crate std;
 
-// Core modules
+////////////////////////////////////////////////////////////////////////////////
+// Public modules
+////////////////////////////////////////////////////////////////////////////////
+
 pub mod convert;
 pub mod duration;
 pub mod epoch;
@@ -58,10 +66,20 @@ pub mod matrix;
 pub mod scale;
 pub mod time;
 
-// Internal implementation details (not public API)
+// Optional serde support — no public items, impls are discovered automatically
+#[cfg(feature = "serde")]
+pub mod serde_impls;
+
+////////////////////////////////////////////////////////////////////////////////
+// Internal modules
+////////////////////////////////////////////////////////////////////////////////
+
 mod tables;
 
-// Re-exports (public API surface)
+////////////////////////////////////////////////////////////////////////////////
+// Public re-exports
+////////////////////////////////////////////////////////////////////////////////
+
 pub use convert::*;
 pub use duration::*;
 pub use epoch::*;
@@ -71,11 +89,9 @@ pub use matrix::*;
 pub use scale::*;
 pub use time::*;
 
-/// Common imports for typical usage.
-///
-/// # Example
-///
-/// ```rust
-/// use gnss_time::prelude::*;
-/// ```
+////////////////////////////////////////////////////////////////////////////////
+// Prelude
+////////////////////////////////////////////////////////////////////////////////
+
+// Common imports for typical usage.
 pub mod prelude;

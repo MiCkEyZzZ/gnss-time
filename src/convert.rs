@@ -10,13 +10,13 @@
 //!
 //! ## Overview
 //!
-//! | Source → Target | Trait                           | Leap seconds |
-//! |----------------|----------------------------------|--------------|
-//! | GPS → TAI      | [`IntoScale`]                    | No           |
-//! | GPS → Galileo  | [`IntoScale`]                    | No           |
-//! | GPS → BeiDou   | [`IntoScale`]                    | No           |
-//! | UTC ↔ GPS      | [`IntoScaleWith`]                | Yes          |
-//! | GPS ↔ GLONASS  | [`IntoScaleWith`]                | Yes          |
+//! | Source → Target | Trait                            | Leap seconds |
+//! |-----------------|----------------------------------|--------------|
+//! | GPS → TAI       | [`IntoScale`]                    | No           |
+//! | GPS → Galileo   | [`IntoScale`]                    | No           |
+//! | GPS → `BeiDou`  | [`IntoScale`]                    | No           |
+//! | UTC ↔ GPS       | [`IntoScaleWith`]                | Yes          |
+//! | GPS ↔ GLONASS   | [`IntoScaleWith`]                | Yes          |
 //!
 //! Fixed-offset conversions are lossless and do not require external data.
 //! Leap-second-aware conversions require a [`LeapSecondsProvider`].
@@ -107,6 +107,11 @@ pub trait IntoScale<Target: TimeScale>: Sized {
 #[must_use = "conversion result must be used; ignoring it discards the converted time"]
 pub trait IntoScaleWith<Target: TimeScale>: Sized {
     /// Converts using leap-second data.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GnssTimeError::Overflow`] if the result cannot be represented
+    /// in the target scale.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
@@ -114,6 +119,11 @@ pub trait IntoScaleWith<Target: TimeScale>: Sized {
 
     /// Converts and reports whether the result is ambiguous due to a
     /// leap-second insertion.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GnssTimeError::Overflow`] if the result cannot be represented
+    /// in the target scale.
     fn into_scale_with_checked<P: LeapSecondsProvider>(
         self,
         ls: P,
@@ -146,14 +156,14 @@ impl<T> ConvertResult<T> {
     /// Returns `true` if the result is unambiguous.
     #[inline]
     #[must_use]
-    pub fn is_exact(&self) -> bool {
+    pub const fn is_exact(&self) -> bool {
         matches!(self, Self::Exact(_))
     }
 
     /// Returns `true` if the result is ambiguous due to a leap second.
     #[inline]
     #[must_use]
-    pub fn is_ambiguous(&self) -> bool {
+    pub const fn is_ambiguous(&self) -> bool {
         matches!(self, Self::AmbiguousLeapSecond(_))
     }
 }
@@ -235,7 +245,7 @@ impl IntoScale<Gps> for Time<Galileo> {
 }
 
 impl IntoScale<Gps> for Time<Beidou> {
-    /// BeiDou -> GPS: `GPS = BDT + 14s`.
+    /// `BeiDou` -> GPS: `GPS = BDT + 14s`.
     ///
     /// ```rust
     /// use gnss_time::{Beidou, Gps, IntoScale, Time};
@@ -349,7 +359,7 @@ impl IntoScale<Galileo> for Time<Gps> {
 }
 
 impl IntoScale<Galileo> for Time<Beidou> {
-    /// BeiDou -> Galileo via TAI.
+    /// `BeiDou` -> Galileo via TAI.
     #[inline]
     fn into_scale(self) -> Result<Time<Galileo>, GnssTimeError> {
         self.try_convert::<Galileo>()
@@ -395,7 +405,7 @@ impl IntoScaleWith<Galileo> for Time<Utc> {
 ////////////////////////////////////////////////////////////////////////////////
 
 impl IntoScale<Beidou> for Time<Gps> {
-    /// GPS -> BeiDou: `BDT = GPS - 14s`.
+    /// GPS -> `BeiDou`: `BDT = GPS - 14s`.
     ///
     /// ```rust
     /// use gnss_time::{Beidou, Gps, IntoScale, Time};
@@ -412,7 +422,7 @@ impl IntoScale<Beidou> for Time<Gps> {
 }
 
 impl IntoScale<Beidou> for Time<Galileo> {
-    /// Galileo -> BeiDou via TAI.
+    /// Galileo -> `BeiDou` via TAI.
     #[inline]
     fn into_scale(self) -> Result<Time<Beidou>, GnssTimeError> {
         self.try_convert::<Beidou>()
@@ -420,7 +430,7 @@ impl IntoScale<Beidou> for Time<Galileo> {
 }
 
 impl IntoScaleWith<Beidou> for Time<Utc> {
-    /// UTC → BeiDou via GPS.
+    /// UTC → `BeiDou` via GPS.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
@@ -436,7 +446,7 @@ impl IntoScaleWith<Beidou> for Time<Utc> {
 }
 
 impl IntoScaleWith<Beidou> for Time<Glonass> {
-    /// GLONASS -> BeiDou via UTC.
+    /// GLONASS -> `BeiDou` via UTC.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
@@ -531,12 +541,12 @@ impl IntoScaleWith<Utc> for Time<Gps> {
         };
         let n_before = ls.tai_minus_utc_at(tai_prev);
 
-        if n_at != n_before {
+        if n_at == n_before {
+            Ok(ConvertResult::Exact(utc))
+        } else {
             // We crossed a leap-second boundary within the last second.
             // The GPS second corresponding to the old offset is ambiguous.
             Ok(ConvertResult::AmbiguousLeapSecond(utc))
-        } else {
-            Ok(ConvertResult::Exact(utc))
         }
     }
 }
@@ -559,7 +569,7 @@ impl IntoScaleWith<Utc> for Time<Galileo> {
 }
 
 impl IntoScaleWith<Utc> for Time<Beidou> {
-    /// BeiDou -> UTC via GPS.
+    /// `BeiDou` -> UTC via GPS.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
