@@ -9,6 +9,85 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Added optional `serde` support behind the `serde` feature flag.
+  - New module `serde_impls.rs` (compiled only with `#[cfg(feature = "serde")]`).
+
+- Added custom Serde implementations for core time types:
+  - `Time<S>` — dual-format serialization:
+    - Human-readable: `{ "scale": "GPS", "nanos": 1356566418000000000 }`
+      - Includes runtime validation of `scale` field against the compile-time
+        time scale.
+      - Deserialization returns a descriptive error on mismatch.
+
+    - Compact: raw `u64` nanoseconds (no scale tag, type-level encoding guarantees
+      correctness).
+
+  - `Duration`:
+    - Human-readable: `{ "nanos": -7000000000 }`
+    - Compact: raw `i64` nanoseconds
+
+  - `DurationParts`:
+    - Human-readable: `{ "seconds": 5, "nanos": 500000000 }`
+    - Compact: `[seconds, nanos]` tuple encoding
+    - Enforces invariant `nanos < 1_000_000_000` via constructor validation
+
+- Implemented Serde using manual visitor-based deserialization (no proc-macros).
+  - Uses `is_human_readable()` to switch formats at runtime.
+  - Fully `no_std` compatible (when `serde` is built with `default-features = false`).
+  - Error reporting implemented without allocations using `fmt::Display`.
+
+- Added 42 Serde-related tests:
+  - Exact JSON format validation
+  - Round-trip tests for all supported time scales
+  - Error cases for scale mismatches
+  - Compact vs human-readable consistency checks
+  - Postcard binary round-trip tests
+  - Boundary tests (`EPOCH`, `MIN`, `MAX`)
+  - Size comparison tests (compact vs JSON)
+  - Integration tests across multiple time scales
+
+- Added documentation section: **Serde support**
+  - Describes all formats per type
+  - Includes usage examples
+  - Explains design constraints (no proc-macro, no alloc)
+
+- Extended `docs/ARCHITECTURE.md`:
+  - Added Serde design rationale
+  - Added serialization format specification table
+  - Updated feature flag matrix
+  - Updated CI guarantees section
+
+- Updated `Cargo.toml`:
+  - Added optional dependency:
+
+    ```toml
+    serde = { version = "1", default-features = false, optional = true }
+    ```
+
+  - Added feature flag:
+
+    ```toml
+    serde = ["dep:serde"]
+    ```
+
+  - Added `alloc` feature flag (preparation for future extensions)
+  - Added dev-dependencies:
+    - `serde_json`
+    - `postcard` (with `alloc` feature for tests)
+
+  - Updated `docs.rs` metadata to include `serde` feature
+
+- Updated `src/lib.rs`:
+  - Added conditional module:
+
+    ```rust
+    #[cfg(feature = "serde")]
+    mod serde_impls;
+    ```
+
+  - Added Serde usage example in crate-level documentation
+  - Updated feature flags documentation table
+
 - в `Cargo.toml` добавлен serde, как опциональная зависимость
 
 - Added Unix/UTC/GPS epoch constants:
@@ -46,6 +125,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- Improved architecture documentation consistency between:
+  - `ARCHITECTURE.md`
+  - crate-level docs
+  - feature flag definitions in `Cargo.toml`
+
+- Clarified serialization strategy:
+  - Human-readable format is schema-based (not string-based)
+  - Compact format is strictly zero-overhead (no tags, no allocation)
+
 - Added constants to `prelude.rs`:
   - `GPS_EPOCH_UNIX_S`
   - `UTC_EPOCH_UNIX_OFFSET_NS`
@@ -57,8 +145,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - `GPS_EPOCH_UNIX_S` (now available via `use`)
 
 - Improved code documentation in `duration.rs`
+
 - Updated `README.md` with minimum required Rust version
+
 - Added links to license files
+
 - Added constants to `prelude.rs`
 
 ### Fixed
