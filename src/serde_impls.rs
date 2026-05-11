@@ -451,6 +451,7 @@ mod tests {
     fn test_gps_deserialize_json() {
         let json = r#"{"scale":"GPS","nanos":1356566418000000000}"#;
         let t: Time<Gps> = serde_json::from_str(json).unwrap();
+
         assert_eq!(t, Time::<Gps>::from_seconds(1_356_566_418));
     }
 
@@ -459,6 +460,7 @@ mod tests {
         let original = Time::<Gps>::from_nanos(1_356_566_418_123_456_789);
         let json = serde_json::to_string(&original).unwrap();
         let back: Time<Gps> = serde_json::from_str(&json).unwrap();
+
         assert_eq!(original, back);
     }
 
@@ -466,8 +468,11 @@ mod tests {
     fn test_gps_epoch_json_roundtrip() {
         let t = Time::<Gps>::EPOCH;
         let json = serde_json::to_string(&t).unwrap();
+
         assert_eq!(json, r#"{"scale":"GPS","nanos":0}"#);
+
         let back: Time<Gps> = serde_json::from_str(&json).unwrap();
+
         assert_eq!(t, back);
     }
 
@@ -476,6 +481,7 @@ mod tests {
         let t = Time::<Gps>::MAX;
         let json = serde_json::to_string(&t).unwrap();
         let back: Time<Gps> = serde_json::from_str(&json).unwrap();
+
         assert_eq!(t, back);
     }
 
@@ -484,6 +490,7 @@ mod tests {
         let t = Time::<Utc>::from_nanos(1_514_764_800_000_000_000);
         let json = serde_json::to_string(&t).unwrap();
         let back: Time<Utc> = serde_json::from_str(&json).unwrap();
+
         assert_eq!(t, back);
     }
 
@@ -492,6 +499,7 @@ mod tests {
         let t = Time::<Tai>::from_seconds(100_000_000);
         let json = serde_json::to_string(&t).unwrap();
         let back: Time<Tai> = serde_json::from_str(&json).unwrap();
+
         assert_eq!(t, back);
     }
 
@@ -500,6 +508,7 @@ mod tests {
         let t = Time::<Galileo>::from_nanos(999_999_999_999);
         let json = serde_json::to_string(&t).unwrap();
         let back: Time<Galileo> = serde_json::from_str(&json).unwrap();
+
         assert_eq!(t, back);
     }
 
@@ -508,6 +517,7 @@ mod tests {
         let t = Time::<Beidou>::EPOCH;
         let json = serde_json::to_string(&t).unwrap();
         let back: Time<Beidou> = serde_json::from_str(&json).unwrap();
+
         assert_eq!(t, back);
     }
 
@@ -516,6 +526,7 @@ mod tests {
         let t = Time::<Glonass>::from_nanos(42_000_000_000);
         let json = serde_json::to_string(&t).unwrap();
         let back: Time<Glonass> = serde_json::from_str(&json).unwrap();
+
         assert_eq!(t, back);
     }
 
@@ -540,8 +551,11 @@ mod tests {
     fn test_scale_mismatch_gps_into_utc_fails() {
         let json = r#"{"scale":"GPS","nanos":0}"#;
         let result: Result<Time<Utc>, _> = serde_json::from_str(json);
+
         assert!(result.is_err(), "scale mismatch must fail");
+
         let msg = result.unwrap_err().to_string();
+
         assert!(
             msg.contains("GPS") || msg.contains("UTC") || msg.contains("scale"),
             "error should mention scale: {msg}"
@@ -552,6 +566,7 @@ mod tests {
     fn test_scale_mismatch_tai_into_gps_fails() {
         let json = r#"{"scale":"TAI","nanos":0}"#;
         let result: Result<Time<Gps>, _> = serde_json::from_str(json);
+
         assert!(result.is_err());
     }
 
@@ -560,6 +575,7 @@ mod tests {
         // scale field is optional — only validated when present
         let json = r#"{"nanos":12345678}"#;
         let t: Time<Gps> = serde_json::from_str(json).unwrap();
+
         assert_eq!(t.as_nanos(), 12_345_678);
     }
 
@@ -567,6 +583,7 @@ mod tests {
     fn test_deserialize_missing_nanos_field_fails() {
         let json = r#"{"scale":"GPS"}"#;
         let result: Result<Time<Gps>, _> = serde_json::from_str(json);
+
         assert!(result.is_err());
     }
 
@@ -575,6 +592,7 @@ mod tests {
         let original = Time::<Gps>::from_nanos(1_356_566_418_123_456_789);
         let bytes = postcard::to_allocvec(&original).unwrap();
         let back: Time<Gps> = postcard::from_bytes(&bytes).unwrap();
+
         assert_eq!(original, back);
     }
 
@@ -583,6 +601,7 @@ mod tests {
         let t = Time::<Utc>::from_nanos(1_514_764_800_000_000_000);
         let bytes = postcard::to_allocvec(&t).unwrap();
         let back: Time<Utc> = postcard::from_bytes(&bytes).unwrap();
+
         assert_eq!(t, back);
     }
 
@@ -591,6 +610,7 @@ mod tests {
         let t = Time::<Gps>::EPOCH;
         let bytes = postcard::to_allocvec(&t).unwrap();
         let back: Time<Gps> = postcard::from_bytes(&bytes).unwrap();
+
         assert_eq!(t, back);
     }
 
@@ -599,6 +619,7 @@ mod tests {
         let t = Time::<Gps>::MAX;
         let bytes = postcard::to_allocvec(&t).unwrap();
         let back: Time<Gps> = postcard::from_bytes(&bytes).unwrap();
+
         assert_eq!(t, back);
     }
 
@@ -607,6 +628,7 @@ mod tests {
         let t = Time::<Gps>::from_seconds(1_000_000);
         let json_len = serde_json::to_vec(&t).unwrap().len();
         let postcard_len = postcard::to_allocvec(&t).unwrap().len();
+
         assert!(
             postcard_len < json_len,
             "postcard ({postcard_len}B) should be smaller than JSON ({json_len}B)"
@@ -617,6 +639,7 @@ mod tests {
     fn test_duration_serialize_json_exact() {
         let d = Duration::from_seconds(-7);
         let json = serde_json::to_string(&d).unwrap();
+
         assert_eq!(json, r#"{"nanos":-7000000000}"#);
     }
 
@@ -624,8 +647,11 @@ mod tests {
     fn test_duration_zero_json() {
         let d = Duration::ZERO;
         let json = serde_json::to_string(&d).unwrap();
+
         assert_eq!(json, r#"{"nanos":0}"#);
+
         let back: Duration = serde_json::from_str(&json).unwrap();
+
         assert_eq!(d, back);
     }
 
@@ -644,6 +670,7 @@ mod tests {
         for d in cases {
             let json = serde_json::to_string(&d).unwrap();
             let back: Duration = serde_json::from_str(&json).unwrap();
+
             assert_eq!(d, back, "round-trip failed for {d:?}");
         }
     }
@@ -651,6 +678,7 @@ mod tests {
     #[test]
     fn test_duration_missing_nanos_field_fails() {
         let result: Result<Duration, _> = serde_json::from_str(r"{}");
+
         assert!(result.is_err());
     }
 
@@ -667,6 +695,7 @@ mod tests {
         for d in cases {
             let bytes = postcard::to_allocvec(&d).unwrap();
             let back: Duration = postcard::from_bytes(&bytes).unwrap();
+
             assert_eq!(d, back);
         }
     }
@@ -678,6 +707,7 @@ mod tests {
             nanos: 500_000_000,
         };
         let json = serde_json::to_string(&p).unwrap();
+
         assert_eq!(json, r#"{"seconds":5,"nanos":500000000}"#);
     }
 
@@ -688,8 +718,11 @@ mod tests {
             nanos: 0,
         };
         let json = serde_json::to_string(&p).unwrap();
+
         assert_eq!(json, r#"{"seconds":0,"nanos":0}"#);
+
         let back: DurationParts = serde_json::from_str(&json).unwrap();
+
         assert_eq!(p, back);
     }
 
@@ -716,6 +749,7 @@ mod tests {
         for p in cases {
             let json = serde_json::to_string(&p).unwrap();
             let back: DurationParts = serde_json::from_str(&json).unwrap();
+
             assert_eq!(p, back);
         }
     }
@@ -725,18 +759,21 @@ mod tests {
         // nanos >= 1_000_000_000 must be rejected
         let json = r#"{"seconds":0,"nanos":1000000000}"#;
         let result: Result<DurationParts, _> = serde_json::from_str(json);
+
         assert!(result.is_err(), "nanos >= 1_000_000_000 must fail");
     }
 
     #[test]
     fn test_duration_parts_missing_seconds_fails() {
         let result: Result<DurationParts, _> = serde_json::from_str(r#"{"nanos":0}"#);
+
         assert!(result.is_err());
     }
 
     #[test]
     fn test_duration_parts_missing_nanos_fails() {
         let result: Result<DurationParts, _> = serde_json::from_str(r#"{"seconds":0}"#);
+
         assert!(result.is_err());
     }
 
@@ -756,9 +793,11 @@ mod tests {
                 nanos: 999_999_999,
             },
         ];
+
         for p in cases {
             let bytes = postcard::to_allocvec(&p).unwrap();
             let back: DurationParts = postcard::from_bytes(&bytes).unwrap();
+
             assert_eq!(p, back);
         }
     }
@@ -783,6 +822,7 @@ mod tests {
 
         // Reconstructed GPS timestamp matches original
         let gps_from_tow = Time::<Gps>::from_week_tow(2345, tow_back).unwrap();
+
         assert_eq!(gps, gps_from_tow);
     }
 
