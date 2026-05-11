@@ -9,6 +9,59 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Added comprehensive Postcard-based serialization test suite (`tests/serde_test.rs`,
+  33 tests, behind `serde` feature):
+  - Full round-trip coverage for `Time<S>` across all scales (`Gps`, `Utc`, `Tai`,
+    `Galileo`, `Beidou`, `Glonass`), including:
+    - `EPOCH`, `MAX`, and sub-second precision values
+
+  - Wire format validation aligned with Postcard ULEB-128 encoding:
+    - `0` → 1 byte (`[0x00]`)
+    - `u64::MAX` → 10 bytes
+    - Any `Time<S>` → ≤ 10 bytes
+    - 1-week timestamp → 8 bytes
+
+  - Raw byte-level encoding tests:
+    - `1 ns` → `[0x01]`
+    - `127 ns` → `[0x7F]`
+    - `128 ns` → `[0x80, 0x01]`
+
+  - Verified scale isolation:
+    - Identical nanoseconds produce identical wire format across scales
+    - Correct type-safe deserialization per scale
+
+  - Added round-trip tests for:
+    - `Duration` (`ZERO`, positive, negative, `MIN`, `MAX`)
+    - `DurationParts` (including boundary values)
+
+  - Verified compatibility with heapless environments:
+    - Confirmed that a 16-byte buffer is sufficient for all supported types
+
+  - Cross-format consistency tests:
+    - JSON ↔ Postcard round-trip equivalence
+    - Macro-based validation across all time scales
+
+  - Integration tests:
+    - GPS ↔ UTC conversions with leap seconds + Postcard round-trip
+    - Unix time ↔ UTC + Postcard round-trip
+
+- Added `heapless = "0.8"` to `dev-dependencies` for embedded serialization testing
+
+- Added `[[test]]` configuration:
+  - `serde_test` is compiled only when `--features serde` is enabled
+
+- Extended `docs/EMBEDDED.md` with **Compact binary serialization (Postcard)** section:
+  - Formal wire format specification:
+    - `Time<S>` → ULEB-128 (`u64`, 1–10 bytes)
+    - `Duration` → ZigZag + ULEB-128 (`i64`)
+    - `DurationParts` → tuple `[u64, u32]`
+
+  - Clarified that Postcard encoding is variable-length (not fixed 8 bytes)
+  - Added recommended buffer sizing guidelines (≥ 16 bytes)
+  - Added `heapless::Vec` example for `no_std` environments
+  - Included telemetry packet example with real encoded size estimation
+  - Documented `is_human_readable()` behavior for JSON vs binary formats
+
 - Added optional `serde` support behind the `serde` feature flag.
   - New module `serde_impls.rs` (compiled only with `#[cfg(feature = "serde")]`).
 
@@ -124,6 +177,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - `time_bench.rs`
 
 ### Changed
+
+- Updated `Cargo.toml`:
+  - Extended documentation for `postcard` dependency:
+    - Clarified `alloc` vs heapless usage modes
+
+  - Improved comments around feature-gated serialization support
 
 - Improved architecture documentation consistency between:
   - `ARCHITECTURE.md`

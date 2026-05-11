@@ -81,11 +81,6 @@ serde_json = { version = "1" }
 # Used in tests/serde_test.rs to verify no_std compatible serialization.
 heapless = "0.8"
 
-[[test]]
-name = "serde_test"
-path = "tests/serde_test.rs"
-required-features = ["serde"]
-
 [[example]]
 name = "basic_usage"
 path = "examples/basic_usage.rs"
