@@ -69,9 +69,22 @@ criterion = { version = "0.8.2", features = ["html_reports"] }
 # Used only in tests/prop_tests.rs, which is guarded by #[cfg(feature = "std")].
 # On a host `cargo test` run std is always available, so this always compiles.
 # For bare-metal CI (thumbv7em) integration tests are never built.
+proptest = { version = "1.8.0", default-features = false, features = ["std"] }
+
+# postcard: compact binary serialization for embedded / no_std.
+# - `alloc` feature: enables postcard::to_allocvec (requires std/alloc)
+# - `heapless` feature: enables postcard::to_vec into heapless::Vec (no_std)
 postcard = { version = "1", features = ["alloc"] }
 serde_json = { version = "1" }
-proptest = { version = "1.8.0", default-features = false, features = ["std"] }
+
+# heapless: stack-allocated data structures for no_std environments.
+# Used in tests/serde_test.rs to verify no_std compatible serialization.
+heapless = "0.8"
+
+[[test]]
+name = "serde_test"
+path = "tests/serde_test.rs"
+required-features = ["serde"]
 
 [[example]]
 name = "basic_usage"
