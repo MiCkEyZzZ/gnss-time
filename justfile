@@ -117,6 +117,9 @@ test-deterministic:
 test-props:
     cargo test --features std --test prop_tests
 
+test-serde:
+    cargo test --features serde
+
 # Run all tests: unit, integration, deterministic properties, proptest.
 test-all: test-host test-deterministic test-props
 
@@ -130,7 +133,7 @@ test-no-std: setup-embedded
 # CI aggregate
 # -------------------------
 
-ci: fmt-check lint check check-std check-no-std check-no-std-defmt msrv doc hack test-all
+ci: fmt-check lint check check-std check-no-std check-no-std-defmt msrv doc hack test-all test-serde
 
 # -------------------------
 # Cleanup
