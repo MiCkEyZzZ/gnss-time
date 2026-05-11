@@ -1,17 +1,17 @@
 # The gnss-time development commands (Justfile)
 #
 # Purpose:
-#   Unified command interface for build, lint, test, formatting,
-#   embedded targets, and CI simulation.
+#   Unified interface for formatting, linting, testing, documentation,
+#   embedded validation, feature-matrix checks, and CI simulation.
 #
 # Usage:
 #   just <recipe>
 
-set shell := ["bash", "-ceu"]
+set shell := ["bash", "-ceuo", "pipefail"]
 
-# -------------------------
+# =============================================================================
 # Default
-# -------------------------
+# =============================================================================
 
 default:
     just help
@@ -19,19 +19,20 @@ default:
 help:
     @just --list
 
-# -------------------------
-# Setup / Tooling
-# -------------------------
+# =============================================================================
+# Toolchain / Targets
+# =============================================================================
 
 setup-embedded:
     rustup target add thumbv7em-none-eabihf
 
-# -------------------------
+# =============================================================================
 # Formatting
-# -------------------------
+# =============================================================================
 
 fmt:
     cargo fmt --all
+    taplo fmt
 
 fmt-toml:
     taplo fmt
@@ -42,102 +43,140 @@ fmt-check:
     cargo fmt --all -- --check
     taplo fmt --check
 
-# -------------------------
-# Checks (host)
-# -------------------------
+# =============================================================================
+# Cargo checks
+# =============================================================================
 
 check:
-    cargo check --all-targets
+    cargo check --workspace --all-targets --locked
+
+check-all-features:
+    cargo check --workspace --all-features --locked
 
 check-std:
-    cargo check --lib --features std
+    cargo check --workspace --features std --locked
 
-# -------------------------
-# Embedded (no_std)
-# -------------------------
+# =============================================================================
+# Embedded / no_std validation
+# =============================================================================
 
 check-no-std: setup-embedded
-    cargo check --lib --no-default-features --target thumbv7em-none-eabihf
+    cargo check --lib --no-default-features --target thumbv7em-none-eabihf --locked
 
 check-no-std-defmt: setup-embedded
-    cargo check --lib --no-default-features --features defmt --target thumbv7em-none-eabihf
+    cargo check --lib --no-default-features --features defmt --target thumbv7em-none-eabihf --locked
 
-# -------------------------
+# =============================================================================
 # Linting
-# -------------------------
+# =============================================================================
 
 lint:
-    cargo clippy --all-targets --all-features -- -D warnings
+    cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
 lint-no-std: setup-embedded
-    cargo clippy --lib --no-default-features --features defmt --target thumbv7em-none-eabihf -- -D warnings
+    cargo clippy --lib --no-default-features --features defmt --target thumbv7em-none-eabihf --locked -- -D warnings
 
-# -------------------------
+# =============================================================================
 # Documentation
-# -------------------------
+# =============================================================================
 
 doc:
-    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
+    RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features --locked
 
-# -------------------------
+docsrs:
+    RUSTDOCFLAGS="--cfg docsrs -D warnings" cargo +nightly doc --workspace --all-features --no-deps
+
+# =============================================================================
 # MSRV validation
-# -------------------------
+# =============================================================================
 
 msrv:
-    cargo +1.75.0 check --lib --no-default-features
-    cargo +1.75.0 check --lib --features std
-    cargo +1.75.0 check --lib --no-default-features --features defmt
+    cargo +1.75.0 check --workspace --lib --no-default-features
+    cargo +1.75.0 check --workspace --lib --features std
+    cargo +1.75.0 check --workspace --lib --no-default-features --features defmt
 
-# -------------------------
-# Advanced checks
-# -------------------------
+# =============================================================================
+# Feature matrix validation
+# =============================================================================
 
 hack:
-    cargo hack check --feature-powerset --no-dev-deps
+    cargo hack check --workspace --feature-powerset --no-dev-deps
 
-# -------------------------
+hack-each:
+    cargo hack check --workspace --each-feature
+
+# =============================================================================
 # Tests
-# -------------------------
+# =============================================================================
 #
 # Run the full test suite (unit + integration + determenistic property tests).
 # proptest-based tests in prop_test.rs are compiled automatically on host
 
-# because std is always available in the cargo test harness.
-test-host:
-    cargo test
+test:
+    cargo test --workspace --all-features --locked
 
-# Run only the deterministic property-based tests (no proptest, no std feature required — always works on any host target).
+# Deterministic property tests.
+#
+# These tests do not require the std feature and are intended to run
+# identically across all host environments.
+
 test-deterministic:
-    cargo test --test prop_deterministic
+    cargo test --test prop_deterministic --locked
 
-# Run proptest-based property tests explicitly with the std feature.
-# This is equivalent to `cargo test` on a host, but is explicit for CI jobs
+# Proptest-based randomized property tests.
+#
+# Explicit target for CI jobs that isolate randomized/property testing.
 
-# that want to isolate the proptest run.
 test-props:
-    cargo test --features std --test prop_tests
+    cargo test --features std --test prop_tests --locked
 
 test-serde:
     cargo test --features serde
 
-# Run all tests: unit, integration, deterministic properties, proptest.
-test-all: test-host test-deterministic test-props
+# Complete test suite.
 
-# no_std smoke-test (cannot actually run tests on bare-metal,
+test-all:
+    just test
+    just test-deterministic
+    just test-props
+    just test-serde
 
-# but we verify the lib compiles for that target).
+# Bare-metal smoke test.
+#
+# Actual execution is not possible on embedded targets in CI, but we verify
+# that the crate builds successfully in no_std mode.
+
 test-no-std: setup-embedded
-    cargo check --lib --no-default-features --target thumbv7em-none-eabihf
+    cargo check --lib --no-default-features --target thumbv7em-none-eabihf --locked
 
-# -------------------------
+# =============================================================================
+# Advanced validation
+# =============================================================================
+
+udeps:
+    cargo +nightly udeps --all-targets --all-features
+
+miri:
+    cargo +nightly miri test
+
+deny:
+    cargo deny check
+
+audit:
+    cargo audit
+
+release-check:
+    cargo publish --dry-run
+
+# =============================================================================
 # CI aggregate
-# -------------------------
+# =============================================================================
 
 ci: fmt-check lint check check-std check-no-std check-no-std-defmt msrv doc hack test-all test-serde
 
-# -------------------------
+# =============================================================================
 # Cleanup
-# -------------------------
+# =============================================================================
 
 clean:
     cargo clean
