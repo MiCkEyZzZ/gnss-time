@@ -1,25 +1,32 @@
-# Cross-compilation configuration for embedded targets.
+# Cross-compilation and embedded build configuration for gnss-time.
 #
-# Local builds for a specific target:
-#   cargo build --target thumbv7em-none-eabihf
-#   cargo build --target riscv32imac-unknown-none-elf
+# Goals:
+# - deterministic CI behavior
+# - strict warning policy
+# - optimized no_std builds
+# - portable embedded validation
 #
-# No-std verification:
-#   cargo check --target thumbv7em-none-eabihf
-#
-# One-time target installation:
-#   rustup target add thumbv7em-none-eabihf
-#   rustup target add thumbv7em-none-eabi
-#   rustup target add riscv32imac-unknown-none-elf
+# Notes:
+# - This crate is a library, so we intentionally avoid:
+# * custom runners
+# * linker scripts
+# * target-specific linkers
+# - Consumers may override these settings in downstream projects.
 
 [build]
 # Default host target.
 # CI overrides this via CARGO_BUILD_TARGET or --target.
 
-# Cortex-M4F / M7F with FPU (STM32F4xx, STM32F7xx, nRF52840)
+# ============================================================================
+# ARM Cortex-M
+# ============================================================================
+
+# Cortex-M4F / Cortex-M7F with hardware floating point
+# Examples:
+# - STM32F4
+# - STM32F7
+# - nRF52840
 [target.thumbv7em-none-eabihf]
-# opt-level=s — minimize binary size (important for flash constraints)
-# codegen-units=1 — better optimization via single codegen unit
 rustflags = [
     "-C", "opt-level=s",
     "-C", "codegen-units=1",
@@ -43,7 +50,15 @@ rustflags = [
     "-D", "warnings",
 ]
 
-# 32-bit RISC-V (ESP32-C3, GD32VF103, CH32V)
+# ============================================================================
+# RISC-V
+# ============================================================================
+
+# RV32IMAC
+# Examples:
+# - ESP32-C3
+# - GD32VF103
+# - CH32V
 [target.riscv32imac-unknown-none-elf]
 rustflags = [
     "-C", "opt-level=s",
@@ -51,7 +66,9 @@ rustflags = [
     "-D", "warnings",
 ]
 
-# 32-bit RISC-V without atomic support (ESP32-C2)
+# RV32I (no atomics)
+# Examples:
+# - ESP32-C2
 [target.riscv32i-unknown-none-elf]
 rustflags = [
     "-C", "opt-level=s",

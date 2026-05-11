@@ -2,7 +2,23 @@
 
 use gnss_time::{
     Beidou, Duration, DurationParts, Galileo, Glonass, Gps, LeapSeconds, Tai, Time, Utc,
+    UTC_EPOCH_UNIX_OFFSET_S,
 };
+
+/// Simulated telemetry packet with a GPS timestamp and a duration offset.
+///
+/// In a real embedded system this would be serialized into a fixed-size
+/// ring buffer or DMA region.
+#[derive(Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+struct TelemetryPacket {
+    /// GPS reception timestamp
+    timestamp: Time<Gps>,
+    /// Signal offset from reference
+    offset: Duration,
+    /// Number of visible satellites
+    sv_count: u8,
+}
 
 #[test]
 fn test_gps_postcard_roundtrip_epoch() {
@@ -439,4 +455,57 @@ fn test_unix_time_postcard_roundtrip() {
 
     assert_eq!(utc, back);
     assert_eq!(back.as_unix_seconds(), unix_s);
+}
+
+#[test]
+fn test_telemetry_packet_postcard_roundtrip() {
+    let packet = TelemetryPacket {
+        timestamp: Time::<Gps>::from_week_tow(
+            2243,
+            DurationParts {
+                seconds: 432_000,
+                nanos: 0,
+            },
+        )
+        .unwrap(),
+        offset: Duration::from_nanos(-12_345),
+        sv_count: 8,
+    };
+
+    let bytes = postcard::to_allocvec(&packet).unwrap();
+    let back: TelemetryPacket = postcard::from_bytes(&bytes).unwrap();
+
+    assert_eq!(packet, back);
+
+    // The packet fits in 32 bytes (typical embedded DMA buffer)
+    assert!(
+        bytes.len() <= 32,
+        "Telemetry packet ({} bytes) should fit in 32-byte buffer",
+        bytes.len()
+    );
+}
+
+#[test]
+fn test_telemetry_packet_json_roundtrip() {
+    let packet = TelemetryPacket {
+        timestamp: Time::<Gps>::from_nanos(1_356_566_418_000_000_000),
+        offset: Duration::from_nanos(500),
+        sv_count: 12,
+    };
+
+    let json = serde_json::to_string(&packet).unwrap();
+    let back: TelemetryPacket = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(packet, back);
+}
+
+#[test]
+fn test_utc_epoch_postcard_matches_offset_constant() {
+    // The UTC epoch nanos when serialized via postcard should round-trip
+    // to give the same UTC_EPOCH_UNIX_OFFSET_S when converted back
+    let utc_epoch = Time::<Utc>::EPOCH;
+    let bytes = postcard::to_allocvec(&utc_epoch).unwrap();
+    let back: Time<Utc> = postcard::from_bytes(&bytes).unwrap();
+
+    assert_eq!(back.as_unix_seconds(), UTC_EPOCH_UNIX_OFFSET_S);
 }
