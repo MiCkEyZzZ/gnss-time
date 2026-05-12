@@ -43,3 +43,9 @@ All examples compile and run with `cargo run --example $name`.
 | --------------------------------------------- | ------------------------------------------------------- |
 | [`matrix_inspection`](matrix_inspection.rs)   | Runtime conversion graph: `ConversionMatrix`, `ScaleId` |
 | [`dynamic_conversion`](dynamic_conversion.rs) | Dispatch conversion at runtime via `ScaleId`            |
+
+## Civil time (ISO 8601 / RFC 3339)
+
+| Example                       | Description                                                                 |
+| ----------------------------- | --------------------------------------------------------------------------- |
+| [`civil_time`](civil_time.rs) | Pretty-print `Time<Utc>` as `YYYY-MM-DDThh:mm:ss.nnnnnnnnnZ` and parse back |
