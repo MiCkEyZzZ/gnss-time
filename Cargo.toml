@@ -82,6 +82,10 @@ serde_json = { version = "1" }
 heapless = "0.8"
 
 [[example]]
+name = "civil_time"
+path = "examples/civil_time.rs"
+
+[[example]]
 name = "basic_usage"
 path = "examples/basic_usage.rs"
 
