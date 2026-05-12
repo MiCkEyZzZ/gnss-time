@@ -38,6 +38,10 @@
 //! assert_eq!(gps.to_string(), "GPS 2345:432000.000");
 //!
 //! let utc: Time<Utc> = gps.into_scale_with(LeapSeconds::builtin()).unwrap();
+//!
+//! // ISO 8601 formatting
+//! let dt = utc.to_civil();
+//! println!("{dt}"); // e.g. "2023-01-01T00:00:18.000000000Z"
 //! ```
 
 #![no_std]
@@ -57,6 +61,7 @@ extern crate std;
 // Public modules
 ////////////////////////////////////////////////////////////////////////////////
 
+// ISO 8601 civil date-time representation derived from `Time<Utc>`.
 pub mod civil;
 pub mod convert;
 pub mod duration;
@@ -67,7 +72,8 @@ pub mod matrix;
 pub mod scale;
 pub mod time;
 
-// Optional serde support — no public items, impls are discovered automatically
+// Serde implementations for `Time<S>`, `Duration`, and `DurationParts`.
+// Enabled by the `serde` feature flag.
 #[cfg(feature = "serde")]
 pub mod serde_impls;
 
