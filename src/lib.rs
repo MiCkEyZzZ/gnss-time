@@ -57,6 +57,7 @@ extern crate std;
 // Public modules
 ////////////////////////////////////////////////////////////////////////////////
 
+pub mod civil;
 pub mod convert;
 pub mod duration;
 pub mod epoch;
@@ -80,6 +81,7 @@ mod tables;
 // Public re-exports
 ////////////////////////////////////////////////////////////////////////////////
 
+pub use civil::*;
 pub use convert::*;
 pub use duration::*;
 pub use epoch::*;
