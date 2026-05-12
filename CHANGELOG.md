@@ -374,18 +374,24 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
-- **API breaking change**: replaced `f64` fractional seconds with `DurationParts`
-  for all constructors:
-  - `Time<Gps>::from_week_tow(week, tow)` теперь принимает `DurationParts`
-  - `Time<Glonass>::from_day_tod(day, tod)` теперь принимает `DurationParts`
-  - Добавлена валидация на этапе конструирования: `seconds` и `nanos` проверяются
-    на диапазон
-  - Устранена недетерминированность, связанная с `f64`
-- **Новый тип `DurationParts`**:
-  - Поля `seconds: u64` и `nanos: u32`
-  - Конструктор `new()` с валидацией `nanos < 1_000_000_000`
-  - Метод `as_nanos() -> u128` для преобразования в наносекунды
-- **Обновлены все примеры** (`examples/`):
+**API breaking change**: replaced `f64` fractional seconds with `DurationParts`
+for all constructors:
+
+- `Time<Gps>::from_week_tow(week, tow)` now takes `DurationParts`
+
+- `Time<Glonass>::from_day_tod(day, tod)` now takes `DurationParts`
+
+- Added construction-time validation: `seconds` and `nanos` are checked
+  against valid ranges
+
+- Eliminated non-determinism related to `f64`
+
+- **New type `DurationParts`**:
+  - Fields `seconds: u64` and `nanos: u32`
+  - `new()` constructor with validation `nanos < 1_000_000_000`
+  - Method `as_nanos() -> u128` for conversion to nanoseconds
+
+- **Updated all examples** (`examples/`):
   - `basic_usage.rs`, `gps_week_tow.rs`, `glonass_day_tod.rs`
   - `convert_basic.rs`, `convert_contextual.rs`, `chain_conversion.rs`
   - `display_formats.rs`, `dynamic_conversion.rs`, `embedded_safe_arithmetic.rs`
@@ -393,24 +399,29 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - `matrix_inspection.rs`, `multi_constellation.rs`, `no_domain_mixing.rs`
   - `no_std_example.rs`, `receiver_timestamp.rs`, `scale_conversion.rs`
   - `sync_alignment.rs`
-- **Обновлены интеграционные тесты** (`tests/`):
-  - `glonass_test.rs` — все конструкторы переписаны на `DurationParts`
-  - `roundtrip_test.rs` — все тесты roundtrip обновлены
-  - `time_integration_test.rs` — адаптирован под новый API
-- **Обновлены бенчмарки** (`benches/`):
-  - `arithmetic_bench.rs` — без изменений (не использует конструкторы)
-  - `convert_bench.rs` — обновлены вызовы `from_week_tow` с `DurationParts`
-  - `time_bench.rs` — обновлены конструкторы
-- **Документация**:
-  - Добавлена полная документация для `DurationParts`
-  - Обновлены примеры в doc-комментариях всех модулей
+
+- **Updated integration tests** (`tests/`):
+  - `glonass_test.rs` — all constructors rewritten to use `DurationParts`
+  - `roundtrip_test.rs` — all roundtrip tests updated
+  - `time_integration_test.rs` — adapted to the new API
+
+- **Updated benchmarks** (`benches/`):
+  - `arithmetic_bench.rs` — unchanged (does not use constructors)
+  - `convert_bench.rs` — updated `from_week_tow` calls to use `DurationParts`
+  - `time_bench.rs` — constructors updated
+
+- **Documentation**:
+  - Full documentation added for `DurationParts`
+  - Updated examples in doc comments across all modules
 
 - CI architecture:
   - embedded checks extracted into reusable workflow (`embedded.yml`)
   - improved caching strategy (feature-aware cache keys)
-  - stricter validation (`-D warnings`, clippy on all feature combinations)
+  - stricter validation (`-D warnings`, clippy across all feature combinations)
+
 - `benches/arithmetic_bench.rs`: added `checked_add`, `checked_sub_duration`,
   `saturating_add`, `Duration` benchmarks; updated target figures
+
 - `benches/convert_bench.rs`: added `leap_second_lookup` microbenchmark
 
 ## [0.3.0] — 2026-04-27
@@ -575,7 +586,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - **New examples (`examples/`)**:
   - `convert_basic.rs` — fixed-offset conversions (no leap seconds).
-  - `convert_contextual.rs` — GPS↔UTC conversions with leap seconds and ambiguity
+  - `convert_contextual.rs` — GPS <-> UTC conversions with leap seconds and ambiguity
     detection.
 
 - **Integration tests (`tests/`)**:
@@ -670,17 +681,18 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Documentation
 
-- Добавлен `README.md` с описанием, таблицей шкал и примером.
-- Добавлены подробные комментарии в модулях `duration`, `epoch`, `scale`, `time`,
+- Added `README.md` with overview, scale table, and usage example.
+- Added detailed documentation comments in modules `duration`, `epoch`, `scale`,
+  `time`,
   `leap`.
-- Добавлены `#![deny(missing_docs)]` (опционально, если включите).
+- Added `#![deny(missing_docs)]` (optional, if enabled).
 
 ### Performance
 
-- Все типы занимают 8 байт (`Duration` — `i64`, `Time<S>` — `u64`).
-- `Time<S>` и `Duration` — `repr(transparent)`.
-- Конверсии через TAI используют целочисленную арифметику без аллокаций.
-- Поиск в таблице leap seconds — бинарный поиск по `&'static` слайсу.
+- All types are 8 bytes (`Duration` — `i64`, `Time<S>` — `u64`).
+- `Time<S>` and `Duration` are `repr(transparent)`.
+- Conversions via TAI use integer arithmetic with no allocations.
+- Leap second table lookup uses binary search over a `&'static` slice.
 
 [Unreleased]: https://github.com/MiCkEyZzZ/gnss-time/compare/v0.3.0...HEAD
 [0.3.0]: https://github.com/MiCkEyZzZ/gnss-time/compare/v0.2.0...v0.3.0
