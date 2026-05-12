@@ -52,6 +52,45 @@ let gps = Time::<Gps>::from_week_tow(2200, DurationParts {
 let gal: Time<Galileo> = gps.into_scale().unwrap();
 ```
 
+## Civil time (UTC calendar representation)
+
+The crate provides a lossless conversion from `Time<Utc>` to a human-readable
+calendar representation:
+
+```rust
+use gnss_time::{Time, Utc};
+
+let utc = Time::<Utc>::EPOCH;
+let dt = utc.to_civil();
+
+assert_eq!(dt.to_string(), "1972-01-01T00:00:00.000000000Z");
+```
+
+### `CivilDateTime`
+
+A proleptic Gregorian UTC date-time with nanosecond precision:
+
+- `year`, `month`, `day`
+- `hour`, `minute`, `second`
+- `nanos`
+
+### Guarantees
+
+- Lossless round-trip:
+  - `Time<Utc> → CivilDateTime → Time<Utc>`
+
+- Nanosecond precision preserved
+- ISO 8601 / RFC 3339 formatting:
+  - `YYYY-MM-DDTHH:MM:SS.nnnnnnnnnZ`
+
+### Conversion API
+
+```rust
+Time<Utc>::to_civil() -> CivilDateTime
+CivilDateTime::from_utc_nanos(u64) -> Result<Self, GnssTimeError>
+CivilDateTime::to_utc() -> Result<Time<Utc>, GnssTimeError>
+```
+
 ## GNSS Time Primer
 
 GNSS systems define different time scales:
@@ -115,6 +154,12 @@ The library exposes the full conversion matrix:
 - 6×6 scale graph
 - fixed vs contextual edges
 - runtime inspection tools
+
+### Civil time representation
+
+- `CivilDateTime` for UTC calendar representation
+- ISO 8601 formatting (`Display`)
+- Lossless conversion from/to `Time<Utc>`
 
 ## Performance
 
@@ -212,6 +257,7 @@ let x = gps + utc;
 - [x] Leap second handling
 - [x] Conversion matrix
 - [x] Embedded-safe arithmetic
+- [x] Civil date-time (ISO 8601)
 
 ## Rust version requirements
 
