@@ -73,8 +73,8 @@ use core::{
 };
 
 use crate::{
-    gps_to_utc, utc_to_gps, DisplayStyle, Duration, Glonass, GnssTimeError, Gps, LeapSeconds,
-    LeapSecondsProvider, OffsetToTai, Tai, TimeScale, Utc, UTC_EPOCH_UNIX_OFFSET_NS,
+    gps_to_utc, utc_to_gps, CivilDateTime, DisplayStyle, Duration, Glonass, GnssTimeError, Gps,
+    LeapSeconds, LeapSecondsProvider, OffsetToTai, Tai, TimeScale, Utc, UTC_EPOCH_UNIX_OFFSET_NS,
     UTC_EPOCH_UNIX_OFFSET_S,
 };
 
@@ -959,6 +959,33 @@ impl Time<Utc> {
         ls: &P,
     ) -> Result<Time<Gps>, GnssTimeError> {
         utc_to_gps(self, ls)
+    }
+
+    /// Converts this UTC timestamp to a [`CivilDateTime`].
+    ///
+    /// The result expresses the instant as a human-readable date and
+    /// time-of-day in the proleptic Gregorian calendar.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gnss_time::{Time, Utc};
+    ///
+    /// // UTC epoch = 1972-01-01T00:00:00.000000000Z
+    /// let dt = Time::<Utc>::EPOCH.to_civil();
+    /// assert_eq!(dt.to_string(), "1972-01-01T00:00:00.000000000Z");
+    ///
+    /// // GPS epoch (1980-01-06) as UTC
+    /// let utc = Time::<Utc>::from_nanos(252_892_800_000_000_000);
+    /// let dt = utc.to_civil();
+    /// assert_eq!(dt.year, 1980);
+    /// assert_eq!(dt.month, 1);
+    /// assert_eq!(dt.day, 6);
+    /// assert_eq!(dt.hour, 0);
+    /// ```
+    #[must_use]
+    pub const fn to_civil(self) -> CivilDateTime {
+        CivilDateTime::from_utc_nanos(self.as_nanos())
     }
 }
 
