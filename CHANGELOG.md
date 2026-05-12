@@ -9,6 +9,46 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Introduced `CivilDateTime` — a proleptic Gregorian calendar date-time
+  representation derived from `Time<Utc>`.
+
+- Added conversion API:
+  - `Time<Utc>::to_civil() -> CivilDateTime`
+  - `CivilDateTime::from_utc_nanos(nanos: u64) -> Result<CivilDateTime, GnssTimeError>`
+  - `CivilDateTime::to_utc() -> Result<Time<Utc>, GnssTimeError>`
+  - `CivilDateTime::to_utc_nanos() -> Result<u64, GnssTimeError>`
+
+- Implemented full `CivilDateTime` structure with nanosecond precision:
+  - `year`, `month`, `day`
+  - `hour`, `minute`, `second`
+  - `nanos` (sub-second component, 0–999_999_999)
+
+- Added `Display` implementation for ISO 8601 / RFC 3339 formatting:
+  - Format: `YYYY-MM-DDTHH:MM:SS.nnnnnnnnnZ`
+  - Example: `2024-01-15T12:34:56.123456789Z`
+
+- Ensured lossless round-trip conversions:
+  - `Time<Utc> → CivilDateTime → Time<Utc>` preserves exact nanoseconds
+
+- Added comprehensive test coverage for:
+  - Epoch boundary (`1972-01-01T00:00:00Z`)
+  - GPS epoch alignment
+  - Leap year correctness
+  - Sub-second precision handling
+  - Day boundary transitions
+  - Round-trip correctness across full range
+
+- Added `is_whole_second()` helper for fast sub-second checks
+
+- Added example:
+  - `examples/civil_time.rs` demonstrating formatting and conversion usage
+
+- Enforced strict `no_std` compatibility for core conversion logic
+  (formatting remains conditionally available depending on feature flags)
+
+- `Display` implementation is feature-gated depending on formatting strategy
+  (`std` / `alloc`)
+
 - Added comprehensive Postcard-based serialization test suite (`tests/serde_test.rs`,
   33 tests, behind `serde` feature):
   - Full round-trip coverage for `Time<S>` across all scales (`Gps`, `Utc`, `Tai`,
