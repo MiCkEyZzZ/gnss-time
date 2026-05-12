@@ -21,6 +21,8 @@
 //! ```
 
 pub use crate::{
+    civil::CivilDateTime,
+
     // Conversion traits
     convert::{ConvertResult, IntoScale, IntoScaleWith},
 
