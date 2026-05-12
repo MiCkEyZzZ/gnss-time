@@ -966,6 +966,12 @@ impl Time<Utc> {
     /// The result expresses the instant as a human-readable date and
     /// time-of-day in the proleptic Gregorian calendar.
     ///
+    /// # Panics
+    ///
+    /// Panics if converting the internal UTC nanosecond count to
+    /// [`CivilDateTime`] fails. In normal use this should not happen because
+    /// `Time<Utc>` is already constrained to the UTC epoch range.
+    ///
     /// # Examples
     ///
     /// ```rust
@@ -984,8 +990,8 @@ impl Time<Utc> {
     /// assert_eq!(dt.hour, 0);
     /// ```
     #[must_use]
-    pub const fn to_civil(self) -> CivilDateTime {
-        CivilDateTime::from_utc_nanos(self.as_nanos())
+    pub fn to_civil(self) -> CivilDateTime {
+        CivilDateTime::from_utc_nanos(self.as_nanos()).unwrap()
     }
 }
 

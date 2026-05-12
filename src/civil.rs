@@ -118,85 +118,98 @@ impl CivilDateTime {
     ///
     /// This is the inverse of [`to_utc_nanos`](Self::to_utc_nanos).
     ///
-    /// # Examples
+    /// # Errors
     ///
-    /// ```rust
-    /// use gnss_time::CivilDateTime;
-    ///
-    /// // UTC epoch
-    /// let dt = CivilDateTime::from_utc_nanos(0);
-    /// assert_eq!(dt.year, 1972);
-    /// assert_eq!(dt.month, 1);
-    /// assert_eq!(dt.day, 1);
-    ///
-    /// // 2024-01-15T12:34:56.123456789Z
-    /// let nanos: u64 = 1_642_204_800_000_000_000  // 2024-01-15 00:00:00 from UTC epoch
-    ///     + 12 * 3_600 * 1_000_000_000
-    ///     + 34 * 60  * 1_000_000_000
-    ///     + 56       * 1_000_000_000
-    ///     + 123_456_789;
-    /// let dt = CivilDateTime::from_utc_nanos(nanos);
-    /// assert_eq!(dt.year, 2024);
-    /// assert_eq!(dt.month, 1);
-    /// assert_eq!(dt.day, 15);
-    /// assert_eq!(dt.hour, 12);
-    /// assert_eq!(dt.minute, 34);
-    /// assert_eq!(dt.second, 56);
-    /// assert_eq!(dt.nanos, 123_456_789);
-    /// ```
-    #[must_use]
-    #[allow(clippy::cast_possible_wrap)]
-    pub const fn from_utc_nanos(nanos: u64) -> Self {
-        let days_from_utc_epoch = nanos / NANOS_PER_DAY;
-        let day_rem = nanos % NANOS_PER_DAY;
+    /// Returns [`GnssTimeError::Overflow`] if:
+    /// - the day count cannot be represented as `i64`
+    /// - intermediate calculations overflow
+    /// - time components exceed valid ranges
+    pub fn from_utc_nanos(nanos: u64) -> Result<Self, GnssTimeError> {
+        let days_from_epoch = nanos / NANOS_PER_DAY;
+        let rem = nanos % NANOS_PER_DAY;
 
-        let days_from_unix = days_from_utc_epoch as i64 + UTC_EPOCH_DAYS_FROM_UNIX;
+        // u64 -> i64 SAFE
+        let Ok(days_from_epoch_i64) = i64::try_from(days_from_epoch) else {
+            return Err(GnssTimeError::Overflow);
+        };
+
+        let Some(days_from_unix) = days_from_epoch_i64.checked_add(UTC_EPOCH_DAYS_FROM_UNIX) else {
+            return Err(GnssTimeError::Overflow);
+        };
+
         let (year, month, day) = civil_from_days(days_from_unix);
 
-        let hour = (day_rem / NANOS_PER_HOUR) as u8;
-        let minute = ((day_rem % NANOS_PER_HOUR) / NANOS_PER_MINUTE) as u8;
-        let second = ((day_rem % NANOS_PER_MINUTE) / NANOS_PER_SECOND) as u8;
-        let sub_ns = (day_rem % NANOS_PER_SECOND) as u32;
+        let Ok(hour) = u8::try_from(rem / NANOS_PER_HOUR) else {
+            return Err(GnssTimeError::Overflow);
+        };
 
-        CivilDateTime {
+        let Ok(minute) = u8::try_from((rem % NANOS_PER_HOUR) / NANOS_PER_MINUTE) else {
+            return Err(GnssTimeError::Overflow);
+        };
+
+        let Ok(second) = u8::try_from((rem % NANOS_PER_MINUTE) / NANOS_PER_SECOND) else {
+            return Err(GnssTimeError::Overflow);
+        };
+
+        let Ok(nanos) = u32::try_from(rem % NANOS_PER_SECOND) else {
+            return Err(GnssTimeError::Overflow);
+        };
+
+        Ok(CivilDateTime {
             year,
             month,
             day,
             hour,
             minute,
             second,
-            nanos: sub_ns,
-        }
+            nanos,
+        })
     }
 
     /// Returns nanoseconds since the UTC epoch (1972-01-01 00:00:00 UTC).
     ///
     /// This is the inverse of [`from_utc_nanos`](Self::from_utc_nanos).
     ///
+    /// # Errors
+    ///
+    /// Returns [`GnssTimeError::Overflow`] if:
+    /// - the date is before the UTC epoch (1972-01-01)
+    /// - intermediate arithmetic overflows
+    /// - the resulting nanosecond count does not fit in `u64`
+    ///
     /// # Examples
     ///
     /// ```rust
     /// use gnss_time::CivilDateTime;
     ///
-    /// let dt = CivilDateTime::from_utc_nanos(0);
-    /// assert_eq!(dt.to_utc_nanos(), 0);
+    /// let dt = CivilDateTime::from_utc_nanos(0).unwrap();
+    /// assert_eq!(dt.to_utc_nanos().unwrap(), 0);
     ///
-    /// let dt2 = CivilDateTime::from_utc_nanos(1_234_567_890_123_456_789);
-    /// assert_eq!(dt2.to_utc_nanos(), 1_234_567_890_123_456_789);
+    /// let dt2 = CivilDateTime::from_utc_nanos(1_234_567_890_123_456_789).unwrap();
+    /// assert_eq!(dt2.to_utc_nanos().unwrap(), 1_234_567_890_123_456_789);
     /// ```
-    #[must_use]
-    #[allow(clippy::cast_sign_loss)]
-    pub fn to_utc_nanos(self) -> u64 {
+    #[must_use = "conversion errors must be handled"]
+    pub fn to_utc_nanos(self) -> Result<u64, GnssTimeError> {
         let days_from_unix = days_to_unix(self.year, self.month, self.day);
-        let days_from_utc_epoch = days_from_unix - UTC_EPOCH_DAYS_FROM_UNIX;
 
-        let day_ns = days_from_utc_epoch as u64 * NANOS_PER_DAY;
-        let time_ns = u64::from(self.hour) * NANOS_PER_HOUR
-            + u64::from(self.minute) * NANOS_PER_MINUTE
-            + u64::from(self.second) * NANOS_PER_SECOND
-            + u64::from(self.nanos);
+        let days_from_epoch = days_from_unix
+            .checked_sub(UTC_EPOCH_DAYS_FROM_UNIX)
+            .ok_or(GnssTimeError::Overflow)?;
 
-        day_ns + time_ns
+        let days_u64 = u64::try_from(days_from_epoch).map_err(|_| GnssTimeError::Overflow)?;
+
+        let day_ns = days_u64
+            .checked_mul(NANOS_PER_DAY)
+            .ok_or(GnssTimeError::Overflow)?;
+
+        let time_ns = u64::from(self.hour)
+            .checked_mul(NANOS_PER_HOUR)
+            .and_then(|v| v.checked_add(u64::from(self.minute) * NANOS_PER_MINUTE))
+            .and_then(|v| v.checked_add(u64::from(self.second) * NANOS_PER_SECOND))
+            .and_then(|v| v.checked_add(u64::from(self.nanos)))
+            .ok_or(GnssTimeError::Overflow)?;
+
+        day_ns.checked_add(time_ns).ok_or(GnssTimeError::Overflow)
     }
 
     /// Converts this civil date-time to a [`Time<Utc>`].
@@ -211,26 +224,14 @@ impl CivilDateTime {
     /// ```rust
     /// use gnss_time::{CivilDateTime, Time, Utc};
     ///
-    /// let dt = CivilDateTime::from_utc_nanos(0);
+    /// let dt = CivilDateTime::from_utc_nanos(0).unwrap();
     /// let utc = dt.to_utc().unwrap();
     /// assert_eq!(utc, Time::<Utc>::EPOCH);
     /// ```
     pub fn to_utc(self) -> Result<Time<Utc>, GnssTimeError> {
-        if self.year < 1972 {
-            return Err(GnssTimeError::Overflow);
-        }
-        if self.year == 1972
-            && self.month == 1
-            && self.day == 1
-            && self.hour == 0
-            && self.minute == 0
-            && self.second == 0
-            && self.nanos == 0
-        {
-            return Ok(Time::<Utc>::EPOCH);
-        }
+        let nanos = self.to_utc_nanos()?;
 
-        Ok(Time::<Utc>::from_nanos(self.to_utc_nanos()))
+        Ok(Time::<Utc>::from_nanos(nanos))
     }
 
     /// Returns `true` if the sub-second part is zero (whole second).
@@ -246,28 +247,31 @@ impl CivilDateTime {
 /// Implementation of Howard Hinnant's `civil_from_days` algorithm:
 /// <http://howardhinnant.github.io/date_algorithms.html>
 #[must_use]
-#[allow(
-    clippy::cast_sign_loss,
-    clippy::cast_possible_wrap,
-    clippy::cast_possible_truncation
-)]
-const fn civil_from_days(z: i64) -> (i32, u8, u8) {
+fn civil_from_days(z: i64) -> (i32, u8, u8) {
     let z = z + 719_468;
+
     let era: i64 = if z >= 0 {
         z / 146_097
     } else {
         (z - 146_096) / 146_097
     };
+
     let doe = z - era * 146_097;
     let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
     let y = yoe + era * 400;
     let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    let y = if m <= 2 { y + 1 } else { y };
 
-    (y as i32, m as u8, d as u8)
+    let mp = (5 * doy + 2) / 153;
+    let day_i64 = doy - (153 * mp + 2) / 5 + 1;
+    let month_i64 = if mp < 10 { mp + 3 } else { mp - 9 };
+
+    let year_i64 = if month_i64 <= 2 { y + 1 } else { y };
+
+    let year = i32::try_from(year_i64).unwrap_or(i32::MAX);
+    let month = u8::try_from(month_i64).unwrap_or_else(|_| unreachable!("month out of range"));
+    let day = u8::try_from(day_i64).unwrap_or_else(|_| unreachable!("day out of range"));
+
+    (year, month, day)
 }
 
 /// Converts a proleptic Gregorian date to days since Unix epoch (1970-01-01).
@@ -308,7 +312,7 @@ impl fmt::Display for CivilDateTime {
     /// ```rust
     /// use gnss_time::CivilDateTime;
     ///
-    /// let dt = CivilDateTime::from_utc_nanos(0);
+    /// let dt = CivilDateTime::from_utc_nanos(0).unwrap();
     /// assert_eq!(dt.to_string(), "1972-01-01T00:00:00.000000000Z");
     /// ```
     fn fmt(
@@ -337,7 +341,7 @@ mod tests {
 
     #[test]
     fn test_utc_epoch_nanos_zero_gives_1972_01_01() {
-        let dt = CivilDateTime::from_utc_nanos(0);
+        let dt = CivilDateTime::from_utc_nanos(0).unwrap();
 
         assert_eq!(dt.year, 1972);
         assert_eq!(dt.month, 1);
@@ -353,7 +357,7 @@ mod tests {
         // GPS epoch = 1980-01-06 = 2927 days from UTC epoch
         // = 2927 * 86_400_000_000_000 nanoseconds
         let nanos = 252_892_800_000_000_000_u64;
-        let dt = CivilDateTime::from_utc_nanos(nanos);
+        let dt = CivilDateTime::from_utc_nanos(nanos).unwrap();
 
         assert_eq!(dt.year, 1980);
         assert_eq!(dt.month, 1);
@@ -368,7 +372,7 @@ mod tests {
     fn test_2017_01_01_from_utc_nanos() {
         // 2017-01-01 00:00:00 UTC = 16437 days from UTC epoch
         let nanos = 16_437_u64 * 86_400 * 1_000_000_000;
-        let dt = CivilDateTime::from_utc_nanos(nanos);
+        let dt = CivilDateTime::from_utc_nanos(nanos).unwrap();
 
         assert_eq!(dt.year, 2017);
         assert_eq!(dt.month, 1);
@@ -378,7 +382,7 @@ mod tests {
     #[test]
     fn test_sub_second_precision() {
         // 1972-01-01T00:00:00.123456789Z
-        let dt = CivilDateTime::from_utc_nanos(123_456_789);
+        let dt = CivilDateTime::from_utc_nanos(123_456_789).unwrap();
 
         assert_eq!(dt.year, 1972);
         assert_eq!(dt.month, 1);
@@ -396,7 +400,7 @@ mod tests {
         let m: u64 = 34;
         let s: u64 = 56;
         let nanos = h * 3_600 * 1_000_000_000 + m * 60 * 1_000_000_000 + s * 1_000_000_000;
-        let dt = CivilDateTime::from_utc_nanos(nanos);
+        let dt = CivilDateTime::from_utc_nanos(nanos).unwrap();
 
         assert_eq!(dt.hour, 12);
         assert_eq!(dt.minute, 34);
@@ -411,7 +415,7 @@ mod tests {
         let day_ns: u64 = 19_007 * 86_400 * 1_000_000_000;
         let time_ns: u64 =
             12 * 3_600 * 1_000_000_000 + 34 * 60 * 1_000_000_000 + 56 * 1_000_000_000 + 123_456_789;
-        let dt = CivilDateTime::from_utc_nanos(day_ns + time_ns);
+        let dt = CivilDateTime::from_utc_nanos(day_ns + time_ns).unwrap();
 
         assert_eq!(dt.year, 2024);
         assert_eq!(dt.month, 1);
@@ -432,7 +436,7 @@ mod tests {
         // days_from_unix(2000,2,29) = 11_016 (verified)
         let days_from_utc_epoch: u64 = 11_016 - 730;
         let nanos = days_from_utc_epoch * 86_400 * 1_000_000_000;
-        let dt = CivilDateTime::from_utc_nanos(nanos);
+        let dt = CivilDateTime::from_utc_nanos(nanos).unwrap();
 
         assert_eq!(dt.year, 2000);
         assert_eq!(dt.month, 2);
@@ -451,7 +455,7 @@ mod tests {
             + 59 * 60 * 1_000_000_000
             + 59 * 1_000_000_000
             + 999_999_999;
-        let dt = CivilDateTime::from_utc_nanos(nanos);
+        let dt = CivilDateTime::from_utc_nanos(nanos).unwrap();
 
         assert_eq!(dt.year, 1972);
         assert_eq!(dt.month, 12);
@@ -465,25 +469,25 @@ mod tests {
     #[test]
     fn test_roundtrip_epoch() {
         let nanos: u64 = 0;
-        let dt = CivilDateTime::from_utc_nanos(nanos);
+        let dt = CivilDateTime::from_utc_nanos(nanos).unwrap();
 
-        assert_eq!(dt.to_utc_nanos(), nanos);
+        assert_eq!(dt.to_utc_nanos().unwrap(), nanos);
     }
 
     #[test]
     fn test_roundtrip_gps_epoch() {
         let nanos: u64 = 252_892_800_000_000_000;
-        let dt = CivilDateTime::from_utc_nanos(nanos);
+        let dt = CivilDateTime::from_utc_nanos(nanos).unwrap();
 
-        assert_eq!(dt.to_utc_nanos(), nanos);
+        assert_eq!(dt.to_utc_nanos().unwrap(), nanos);
     }
 
     #[test]
     fn test_roundtrip_with_sub_second() {
         let nanos: u64 = 1_234_567_890_123_456_789;
-        let dt = CivilDateTime::from_utc_nanos(nanos);
+        let dt = CivilDateTime::from_utc_nanos(nanos).unwrap();
 
-        assert_eq!(dt.to_utc_nanos(), nanos);
+        assert_eq!(dt.to_utc_nanos().unwrap(), nanos);
     }
 
     #[test]
@@ -500,15 +504,19 @@ mod tests {
         ];
 
         for &n in cases {
-            let dt = CivilDateTime::from_utc_nanos(n);
+            let dt = CivilDateTime::from_utc_nanos(n).unwrap();
 
-            assert_eq!(dt.to_utc_nanos(), n, "round-trip failed for nanos={n}");
+            assert_eq!(
+                dt.to_utc_nanos().unwrap(),
+                n,
+                "round-trip failed for nanos={n}"
+            );
         }
     }
 
     #[test]
     fn test_to_utc_epoch() {
-        let dt = CivilDateTime::from_utc_nanos(0);
+        let dt = CivilDateTime::from_utc_nanos(0).unwrap();
         let utc = dt.to_utc().unwrap();
 
         assert_eq!(utc, Time::<Utc>::EPOCH);
@@ -583,14 +591,14 @@ mod tests {
 
     #[test]
     fn test_display_utc_epoch() {
-        let dt = CivilDateTime::from_utc_nanos(0);
+        let dt = CivilDateTime::from_utc_nanos(0).unwrap();
 
         assert_eq!(dt.to_string(), "1972-01-01T00:00:00.000000000Z");
     }
 
     #[test]
     fn test_display_gps_epoch() {
-        let dt = CivilDateTime::from_utc_nanos(252_892_800_000_000_000);
+        let dt = CivilDateTime::from_utc_nanos(252_892_800_000_000_000).unwrap();
 
         assert_eq!(dt.to_string(), "1980-01-06T00:00:00.000000000Z");
     }
@@ -627,14 +635,14 @@ mod tests {
 
     #[test]
     fn test_display_ends_with_z() {
-        let dt = CivilDateTime::from_utc_nanos(0);
+        let dt = CivilDateTime::from_utc_nanos(0).unwrap();
 
         assert!(dt.to_string().ends_with('Z'));
     }
 
     #[test]
     fn test_display_contains_t_separator() {
-        let dt = CivilDateTime::from_utc_nanos(0);
+        let dt = CivilDateTime::from_utc_nanos(0).unwrap();
 
         assert!(dt.to_string().contains('T'));
     }
@@ -642,21 +650,21 @@ mod tests {
     #[test]
     fn test_display_format_length() {
         // "YYYY-MM-DDTHH:MM:SS.nnnnnnnnnZ" = 30 characters
-        let dt = CivilDateTime::from_utc_nanos(0);
+        let dt = CivilDateTime::from_utc_nanos(0).unwrap();
 
         assert_eq!(dt.to_string().len(), 30);
     }
 
     #[test]
     fn test_is_whole_second_true() {
-        let dt = CivilDateTime::from_utc_nanos(1_000_000_000);
+        let dt = CivilDateTime::from_utc_nanos(1_000_000_000).unwrap();
 
         assert!(dt.is_whole_second());
     }
 
     #[test]
     fn test_is_whole_second_false() {
-        let dt = CivilDateTime::from_utc_nanos(1_000_000_001);
+        let dt = CivilDateTime::from_utc_nanos(1_000_000_001).unwrap();
 
         assert!(!dt.is_whole_second());
     }
@@ -666,14 +674,14 @@ mod tests {
         // 2000-02-29 exists (2000 is a leap year)
         let days: u64 = (11_016 - 730) as u64; // pre-verified
         let nanos = days * 86_400 * 1_000_000_000;
-        let dt = CivilDateTime::from_utc_nanos(nanos);
+        let dt = CivilDateTime::from_utc_nanos(nanos).unwrap();
 
         assert_eq!(dt.year, 2000);
         assert_eq!(dt.month, 2);
         assert_eq!(dt.day, 29);
 
         // And the day after is 2000-03-01
-        let next = CivilDateTime::from_utc_nanos(nanos + 86_400_000_000_000);
+        let next = CivilDateTime::from_utc_nanos(nanos + 86_400_000_000_000).unwrap();
         assert_eq!(next.year, 2000);
         assert_eq!(next.month, 3);
         assert_eq!(next.day, 1);
@@ -695,8 +703,8 @@ mod tests {
     fn test_midnight_boundary() {
         // Last nanosecond of a day, and the first of the next
         let day_ns = 86_400_000_000_000_u64;
-        let end_of_day = CivilDateTime::from_utc_nanos(day_ns - 1);
-        let start_of_next = CivilDateTime::from_utc_nanos(day_ns);
+        let end_of_day = CivilDateTime::from_utc_nanos(day_ns - 1).unwrap();
+        let start_of_next = CivilDateTime::from_utc_nanos(day_ns).unwrap();
 
         assert_eq!(end_of_day.hour, 23);
         assert_eq!(end_of_day.minute, 59);
