@@ -61,11 +61,13 @@ gnss-time
 │   ├── README.md
 │   ├── receiver_timestamp.rs
 │   ├── scale_conversion.rs
-│   └── sync_alignment.rs
+│   ├── sync_alignment.rs
+│   └── unix_time.rs
 ├── src
 │   ├── tables
 │   │   ├── leap_seconds.rs
 │   │   └── mod.rs
+│   ├── civil.rs
 │   ├── convert.rs
 │   ├── duration.rs
 │   ├── epoch.rs
@@ -80,8 +82,10 @@ gnss-time
 ├── tests
 │   ├── glonass_test.rs
 │   ├── no_std_compact.rs
+│   ├── prop_deterministic.rs
 │   ├── prop_tests.rs
 │   ├── roundtrip_test.rs
+│   ├── serde_test.rs
 │   └── time_integration_test.rs
 ├── .editorconfig
 ├── .gitignore
@@ -90,6 +94,7 @@ gnss-time
 ├── Cargo.toml
 ├── CHANGELOG.md
 ├── clippy.toml
+├── deny.toml
 ├── INSTALL
 ├── justfile
 ├── LICENSE.APACHE
