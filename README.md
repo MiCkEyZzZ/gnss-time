@@ -33,7 +33,7 @@ It is not a navigation or positioning library.
 
 ## 1. System Model (Mental Model)
 
-## 1.1 Time is not a single domain
+### 1.1 Time is not a single domain
 
 Each GNSS time scale differs in:
 
