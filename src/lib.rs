@@ -10,6 +10,14 @@
 //! - `BeiDou`
 //! - TAI
 //!
+//! ## Feature flags
+//!
+//! | Feature  | Description                                                          |
+//! |----------|----------------------------------------------------------------------|
+//! | `std`    | `impl std::error::Error` for error types                             |
+//! | `serde`  | `Serialize`/`Deserialize` for `Time<S>`, `Duration`, `DurationParts` |
+//! | `defmt`  | `impl defmt::Format` for all public types                            |
+//!
 //! Leap seconds are handled explicitly via a provider trait, ensuring
 //! deterministic behavior and full `no_std` compatibility.
 //!
@@ -63,6 +71,7 @@ extern crate std;
 
 // ISO 8601 civil date-time representation derived from `Time<Utc>`.
 pub mod civil;
+
 pub mod convert;
 pub mod duration;
 pub mod epoch;
@@ -87,7 +96,7 @@ mod tables;
 // Public re-exports
 ////////////////////////////////////////////////////////////////////////////////
 
-pub use civil::*;
+pub use civil::CivilDateTime;
 pub use convert::*;
 pub use duration::*;
 pub use epoch::*;
