@@ -6,17 +6,17 @@
 #   riscv32imac-unknown-none-elf   — ESP32-C3, GD32VF103
 #
 # Runs:
-#   - syandalone on push/PR to master/develop and on tags v*.*.*
+#   - syandalone on push/PR to main/develop and on tags v*.*.*
 #   - as a reusable workflow — invoked from ci.yml via workflow_call
 
 name: embedded no_std
 
 on:
   push:
-    branches: [master, develop]
+    branches: [main, develop]
     tags: ["v*.*.*"]
   pull_request:
-    branches: [master]
+    branches: [main]
   workflow_dispatch:
   workflow_call: # reusable: ci.yml invokes this workflow
 
