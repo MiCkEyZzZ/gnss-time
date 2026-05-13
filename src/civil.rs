@@ -124,7 +124,35 @@ impl CivilDateTime {
     /// - the day count cannot be represented as `i64`
     /// - intermediate calculations overflow
     /// - time components exceed valid ranges
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gnss_time::CivilDateTime;
+    ///
+    /// // UTC epoch
+    /// let dt = CivilDateTime::from_utc_nanos(0);
+    /// assert_eq!(dt.unwrap().year, 1972);
+    /// assert_eq!(dt.unwrap().month, 1);
+    /// assert_eq!(dt.unwrap().day, 1);
+    ///
+    /// // 2024-01-15T12:34:56.123456789Z
+    /// let nanos: u64 = 1_642_204_800_000_000_000  // 2024-01-15 00:00:00 from UTC epoch
+    ///     + 12 * 3_600 * 1_000_000_000
+    ///     + 34 * 60  * 1_000_000_000
+    ///     + 56       * 1_000_000_000
+    ///     + 123_456_789;
+    /// let dt = CivilDateTime::from_utc_nanos(nanos);
+    /// assert_eq!(dt.unwrap().year, 2024);
+    /// assert_eq!(dt.unwrap().month, 1);
+    /// assert_eq!(dt.unwrap().day, 15);
+    /// assert_eq!(dt.unwrap().hour, 12);
+    /// assert_eq!(dt.unwrap().minute, 34);
+    /// assert_eq!(dt.unwrap().second, 56);
+    /// assert_eq!(dt.unwrap().nanos, 123_456_789);
+    /// ```
     pub fn from_utc_nanos(nanos: u64) -> Result<Self, GnssTimeError> {
+        // Split into whole days and remainder within the day
         let days_from_epoch = nanos / NANOS_PER_DAY;
         let rem = nanos % NANOS_PER_DAY;
 

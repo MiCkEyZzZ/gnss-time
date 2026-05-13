@@ -18,9 +18,15 @@
 //! .unwrap();
 //!
 //! let tai: Time<Tai> = gps.into_scale().unwrap();
+//!
+//! // ISO 8601 formating
+//! let utc = gps.to_utc().unwrap();
+//! let dt = utc.to_civil();
+//! println!("{dt}"); // e.g. "2020-01-01T00:00:18.000000000Z"
 //! ```
 
 pub use crate::{
+    // Civil date-time (ISO 8601)
     civil::CivilDateTime,
 
     // Conversion traits
