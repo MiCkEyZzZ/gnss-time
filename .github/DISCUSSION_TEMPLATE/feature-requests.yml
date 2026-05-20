@@ -1,10 +1,12 @@
-title: "Feature request: "
-labels: ["feature-requsts"]
+title: "Feature request"
+labels: ["feature-request"]
+
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for filing a feature request! Please fill out the sections below.
+        Thank you for filing a feature request. Please describe the problem and the intended semantic change clearly.
+
   - type: textarea
     id: motivation
     attributes:
@@ -12,6 +14,7 @@ body:
       description: "What is the high-level goal you're trying to achieve?"
     validations:
       required: true
+
   - type: textarea
     id: proposal
     attributes:
@@ -19,14 +22,33 @@ body:
       description: "What is the feature you're proposing?"
     validations:
       required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: GNSS / Time Context
+      description: "Which time scales are involved (GPS, Galileo, UTC, TAI, etc.) and what conversion path is affected?"
+    validations:
+      required: false
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints
+      description: |
+        Embedded / no_std requirements, determinism constraints, performance expectations, or safety requirements (e.g. leap-second correctness).
+    validations:
+      required: false
+
   - type: textarea
     id: alternatives
     attributes:
       label: Alternatives
       description: "Do you have any alternative solutions or workarounds in mind?"
+
   - type: textarea
     id: additional
     attributes:
       label: Additional context
       description: |
-        Add other context about the feature request here. For example, platform-specific details.
+        Add other context about the feature request here. For example, platform-specific details, benchmarks, or failure modes you are trying to avoid.
