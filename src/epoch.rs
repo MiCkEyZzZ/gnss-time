@@ -46,6 +46,17 @@
 //! The constants in this module define *calendar offsets only* and do not
 //! include leap second handling.
 
+/// Days in a 400-year Gregorian era.
+const DAYS_PER_400_YEAR_ERAL: i64 = 146_097;
+
+/// Offset from civil date origin (0000-03-01) to Unix epoch (1970-01-01).
+///
+/// Used by Howaed Hinnant's civil calendar algorithm.
+const DAYS_FROM_CIVIL_TO_UNIX_EPOCH: i64 = 719_468;
+
+/// The Number of year is one Georgian era.
+const YARS_PER_ERA: i64 = 400;
+
 /// Proleptic Gregorian calendar date.
 ///
 /// A minimal date type used for epoch definitions and calendar arithmetic.
@@ -150,15 +161,19 @@ const fn days_from_unix_impl(
     let (y, m) = if m <= 2 { (y - 1, m + 9) } else { (y, m - 3) };
     let y = y as i64;
     // 400-year era containing year y
-    let era = if y >= 0 { y / 400 } else { (y - 399) / 400 };
-    let yoe = y - era * 400; // год внутри эры [0, 399]
+    let era = if y >= 0 {
+        y / YARS_PER_ERA
+    } else {
+        (y - (YARS_PER_ERA - 1)) / YARS_PER_ERA
+    };
+    let yoe = y - era * YARS_PER_ERA;
 
     // Day of year in shifted month system [0, 365]
     let doy = (153 * m as i64 + 2) / 5 + d as i64 - 1;
     // Day within 400-year era [0, 146096]
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     // Days since 1970-01-01 (719468 = offset from start of 400-year era to 1970)
-    era * 146_097 + doe - 719_468
+    era * DAYS_PER_400_YEAR_ERAL + doe - DAYS_FROM_CIVIL_TO_UNIX_EPOCH
 }
 
 /// TAI epoch (1958-01-01).

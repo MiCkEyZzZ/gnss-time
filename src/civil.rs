@@ -57,6 +57,27 @@ const NANOS_PER_MINUTE: u64 = 60 * 1_000_000_000;
 /// Nanoseconds per second.
 const NANOS_PER_SECOND: u64 = 1_000_000_000;
 
+/// Days in a 400-year Gregorian era.
+///
+/// 400 * 365 + 97 leap days.
+const DAYS_PER_ERA: i64 = 146_097;
+
+/// Days from civil 0000-03-01 to Unix epoch 1970-01-01.
+///
+/// Used by Howard Hinnant's civil calendar algorithms.
+const UNIX_EPOCH_FROM_CIVIL: i64 = 719_468;
+
+/// Days per 4-year sub-cycle in Gregorian calendar.
+const DAYS_PER_4_YEAR_CYCLE: i64 = 1_460;
+
+/// Days per 100-year sub-cycle in Gregorian calendar.
+const DAYS_PER_100_YEAR_CYCLE: i64 = 36_524;
+
+/// Gregorian years per era.
+const YEARS_PER_ERA: i64 = 400;
+
+const YEARS_PER_ERA_MINUS_ONE: i64 = YEARS_PER_ERA - 1;
+
 /// A proleptic Gregorian calendar date and time-of-day in UTC.
 ///
 /// Produced by [`Time<Utc>::to_civil`](crate::Time::to_civil). Represents a
@@ -276,17 +297,18 @@ impl CivilDateTime {
 /// <http://howardhinnant.github.io/date_algorithms.html>
 #[must_use]
 fn civil_from_days(z: i64) -> (i32, u8, u8) {
-    let z = z + 719_468;
+    let z = z + UNIX_EPOCH_FROM_CIVIL;
 
     let era: i64 = if z >= 0 {
-        z / 146_097
+        z / DAYS_PER_ERA
     } else {
-        (z - 146_096) / 146_097
+        (z - 146_096) / DAYS_PER_ERA
     };
 
-    let doe = z - era * 146_097;
-    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe + era * 400;
+    let doe = z - era * DAYS_PER_ERA;
+    let yoe =
+        (doe - doe / DAYS_PER_4_YEAR_CYCLE + doe / DAYS_PER_100_YEAR_CYCLE - doe / 146_096) / 365;
+    let y = yoe + era * YEARS_PER_ERA;
     let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
 
     let mp = (5 * doy + 2) / 153;
@@ -322,12 +344,16 @@ fn days_to_unix(
     };
     let d = i64::from(day);
 
-    let era = if y >= 0 { y / 400 } else { (y - 399) / 400 };
-    let yoe = y - era * 400; // [0, 399]
+    let era = if y >= 0 {
+        y / YEARS_PER_ERA
+    } else {
+        (y - YEARS_PER_ERA_MINUS_ONE) / YEARS_PER_ERA
+    };
+    let yoe = y - era * YEARS_PER_ERA; // [0, 399]
     let doy = (153 * m + 2) / 5 + d - 1; // [0, 365]
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy; // [0, 146096]
 
-    era * 146_097 + doe - 719_468
+    era * DAYS_PER_ERA + doe - UNIX_EPOCH_FROM_CIVIL
 }
 
 impl fmt::Display for CivilDateTime {
