@@ -9,6 +9,20 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Introduce named constants for the Hinnant civil date conversion
+  algorithm in `civil.rs` to remove remaining magic numbers and
+  improve symmetry with `civil_from_days`.
+  - Add DAYS_PER_ERA, DAYS_PER_4_YEAR_CYCLE, DAYS_PER_100_YEAR_CYCLE
+  - Add UNIX_EPOCH_FROM_CIVIL constant for epoch offset clarity
+  - Improve readability and maintainability of `days_to_unix`
+  - Align structure with `civil_from_days` implementation style
+
+- Introduce named constants for the Hinnant civil date conversion
+  algorithm in `epoch.rs` to remove remaining magic numbers and
+  improve symmetry with `days_from_unix_impl`.
+  - Add DAYS_PER_400_YEAR_ERAL, DAYS_FROM_CIVIL_TO_UNIX_EPOCH, YARS_PER_ERA
+  - Improve readability and maintainability of `days_from_unix_impl`
+
 - Introduced `CivilDateTime` — a proleptic Gregorian calendar date-time
   representation derived from `Time<Utc>`.
 
