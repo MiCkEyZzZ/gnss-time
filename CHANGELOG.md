@@ -97,6 +97,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   GitHub Actions), with conventional-commit prefixes (`chore(deps)`, compatible
   with the semantic PR check), `patch`/`minor` grouping, labels, and
   `target-branch: main`.
+- Restructured `README.md` into a standard crate landing page: quick start,
+  installation, feature-flags table, usage, time scale model, safety model,
+  performance, documentation links, MSRV, contributing and license.
 
 ### Fixed
 

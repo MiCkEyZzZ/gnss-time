@@ -1,8 +1,8 @@
 # gnss-time
 
-![Crates.io](https://img.shields.io/crates/v/gnss-time)
+[![CI](https://github.com/MiCkEyZzZ/gnss-time/actions/workflows/ci.yml/badge.svg)](https://github.com/MiCkEyZzZ/gnss-time/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
 ![no_std](https://img.shields.io/badge/no__std-yes-blue)
-[![docs.rs](https://docs.rs/gnss-time/badge.svg)](https://docs.rs/gnss-time)
 ![MSRV](https://img.shields.io/badge/MSRV-1.75-blue)
 ![Embedded](https://img.shields.io/badge/embedded-friendly-green)
 
@@ -10,18 +10,12 @@
 arithmetic.**
 
 `gnss-time` is a high-performance temporal abstraction layer for representing and
-converting time across GNSS and atomic time scales.
-
-It models time as a **typed multi-scale system**, not a single linear timeline.
+converting time across GNSS and atomic time scales. It models time as a **typed
+multi-scale system**, not a single linear timeline.
 
 Supported time scales:
 
-- GPS
-- GLONASS
-- Galileo
-- BeiDou
-- TAI
-- UTC
+- **GPS**, **GLONASS**, **Galileo**, **BeiDou**, **TAI**, **UTC**
 
 This crate prioritizes:
 
@@ -29,99 +23,13 @@ This crate prioritizes:
 - explicitness over implicit conversions
 - deterministic behavior over hidden state
 
-It is not a navigation or positioning library.
+It is **not** a navigation or positioning library.
 
-## 1. System Model (Mental Model)
+## Quick start
 
-### 1.1 Time is not a single domain
-
-Each GNSS time scale differs in:
-
-- epoch origin
-- unit definition
-- discontinuities (leap seconds)
-
-Therefore:
-
-> Each time scale is a distinct type.
-
-This prevents invalid mixing at compile time.
-
-### 1.2 Three-layer time architecture
-
-The system is structured as:
-
-```text
-[ Arithmetic Layer ]
-    ↓
-[ GNSS Scale Layer ]
-    ↓
-[ UTC / Civil Layer ]
+```bash
+cargo add gnss-time
 ```
-
-#### Layer 1 — Arithmetic
-
-- raw time representation (`u64 nanoseconds`)
-- zero-cost operations
-
-#### Layer 2 — GNSS scales
-
-- GPS / Galileo / BeiDou / GLONASS / TAI
-- fixed or epoch-shift conversions
-
-#### Layer 3 — UTC / Civil time
-
-- leap-second aware
-- discontinuous timeline
-- possibly non-invertible
-
-## 1.3 Conversion semantics
-
-Conversions are classified as:
-
-- **Fixed** → constant offset, zero-cost
-- **EpochShift** → deterministic remapping
-- **Contextual** → leap-second dependent (UTC only)
-
-## 2. Core Abstractions
-
-### 2.1 Type-safe time domains
-
-Each scale is a distinct type:
-
-- `Gps`
-- `Glonass`
-- `Galileo`
-- `Beidou`
-- `Tai`
-- `Utc`
-
-Cross-domain arithmetic is **not allowed implicitly**.
-
-```rust
-// ❌ compile error
-gps + utc;
-```
-
-### 2.2 Zero-cost arithmetic model
-
-Arithmetic compiles down to native integer operations:
-
-- `Time + Duration` ≈ `u64 + u64`
-- no heap allocation
-- no runtime dispatch
-
-### 2.3 Explicit conversion graph
-
-The library models a conversion graph:
-
-- 6×6 scale matrix
-- fixed vs contextual edges
-- runtime inspectable structure
-
-## 3. API Overview
-
-## 3.1 Basic usage
 
 ```rust
 use gnss_time::prelude::*;
@@ -133,9 +41,71 @@ let gps = Time::<Gps>::from_week_tow(
 
 // Fixed conversion (zero-cost)
 let gal: Time<Galileo> = gps.into_scale().unwrap();
+
+// Leap-second aware conversion
+let result = gps.into_scale_with_checked(LeapSeconds::builtin()).unwrap();
+
+match result {
+    ConvertResult::Exact(utc) => println!("UTC: {utc}"),
+    ConvertResult::AmbiguousLeapSecond(utc) => {
+        println!("Leap second ambiguity: {utc}");
+    }
+}
 ```
 
-### 3.2 Leap-second aware conversion
+## Installation
+
+`gnss-time` is `no_std` by default and requires **no allocation**:
+
+```toml
+[dependencies]
+gnss-time = "0.5"
+```
+
+For embedded targets nothing else is needed; optional integrations are enabled
+via feature flags (see below).
+
+## Feature flags
+
+| Feature  | Default | Description                                                                 |
+| -------- | ------- | --------------------------------------------------------------------------- |
+| `std`    | no      | `impl std::error::Error` for `GnssTimeError` (do not enable for embedded)    |
+| `serde`  | no      | `Serialize` / `Deserialize` for `Time<S>`, `Duration`, `DurationParts`       |
+| `defmt`  | no      | `impl defmt::Format` for all public types (structured embedded logging)      |
+| `alloc`  | no      | Heap-backed error messages in `serde` deserialization                        |
+
+```toml
+[dependencies]
+gnss-time = { version = "0.5", features = ["serde"] }
+```
+
+## Usage
+
+### Basic construction
+
+```rust
+use gnss_time::prelude::*;
+
+let gps = Time::<Gps>::from_week_tow(
+    2345,
+    DurationParts { seconds: 432_000, nanos: 0 },
+).unwrap();
+```
+
+### Safe arithmetic
+
+`checked_*`/`saturating_*`/`try_*` variants never panic — prefer them in
+embedded code:
+
+```rust
+let t = Time::<Gps>::from_week_tow(2345, DurationParts::new(432_000, 0).unwrap()).unwrap();
+
+let safe: Option<Time<Gps>> = t.checked_add(Duration::from_seconds(3600));
+let clamped: Time<Gps> = t.saturating_add(Duration::from_seconds(3600));
+let fallible: Result<Time<Gps>, _> = t.try_add(Duration::from_seconds(3600));
+```
+
+### Leap-second aware conversion
 
 UTC conversions require explicit handling:
 
@@ -161,7 +131,7 @@ match result {
 }
 ```
 
-### 3.3 Civil time representation
+### Civil time (ISO 8601 / RFC 3339)
 
 ```rust
 use gnss_time::{Time, Utc};
@@ -175,23 +145,13 @@ assert_eq!(
 );
 ```
 
-#### CivilDateTime
+`CivilDateTime` is a proleptic Gregorian representation (year, month, day,
+hour, minute, second, nanoseconds) with a lossless round-trip:
 
-Proleptic Gregorian UTC representation:
-
-- year, month, day
-- hour, minute, second
-- nanoseconds
-
-#### Guarantees
-
-- Lossless round-trip:
-  - `Time<Utc> ↔ CivilDateTime ↔ Time<Utc>`
-
+- `Time<Utc> ↔ CivilDateTime ↔ Time<Utc>` — exact nanoseconds preserved
 - ISO 8601 / RFC 3339 formatting
-- nanosecond precision preserved
 
-## 4. GNSS Time Model
+## Time scale model
 
 GNSS systems define incompatible time scales:
 
@@ -206,95 +166,11 @@ GNSS systems define incompatible time scales:
 
 > A single physical instant may have multiple valid representations.
 
-## 5. Safety Model
+Conversions are classified as:
 
-## 5.1 No domain mixing
-
-Cross-scale operations are rejected at compile time.
-
-### 5.2 Leap-second explicitness
-
-UTC is:
-
-- discontinuous
-- not globally invertible
-- state-dependent
-
-This is modeled explicitly in:
-
-```rust
-ConvertResult
-```
-
-### 5.3 Determinism rules
-
-- GNSS fixed conversions are deterministic
-- UTC conversions depend on leap-second table
-- ambiguous states are representable, not hidden
-
-## 6. Performance Model
-
-### 6.1 Arithmetic layer
-
-| Operation                      | Cost    |
-| ------------------------------ | ------- |
-| `Time + Duration` (panic path) | ~0.5 ns |
-| `checked_add`                  | ~4.3 ns |
-| `saturating_add`               | ~0.5 ns |
-
-### 6.2 Conversion layer
-
-| Operation                    | Cost        |
-| ---------------------------- | ----------- |
-| GPS → TAI / Galileo / BeiDou | ~0.8–1.0 ns |
-| GPS → UTC (leap-aware)       | ~9–10 ns    |
-| UTC → GPS                    | ~22 ns      |
-| Leap-second binary search    | ~6–7 ns     |
-
-### 6.3 Round-trip behavior
-
-- GPS → UTC → GPS: ~37 ns
-- cost dominated by UTC context resolution
-
-### 6.4 Running benchmarks
-
-Performance figures above come from the `benches/` workspace crate
-(Criterion). From the repository root:
-
-```bash
-just bench
-```
-
-See [`benches/README.md`](benches/README.md) for individual benchmark
-groups and the latest result tables.
-
-## 7. Design Constraints
-
-### 7.1 UTC is contextual
-
-UTC conversions:
-
-- require leap-second table
-- may be ambiguous
-- are not always invertible
-
-### 7.2 Fixed vs contextual boundary
-
-Only UTC crosses the boundary:
-
-```text
-GNSS scales → deterministic algebra
-UTC → stateful discontinuity system
-```
-
-### 7.3 No implicit coercions
-
-All conversions must be explicit:
-
-- prevents silent epoch mistakes
-- enforces correctness at compile time
-
-## 8. Supported Scales
+- **Fixed** → constant offset, zero-cost
+- **EpochShift** → deterministic remapping
+- **Contextual** → leap-second dependent (UTC only)
 
 | Scale   | Representation    |
 | ------- | ----------------- |
@@ -305,26 +181,93 @@ All conversions must be explicit:
 | TAI     | seconds + nanos   |
 | UTC     | leap-second aware |
 
-## 9. Status
+### Three-layer architecture
 
-- [x] Core time algebra
-- [x] GNSS scale model
-- [x] Fixed conversions
-- [x] Contextual UTC handling
-- [x] Leap-second engine
-- [x] Conversion matrix inspection
-- [x] Embedded-safe arithmetic
-- [x] Civil datetime layer
+```text
+[ Arithmetic Layer ]   raw u64 nanoseconds, zero-cost operations
+        ↓
+[ GNSS Scale Layer ]   GPS / Galileo / BeiDou / GLONASS / TAI
+        ↓
+[ UTC / Civil Layer ]  leap-second aware, discontinuous, possibly non-invertible
+```
 
-## 10. Rust Version
+### Type-safe domains
 
-Minimum Supported Rust Version (MSRV):
+Each scale is a distinct type (`Gps`, `Glonass`, `Galileo`, `Beidou`, `Tai`,
+`Utc`); cross-domain arithmetic is rejected at compile time:
 
-- **Rust 1.75.0**
+```rust
+// ❌ compile error — mixing scales is not allowed
+gps + utc;
+```
 
-Enforced in CI.
+The library models the full conversion graph as a runtime-inspectable
+`ConversionMatrix` (6×6, fixed vs contextual edges, `ScaleId`).
 
-## 11. License
+## Safety model
+
+- **No domain mixing** — cross-scale operations are rejected at compile time.
+- **Leap-second explicitness** — UTC is discontinuous, not globally invertible,
+  and state-dependent; ambiguity is representable (`ConvertResult`), not hidden.
+- **Determinism** — GNSS fixed conversions are deterministic; UTC conversions
+  depend on the leap-second table; overflow behavior is explicit
+  (`checked`/`saturating`/`try_*`, never silent).
+
+## Performance
+
+### Arithmetic
+
+| Operation                      | Cost    |
+| ------------------------------ | ------- |
+| `Time + Duration` (panic path) | ~0.5 ns |
+| `checked_add`                  | ~4.3 ns |
+| `saturating_add`               | ~0.5 ns |
+
+### Conversions
+
+| Operation                    | Cost        |
+| ---------------------------- | ----------- |
+| GPS → TAI / Galileo / BeiDou | ~0.8–1.0 ns |
+| GPS → UTC (leap-aware)       | ~9–10 ns    |
+| UTC → GPS                    | ~22 ns      |
+| Leap-second binary search    | ~6–7 ns     |
+
+Round-trip `GPS → UTC → GPS`: ~37 ns, dominated by UTC context resolution.
+
+All figures come from the `benches/` workspace crate (Criterion). Run locally:
+
+```bash
+just bench
+```
+
+See [`benches/README.md`](benches/README.md) for the latest result tables.
+
+## Documentation
+
+- [Embedded guide](docs/EMBEDDED.md) — `no_std`, size report, Postcard wire
+  format, UBX/GLONASS parsing examples
+- [Architecture](docs/ARCHITECTURE.md) — module layout, TAI pivot, feature flags
+- [Leap seconds](docs/LEAP_SECONDS.md) — full table reference, update policy,
+  IERS Bulletin C monitoring
+- [Invariants](docs/INVARIANTS.md) — type-level, arithmetic, conversion and
+  memory guarantees
+- [GNSS time primer](docs/GNSS_TIME_PRIMER.md) — GPS/GLONASS/UTC/TAI explained
+  for developers
+- [Changelog](CHANGELOG.md)
+
+## Minimum Supported Rust Version
+
+**Rust 1.75.0** — enforced in CI.
+
+## Contributing
+
+Bugs, feature requests and pull requests are welcome. See the
+[issue templates](.github/ISSUE_TEMPLATE/) and
+[pull request template](.github/pull_request_template.md). Note the
+[`CODEOWNERS`](.github/CODEOWNERS) file for review assignments and the semantic PR
+title convention (`type(scope): description`).
+
+## License
 
 Licensed under either:
 
