@@ -1,0 +1,19 @@
+[package]
+name = "gnss-time-size-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Not a workspace member on purpose: this crate only builds for bare-metal
+# targets and must not pollute host `cargo check --workspace` builds.
+[workspace]
+
+[dependencies]
+cortex-m-rt = "0.7"
+gnss-time = { path = "..", default-features = false }
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"

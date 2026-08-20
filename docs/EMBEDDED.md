@@ -33,8 +33,11 @@ serde      = { version = "1", default-features = false }
 
 ## Size guarantees
 
-Каждый публичный тип имеет фиксированный, известный размер — подходит для
-DMA-буферов и пакетов телеметрии фиксированного размера:
+### In-memory representation
+
+Каждый публичный тип занимает в памяти **ровно 8 байт** — подходит для
+DMA-буферов и пакетов телеметрии фиксированного размера. Это относится к
+представлению значения в памяти Rust:
 
 | Type            | Size | Alignment |
 | --------------- | ---- | --------- |
@@ -47,6 +50,11 @@ DMA-буферов и пакетов телеметрии фиксированн
 | `Duration`      | 8 B  | 8 B       |
 
 Все типы-маркеры шкал (`Gps`, `Glonass`, ...) имеют нулевой размер.
+
+> **Не путайте in-memory и wire-представления.** Размер в памяти (8 B) не равен
+> размеру при сериализации через `serde` + `postcard`: там используется
+> отдельное wire-представление, описанное ниже, и его размер **не фиксирован**
+> (зависит от величины значения).
 
 ## Доказательство zero-cost абстракций
 
@@ -67,28 +75,115 @@ Benchmark results on x86_64 (Criterion, release mode):
 что и обычная арифметика `u64` — абстракция не имеет накладных расходов во время
 выполнения.
 
+## Размер кода (.text)
+
+Измеряется автоматически в CI (см. `size-report` в `.github/workflows/embedded.yml`)
+на прошивке-зонде `firmware/` для `thumbv7em-none-eabihf` (release). Каждая
+операция вынесена в отдельный `#[inline(never)]`-символ с `black_box`-
+ограничителями, чтобы её можно было замерить независимо.
+
+Прошивка-зонд намеренно избегает `unwrap()`/`panic!` и panicking-операторов
+(это size probe, а не пользовательское приложение), поэтому в `.text` не
+попадает panic/`core::fmt`-машинерия. Итоговый `.text` всего бинарника —
+**980 B**. Основная часть `.text` приходится на код `gnss-time`, probe-функции и
+необходимую runtime-инфраструктуру `cortex-m-rt` (векторная таблица 1 KiB,
+загрузчик `Reset` 62 B, обработчики ~18 B).
+
+Измеренные символы в этом бинарнике (размер конкретного ELF-символа, release):
+
+| Символ в этом бинарнике                          | `.text` |
+| ------------------------------------------------ | ------- |
+| `Time<Gps>::from_week_tow` (валидация + расчёт)  | 182 B   |
+| `probe_gps_to_utc` (сгенерированная функция)     | 180 B   |
+| `LeapSeconds::tai_minus_utc_at` (binary search)  | 138 B   |
+| `Time<Gps>::to_tai` (GPS → TAI, +19 s)           | 56 B    |
+| `probe_time_checked_add`                         | 56 B    |
+| `probe_time_saturating_add`                      | 42 B    |
+| `probe_from_week_tow` (обвязка пробы)            | 34 B    |
+| `probe_into_scale` (обвязка пробы)               | 32 B    |
+
+Ключевой вывод: `Time + Duration` не требует дополнительного слоя абстракции —
+после мономорфизации операция сводится к обычной арифметике над внутренним
+`u64`-представлением. На `thumbv7em-none-eabihf` это реализуется
+последовательностью 32-битных ARM-инструкций (`adds`/`adcs`).
+`probe_time_saturating_add` = 42 B, `probe_time_checked_add` = 56 B.
+
+> **Panicking-операторы тянут panic-машинерию.** Пробой проверены только
+> безаварийные операции. Если добавить в бинарник оператор `+`/`-` (который при
+> переполнении делает `panic!`), компилятор подтягивает и
+> `core::panic`/`core::fmt`-инфраструктуру (~1.9 KiB: `do_count_chars`,
+> `Formatter::pad`, `panic_fmt` и т.д.), и `.text` прошивки вырастает до ~2.9 KiB.
+> Сам символ panicking-`+` при этом всего ~52 B — но цена в panic-ветке.
+> Для embedded используйте `saturating_add` / `checked_add` / `try_add`.
+
+> **Точность формулировок.** Размеры выше — это размеры конкретных символов в
+> *данном* бинарнике: «сгенерированная функция `probe_gps_to_utc` — 180 B», а не
+> «GPS → UTC стоит ровно 180 B». `probe_gps_to_utc` использует общий код
+> `into_scale_with` + `LeapSeconds::tai_minus_utc_at` (138 B) + таблицу
+> `BUILTIN_LEAP` (8 B); часть кода может переиспользоваться линкером с другими
+> символами. То же касается остальных операций: `checked_add`/`saturating_add`
+> различаются на уровне этих probe-символов всего на 14 B, но это не значит,
+> что это полная стоимость операции в любом бинарнике.
+
+CI-порог: `.text` прошивки-зонда < 2 KiB. Сборка и замер локально:
+
+```sh
+just setup-size   # cargo install cargo-binutils; rustup component add llvm-tools-preview
+just size         # build firmware + cargo size -A + cargo bloat
+```
+
+Проверка, что арифметика осталась нуль-затратной:
+
+```sh
+cargo objdump --release --manifest-path firmware/Cargo.toml \
+  --target thumbv7em-none-eabihf -- -d \
+  | grep -A8 'probe_time_saturating_add>'   # ищем adds/adcs
+```
+
+> Примечание: `cargo bloat` отвечает на вопрос «какие символы занимают место»,
+> `cargo size -- -A` — на вопрос «сколько занимают секции `.text`/`.rodata`/...».
+> Для проверки «< N байт на операцию» единственный надёжный источник — размер
+> конкретного ELF-символа / дизассемблер, т.к. оптимизатор может заинлайнить
+> функцию и отдельного символа не останется.
+
 ## Безопасная арифметика для embedded
 
-В embedded-системах panic обычно означает `abort()` — без unwind.
-Используйте варианты без panic:
+В типичных `no_std` embedded-конфигурациях panic не использует полноценный
+unwinding runtime; конкретное поведение определяется вашим `#[panic_handler]`
+(например, остановка, `abort`-подобное поведение или передача информации о
+panic через `defmt`). Универсального «panic = abort» не существует — например,
+прошивка-зонд в этом репозитории использует бесконечный цикл:
 
 ```rust
-use gnss_time::{Time, Duration, Gps, DurationParts};
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+```
 
-let t = Time::<Gps>::from_week_tow(
-    2345,
-    DurationParts { seconds: 432_000, nanos: 0 },
-).unwrap();
-let d = Duration::from_seconds(3600);
+Поэтому на борту используйте варианты без panic. Пример внутри функции,
+возвращающей `Result` (без `unwrap`):
 
-// Option — возвращает None при переполнении
-let safe: Option<Time<Gps>> = t.checked_add(d);
+```rust
+use gnss_time::{Duration, DurationParts, Gps, GnssTimeError, Time};
 
-// Насыщение до MAX/EPOCH — никогда не паникует
-let clamped: Time<Gps> = t.saturating_add(d);
+fn next_window() -> Result<Time<Gps>, GnssTimeError> {
+    let t = Time::<Gps>::from_week_tow(
+        2345,
+        DurationParts { seconds: 432_000, nanos: 0 },
+    )?;
 
-// Возвращает GnssTimeError::Overflow при переполнении
-let fallible: Result<Time<Gps>, _> = t.try_add(d);
+    // Option — возвращает None при переполнении
+    let safe: Option<Time<Gps>> = t.checked_add(Duration::from_seconds(3600));
+
+    // Насыщение до MAX/EPOCH — никогда не паникует
+    let clamped: Time<Gps> = t.saturating_add(Duration::from_seconds(3600));
+
+    // Возвращает GnssTimeError::Overflow при переполнении
+    let fallible: Result<Time<Gps>, GnssTimeError> = t.try_add(Duration::from_seconds(3600));
+
+    Ok(clamped)
+}
 ```
 
 ## Статические инициализаторы
@@ -176,9 +271,13 @@ Encoding: ULEB-128(seconds: u64) ++ ULEB-128(nanos: u32)
 
 Example: { seconds: 5, nanos: 500_000_000 }
   ULEB-128(5)           → [0x05]
-  ULEB-128(500_000_000) → [0x80, 0xA8, 0xD6, 0xB9, 0x01]
+  ULEB-128(500_000_000) → [0x80, 0xCA, 0xB5, 0xEE, 0x01]
   Total:                → 6 bytes
 ```
+
+> Все байтовые последовательности в этом разделе проверены golden-тестами
+> (`serde_impls::tests::*postcard_golden` в `src/serde_impls.rs`) — они являются
+> источником истины, а не наоборот.
 
 ### Использование с heapless (no_std без alloc)
 
@@ -293,10 +392,12 @@ defmt::info!("GPS timestamp: {}", t);
 // Вывод: GPS 2345:432000.000
 ```
 
-Все публичные типы реализуют `defmt::Format` при включённой фиче:
+Все публичные типы реализуют `defmt::Format` при включённой фиче
+(проверяется компиляцией в CI: `embedded.yml` собирает `--features defmt`
+для каждого embedded-таргета):
 
 - `Time<S>` — тот же формат, что и `Display`
-- `Duration` — формат `"Xs Yns"`
+- `Duration` — формат `"Xs Yns"` (как `Display`)
 - `GnssTimeError` — короткая строка ошибки
 
 ## Кросс-компиляция
@@ -369,8 +470,9 @@ use gnss_time::{GnssTimeError, Time, Gps, DurationParts};
 
 /// Парсит GPS-время из payload UBX NAV-TIMEGPS (28 байт).
 pub fn parse_ubx_nav_timegps(payload: &[u8; 28]) -> Result<Time<Gps>, GnssTimeError> {
-    let itow_ms = u32::from_le_bytes(payload[0..4].try_into().unwrap()) as u64;
-    let week    = u16::from_le_bytes(payload[8..10].try_into().unwrap());
+    // payload — массив фиксированной длины, индексы 0..4 / 8..10 статически валидны
+    let itow_ms = u32::from_le_bytes([payload[0], payload[1], payload[2], payload[3]]) as u64;
+    let week    = u16::from_le_bytes([payload[8], payload[9]]);
     let valid   = payload[24];
 
     if valid & 0x03 != 0x03 {
