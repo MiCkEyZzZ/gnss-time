@@ -25,6 +25,11 @@ help:
 
 setup-embedded:
     rustup target add thumbv7em-none-eabihf
+    rustup target add thumbv6m-none-eabi
+
+setup-riscv:
+    rustup target add riscv32imac-unknown-none-elf
+    rustup target add riscv32i-unknown-none-elf
 
 # =============================================================================
 # Formatting
@@ -65,6 +70,17 @@ check-no-std: setup-embedded
 
 check-no-std-defmt: setup-embedded
     cargo check --lib --no-default-features --features defmt --target thumbv7em-none-eabihf --locked
+
+# Cortex-M0/M0+ (STM32F0xx, nRF51).
+
+check-no-std-cortex-m0: setup-embedded
+    cargo check --lib --no-default-features --target thumbv6m-none-eabi --locked
+
+# RISC-V targets (RV32IMAC with atomics, RV32I without).
+
+check-riscv: setup-riscv
+    cargo check --lib --no-default-features --target riscv32imac-unknown-none-elf --locked
+    cargo check --lib --no-default-features --target riscv32i-unknown-none-elf --locked
 
 # =============================================================================
 # Linting

@@ -3,4 +3,9 @@
 # Update carefully — always verify MSRV (1.75) after upgrading.
 channel = "nightly-2026-02-14"
 components = ["rustfmt", "clippy", "rust-src", "rust-analyzer"]
-targets    = ["thumbv7em-none-eabihf", "riscv32imac-unknown-none-elf"]
+targets    = [
+    "thumbv7em-none-eabihf",
+    "thumbv6m-none-eabi",
+    "riscv32imac-unknown-none-elf",
+    "riscv32i-unknown-none-elf",
+]
