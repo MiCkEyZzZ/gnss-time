@@ -5,6 +5,8 @@ gnss-time
 ├── .cargo
 │   └── config.toml
 ├── .github
+│   ├── DISCUSSION_TEMPLATE
+│   │   └── feature-requests.yml
 │   ├── ISSUE_TEMPLATE
 │   │   ├── bug_report.yml
 │   │   ├── config.yml
