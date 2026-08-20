@@ -9,6 +9,7 @@ gnss-time = { path = ".." }
 
 [dev-dependencies]
 criterion = { version = "0.8.2", features = ["html_reports"] }
+hifitime = { version = "4", default-features = false }
 
 [[bench]]
 name = "arithmetic_bench"
@@ -20,4 +21,8 @@ harness = false
 
 [[bench]]
 name = "time_bench"
+harness = false
+
+[[bench]]
+name = "vs_hifitime"
 harness = false
