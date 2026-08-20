@@ -99,6 +99,7 @@ use crate::{
 #[must_use = "Time<S> is a value type; ignoring it has no effect"]
 pub struct Time<S: TimeScale> {
     nanos: u64,
+
     _scale: PhantomData<S>,
 }
 

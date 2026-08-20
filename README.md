@@ -256,6 +256,18 @@ ConvertResult
 - GPS → UTC → GPS: ~37 ns
 - cost dominated by UTC context resolution
 
+### 6.4 Running benchmarks
+
+Performance figures above come from the `benches/` workspace crate
+(Criterion). From the repository root:
+
+```bash
+just bench
+```
+
+See [`benches/README.md`](benches/README.md) for individual benchmark
+groups and the latest result tables.
+
 ## 7. Design Constraints
 
 ### 7.1 UTC is contextual

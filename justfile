@@ -150,6 +150,16 @@ test-no-std: setup-embedded
     cargo check --lib --no-default-features --target thumbv7em-none-eabihf --locked
 
 # =============================================================================
+# Benchmarks
+# =============================================================================
+
+bench:
+    cargo bench -p benches --locked
+
+bench-smoke:
+    cargo bench -p benches --locked -- --test
+
+# =============================================================================
 # Advanced validation
 # =============================================================================
 
@@ -172,7 +182,7 @@ release-check:
 # CI aggregate
 # =============================================================================
 
-ci: fmt-check lint check check-std check-no-std check-no-std-defmt msrv doc hack test-all test-serde
+ci: fmt-check lint check check-std check-no-std check-no-std-defmt msrv doc hack test-all bench-smoke
 
 # =============================================================================
 # Cleanup
