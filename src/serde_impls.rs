@@ -4,7 +4,7 @@
 //!
 //! ```toml
 //! [dependensies]
-//! gnss-time = { version = "0.5", features = ["serde"] }
+//! gnss-time = { version = "0.6", features = ["serde"] }
 //! ```
 //!
 //! # Formats

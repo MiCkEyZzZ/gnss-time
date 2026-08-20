@@ -57,7 +57,7 @@ match result {
 
 ```toml
 [dependencies]
-gnss-time = "0.5"
+gnss-time = "0.6"
 ```
 
 For embedded targets nothing else is needed; optional integrations are enabled
@@ -74,7 +74,7 @@ via feature flags (see below).
 
 ```toml
 [dependencies]
-gnss-time = { version = "0.5", features = ["serde"] }
+gnss-time = { version = "0.6", features = ["serde"] }
 ```
 
 ## Usage

@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "gnss-time"
-version = "0.5.3"
+version = "0.6.0"
 description = "Type-safe GNSS time scales: GPS, GLONASS, Galileo, BeiDou, TAI, UTC — no_std by default"
 documentation = "https://docs.rs/gnss-time"
 homepage = "https://github.com/MiCkEyZzZ/gnss-time"
@@ -41,7 +41,7 @@ std = []
 #
 # Usage in Cargo.toml:
 #   [dependencies]
-#   gnss-time = { version = "0.5", features = ["defmt"] }
+#   gnss-time = { version = "0.6", features = ["defmt"] }
 #   defmt     = "0.3"
 #
 # defmt versions: https://crates.io/crates/defmt

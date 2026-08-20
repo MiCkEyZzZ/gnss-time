@@ -127,7 +127,7 @@ utc_from_1972   = unix_seconds          - UTC_EPOCH_UNIX_OFFSET_S
 Подключение:
 
 ```toml
-gnss-time = { version = "0.5", features = ["serde"] }
+gnss-time = { version = "0.6", features = ["serde"] }
 ```
 
 ### Форматы

@@ -7,14 +7,14 @@
 ```toml
 # Cargo.toml
 [dependencies]
-gnss-time = { version = "0.5", default-features = false }
+gnss-time = { version = "0.6", default-features = false }
 
 # For embedded logging via probe-rs:
-gnss-time = { version = "0.5", features = ["defmt"] }
+gnss-time = { version = "0.6", features = ["defmt"] }
 defmt      = "0.3"
 
 # For compact binary serialization:
-gnss-time = { version = "0.5", features = ["serde"] }
+gnss-time = { version = "0.6", features = ["serde"] }
 postcard   = { version = "1", default-features = false, features = ["heapless"] }
 heapless   = "0.8"
 serde      = { version = "1", default-features = false }
@@ -206,7 +206,7 @@ const FIVE_MINUTES: Duration = Duration::from_seconds(300);
 
 ```toml
 [dependencies]
-gnss-time = { version = "0.5", features = ["serde"] }
+gnss-time = { version = "0.6", features = ["serde"] }
 postcard   = { version = "1", default-features = false, features = ["heapless"] }
 heapless   = "0.8"
 serde      = { version = "1", default-features = false }
