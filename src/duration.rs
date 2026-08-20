@@ -394,6 +394,28 @@ impl fmt::Display for Duration {
     }
 }
 
+// defmt support: embedded logging via probe-rs / defmt-rtt.
+#[cfg(feature = "defmt")]
+impl defmt::Format for Duration {
+    #[allow(clippy::if_same_then_else)]
+    fn format(
+        &self,
+        f: defmt::Formatter,
+    ) {
+        let abs = self.0.unsigned_abs();
+        let secs = abs / 1_000_000_000;
+        let nanos = abs % 1_000_000_000;
+
+        // The two branches emit different format tags, but after defmt::write!
+        // macro expansion the bodies look identical to clippy.
+        if self.0 < 0 {
+            defmt::write!(f, "-{}s {}ns", secs, nanos);
+        } else {
+            defmt::write!(f, "{}s {}ns", secs, nanos);
+        }
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Tests
 ////////////////////////////////////////////////////////////////////////////////

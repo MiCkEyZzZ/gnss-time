@@ -36,6 +36,7 @@ All examples compile and run with `cargo run --example $name`.
 | Example                                                   | Description                     |
 | --------------------------------------------------------- | ------------------------------- |
 | [`embedded_safe_arithmetic`](embedded_safe_arithmetic.rs) | `saturating_add` — never panics |
+| [`embedded_minimal`](embedded_minimal.rs)                 | Dual-mode example: runs on host, compiles `no_std`/`no_main` for Cortex-M; probes core ops with `black_box` and prints results on host |
 
 ## Advanced
 

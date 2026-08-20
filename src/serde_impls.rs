@@ -845,4 +845,130 @@ mod tests {
 
         assert_eq!(t + d, t_back + d_back);
     }
+
+    // =========================================================================
+    // Golden wire-format tests (postcard).
+    //
+    // These are the source of truth for the byte sequences documented in
+    // `docs/EMBEDDED.md`. If any of these fail, update BOTH the test and the
+    // documentation — never the documentation on its own.
+    // =========================================================================
+
+    #[test]
+    fn test_time_gps_postcard_golden() {
+        const MAX: [u8; 10] = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01];
+
+        assert_eq!(
+            postcard::to_allocvec(&Time::<Gps>::EPOCH)
+                .unwrap()
+                .as_slice(),
+            &[0x00],
+            "EPOCH (0 ns)"
+        );
+        assert_eq!(
+            postcard::to_allocvec(&Time::<Gps>::from_nanos(1))
+                .unwrap()
+                .as_slice(),
+            &[0x01],
+            "1 ns"
+        );
+        assert_eq!(
+            postcard::to_allocvec(&Time::<Gps>::from_nanos(127))
+                .unwrap()
+                .as_slice(),
+            &[0x7F],
+            "127 ns"
+        );
+        assert_eq!(
+            postcard::to_allocvec(&Time::<Gps>::from_nanos(128))
+                .unwrap()
+                .as_slice(),
+            &[0x80, 0x01],
+            "128 ns"
+        );
+        // 1 GPS week = 604_800 s → needs 8 bytes (2^49 < 604_800_000_000_000 < 2^56)
+        assert_eq!(
+            postcard::to_allocvec(&Time::<Gps>::from_seconds(604_800))
+                .unwrap()
+                .len(),
+            8,
+            "1 week"
+        );
+        // GPS week 2200, TOW 0 (~2023) → 9 bytes
+        let w2200 = Time::<Gps>::from_week_tow(
+            2200,
+            DurationParts {
+                seconds: 0,
+                nanos: 0,
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            postcard::to_allocvec(&w2200).unwrap().len(),
+            9,
+            "~2023 GPS timestamp"
+        );
+        // u64::MAX → 10 bytes: 0xFF x9 + 0x01
+        assert_eq!(
+            postcard::to_allocvec(&Time::<Gps>::from_nanos(u64::MAX))
+                .unwrap()
+                .as_slice(),
+            &MAX,
+            "u64::MAX"
+        );
+    }
+
+    #[test]
+    fn test_duration_postcard_golden() {
+        assert_eq!(
+            postcard::to_allocvec(&Duration::from_nanos(0))
+                .unwrap()
+                .as_slice(),
+            &[0x00],
+            "zigzag(0)"
+        );
+        assert_eq!(
+            postcard::to_allocvec(&Duration::from_nanos(-1))
+                .unwrap()
+                .as_slice(),
+            &[0x01],
+            "zigzag(-1) = 1"
+        );
+        assert_eq!(
+            postcard::to_allocvec(&Duration::from_nanos(1))
+                .unwrap()
+                .as_slice(),
+            &[0x02],
+            "zigzag(1) = 2"
+        );
+        assert_eq!(
+            postcard::to_allocvec(&Duration::from_nanos(-2))
+                .unwrap()
+                .as_slice(),
+            &[0x03],
+            "zigzag(-2) = 3"
+        );
+        assert_eq!(
+            postcard::to_allocvec(&Duration::from_nanos(2))
+                .unwrap()
+                .as_slice(),
+            &[0x04],
+            "zigzag(2) = 4"
+        );
+    }
+
+    #[test]
+    fn test_duration_parts_postcard_golden() {
+        // ULEB-128(5) ++ ULEB-128(500_000_000)
+        // ULEB-128(500_000_000) = [0x80, 0xCA, 0xB5, 0xEE, 0x01]
+        assert_eq!(
+            postcard::to_allocvec(&DurationParts {
+                seconds: 5,
+                nanos: 500_000_000,
+            })
+            .unwrap()
+            .as_slice(),
+            &[0x05, 0x80, 0xCA, 0xB5, 0xEE, 0x01]
+        );
+    }
 }

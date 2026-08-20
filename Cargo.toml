@@ -125,6 +125,10 @@ path = "examples/matrix_inspection.rs"
 name = "unix_time"
 path = "examples/unix_time.rs"
 
+[[example]]
+name = "embedded_minimal"
+path = "examples/embedded_minimal.rs"
+
 [package.metadata.docs.rs]
 # docs.rs builds with features = ["std", "defmt"] to expose full API
 features = ["std", "serde", "defmt"]

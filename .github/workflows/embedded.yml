@@ -107,3 +107,59 @@ jobs:
           cargo test --lib
           time::tests::test_size_equals_u64
           -- --nocapture
+
+  size-report:
+    name: Size report (.text)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-14
+          targets: thumbv7em-none-eabihf
+
+      - name: Install size tools
+        run: |
+          rustup component add llvm-tools-preview
+          cargo install cargo-binutils --locked
+
+      - name: Build probe firmware (release)
+        run: >
+          cargo build --release
+          --manifest-path firmware/Cargo.toml
+          --target thumbv7em-none-eabihf
+
+      - name: ELF sections
+        run: >
+          cargo size --release
+          --manifest-path firmware/Cargo.toml
+          --target thumbv7em-none-eabihf -- -A
+
+      - name: Top .text symbols
+        run: >
+          cargo bloat --release
+          --manifest-path firmware/Cargo.toml
+          --target thumbv7em-none-eabihf -n 15
+
+      - name: Assert .text budget (< 2 KiB)
+        run: |
+          text=$(cargo size --release \
+            --manifest-path firmware/Cargo.toml \
+            --target thumbv7em-none-eabihf -- -A | awk '/.text/ {print $2}')
+          echo "firmware .text = $text bytes"
+          if [ -z "$text" ] || [ "$text" -gt 2048 ]; then
+            echo "::error::firmware .text ($text) exceeds 2 KiB budget"
+            exit 1
+          fi
+          echo "OK: .text within budget"
+
+      - name: Assert Time + Duration compiles to a native 64-bit add
+        run: |
+          cargo objdump --release \
+            --manifest-path firmware/Cargo.toml \
+            --target thumbv7em-none-eabihf -- -d \
+            | grep -A8 'probe_time_saturating_add>' \
+            | grep -qE 'adds|adcs'
+          echo "OK: Time + Duration = native 64-bit add (zero-cost arithmetic)"

@@ -83,6 +83,23 @@ check-riscv: setup-riscv
     cargo check --lib --no-default-features --target riscv32i-unknown-none-elf --locked
 
 # =============================================================================
+# Embedded size report
+# =============================================================================
+
+setup-size:
+    cargo install cargo-binutils --locked
+    rustup component add llvm-tools-preview
+
+# Build the Cortex-M probe firmware and print section + symbol sizes.
+#
+# Requires cargo-binutils + llvm-tools-preview (see `just setup-size`).
+
+size:
+    cargo build --release --manifest-path firmware/Cargo.toml --target thumbv7em-none-eabihf
+    cargo size --release --manifest-path firmware/Cargo.toml --target thumbv7em-none-eabihf -- -A
+    cargo bloat --release --manifest-path firmware/Cargo.toml --target thumbv7em-none-eabihf -n 15
+
+# =============================================================================
 # Linting
 # =============================================================================
 

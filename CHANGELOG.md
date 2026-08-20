@@ -26,6 +26,32 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     `setup-riscv` recipe.
   - Added the new targets to `rust-toolchain.toml` for automatic installation.
   - Documented the supported target matrix in `docs/EMBEDDED.md`.
+- Added `no_alloc`/embedded size verification (Issue #TIME-26).
+  - Added `examples/embedded_minimal.rs`: a dual-mode example that runs as a
+    host binary and compiles as a `no_std`/`no_main` Cortex-M binary.
+  - Added `firmware/`: a standalone `thumbv7em-none-eabihf` probe crate
+    (`cortex-m-rt` + `panic-halt`) with one `#[inline(never)]` symbol per core
+    operation (`from_week_tow`, `into_scale`, `gps_to_utc`, `+`,
+    `saturating_add`, `checked_add`) for `.text` measurement.
+  - Added `just size` and `just setup-size` recipes (`cargo size -A` +
+    `cargo bloat`).
+  - Added a `size-report` CI job that builds the probe firmware and enforces a
+    `.text` budget (< 2 KiB) plus verifies that the arithmetic compiles to a
+    native 64-bit add (`adds`/`adcs`). Measured clean firmware `.text`: 980 B
+    (no panic/`core::fmt` machinery).
+  - Documented per-symbol `.text` sizes in `docs/EMBEDDED.md` (e.g.
+    `probe_time_saturating_add` = 42 B, `probe_time_checked_add` = 56 B,
+    `probe_gps_to_utc` = 180 B) and the fact that the panicking `+`/`-`
+    operators pull in ~1.9 KiB of panic-formatting infrastructure.
+  - Added `firmware/README.md`, a `docs/PROJECT_STRUCTURE.md` entry for the
+    `firmware/` tree, and the `examples/README.md` row for `embedded_minimal`.
+- Added golden postcard wire-format tests (`serde_impls::tests::*postcard_golden`)
+  that pin the exact byte sequences for `Time<S>`, `Duration` and `DurationParts`
+  (ULEB-128 / ZigZag encodings). These tests are now the source of truth for the
+  byte layouts documented in `docs/EMBEDDED.md`.
+- Added `impl defmt::Format for Duration` (previously documented as implemented
+  but missing), formatting as `"Xs Yns"` matching `Display`; compile-verified in
+  CI for every embedded target with `--features defmt`.
 
 ### Changed
 
@@ -49,6 +75,24 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - Updated arithmetic and conversion result tables.
   - Added a `time_bench` results table and a zero-cost vs `u64` comparison.
   - Documented smoke-check usage and clarified that CI timings are not gated.
+- Refined `docs/EMBEDDED.md` based on review feedback:
+  - Distinguished the fixed in-memory representation (8 B) from the
+    variable-length wire representation (ULEB-128/ZigZag) in the size guarantees
+    section.
+  - Removed `unwrap()` from the embedded "safe arithmetic" example; it now uses
+    `Result` + `?` and is consistent with the panic-free embedded story.
+  - Clarified that panic behaviour on embedded targets depends on the
+    `#[panic_handler]` (the probe firmware uses an infinite loop), replacing the
+    oversimplified "panic = abort" claim.
+  - Refined the `.text` = 980 B claim to account for the `cortex-m-rt`
+    infrastructure (vector table, `Reset`, handlers) rather than implying it is
+    almost entirely `gnss-time`.
+  - Refined the `adds`/`adcs` claim to note it is the `thumbv7em`-specific
+    lowering of `u64` arithmetic rather than a universal statement.
+  - Replaced `try_into().unwrap()` with direct array indexing in the UBX
+    NAV-TIMEGPS parsing example.
+  - Noted in the `defmt` section that `defmt::Format` implementations are
+    compile-verified in CI.
 
 ### Fixed
 
@@ -60,6 +104,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Corrected constant names in the `[0.5.3]` changelog entry to match the
   code (`DAYS_PER_400_YEAR_ERA`, `YEARS_PER_ERA`).
+- Fixed the incorrect ULEB-128 byte sequence for
+  `DurationParts { seconds: 5, nanos: 500_000_000 }` in `docs/EMBEDDED.md`
+  (`[0x80, 0xCA, 0xB5, 0xEE, 0x01]`, previously `[0x80, 0xA8, 0xD6, 0xB9, 0x01]`);
+  the correct bytes are now enforced by the new golden tests.
+- Fixed the missing `defmt::Format` implementation for `Duration` (the type was
+  documented as covered, but no impl existed).
 
 ## [0.5.3] - 2026-05-25
 

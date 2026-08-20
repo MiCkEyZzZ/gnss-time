@@ -66,6 +66,12 @@ gnss-time
 │   ├── scale_conversion.rs
 │   ├── sync_alignment.rs
 │   └── unix_time.rs
+├── firmware
+│   ├── src
+│   │   └── main.rs
+│   ├── Cargo.lock
+│   ├── Cargo.toml
+│   └── memory.x
 ├── src
 │   ├── tables
 │   │   ├── leap_seconds.rs
