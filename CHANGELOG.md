@@ -16,12 +16,21 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - Documents the structural type-size difference (`Time<S>` is 8 bytes vs
     `hifitime::Epoch` at 24 bytes).
   - Results and methodology are captured in `benches/README.md`.
+- Extended embedded target coverage in CI and local tooling.
+  - Added `thumbv6m-none-eabi` (Cortex-M0/M0+, STM32F0xx, nRF51) and
+    `riscv32i-unknown-none-elf` (RV32I without atomics, ESP32-C2) to the
+    embedded CI matrix.
+  - Added a CI job verifying that `std` is not pulled transitively for the
+    `no_std`, `serde`, and `defmt` feature combinations (`cargo tree -e normal`).
+  - Added `just check-riscv` and `just check-no-std-cortex-m0` recipes plus a
+    `setup-riscv` recipe.
+  - Added the new targets to `rust-toolchain.toml` for automatic installation.
+  - Documented the supported target matrix in `docs/EMBEDDED.md`.
 
 ### Changed
 
 - Added `hifitime` (with `default-features = false`) as a dev-dependency of
   the `benches` crate.
-
 - Aligned the benchmark crate rename from `bench/` to `benches/` across
   project tooling and documentation.
   - Added a workspace definition in `Cargo.toml` so `cargo check --workspace`

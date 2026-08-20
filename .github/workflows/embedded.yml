@@ -3,7 +3,9 @@
 # Targets:
 #   thumbv7em-none-eabihf          — STM32F4/F7, nRF52 (Cortex-M4F/M7F with FPU)
 #   thumbv7em-none-eabi            — Cortex-M4/M7 without FPU
-#   riscv32imac-unknown-none-elf   — ESP32-C3, GD32VF103
+#   thumbv6m-none-eabi             — Cortex-M0/M0+ (STM32F0xx, nRF51)
+#   riscv32imac-unknown-none-elf   — ESP32-C3, GD32VF103 (RV32IMAC)
+#   riscv32i-unknown-none-elf      — ESP32-C2 (RV32I, no atomics)
 #
 # Runs:
 #   - standalone on push/PR to main/develop and on tags v*.*.*
@@ -33,7 +35,9 @@ jobs:
         target:
           - thumbv7em-none-eabihf
           - thumbv7em-none-eabi
+          - thumbv6m-none-eabi
           - riscv32imac-unknown-none-elf
+          - riscv32i-unknown-none-elf
     steps:
       - uses: actions/checkout@v7
 
@@ -63,6 +67,29 @@ jobs:
           cargo check --lib
           --no-default-features --features defmt
           --target ${{ matrix.target }}
+
+  no-std-transitive:
+    name: no_std tree pulls no std
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-14
+
+      - name: Verify std is not pulled transitively
+        run: |
+          for features in "" "--features serde" "--features defmt"; do
+            cargo tree -e normal --no-default-features $features > /tmp/deps.txt
+            if grep -qE '(^| )std v' /tmp/deps.txt; then
+              echo "::error::std found in dependency tree for features='$features'"
+              cat /tmp/deps.txt
+              exit 1
+            fi
+          done
+          echo "OK: std is not pulled transitively for any feature combo"
 
   type-sizes:
     name: Type sizes = 8 bytes
