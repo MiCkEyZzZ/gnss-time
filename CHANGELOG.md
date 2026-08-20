@@ -9,7 +9,18 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Added a head-to-head benchmark against `hifitime` 4.x
+  (`benches/benches/vs_hifitime.rs`).
+  - Compares semantically equivalent operations: GPS construction,
+    duration addition, `GPS → TAI` (fixed) and `GPS → UTC` (leap-aware).
+  - Documents the structural type-size difference (`Time<S>` is 8 bytes vs
+    `hifitime::Epoch` at 24 bytes).
+  - Results and methodology are captured in `benches/README.md`.
+
 ### Changed
+
+- Added `hifitime` (with `default-features = false`) as a dev-dependency of
+  the `benches` crate.
 
 - Aligned the benchmark crate rename from `bench/` to `benches/` across
   project tooling and documentation.
@@ -31,6 +42,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - Documented smoke-check usage and clarified that CI timings are not gated.
 
 ### Fixed
+
+- Bumped `crossbeam-epoch` to `0.9.20` and `spin` to `0.9.9` in `Cargo.lock`
+  to restore `cargo deny` compliance.
+  - `crossbeam-epoch 0.9.18` was flagged by RUSTSEC-2026-0204 (invalid pointer
+    dereference in `fmt::Display`/`fmt::Pointer`).
+  - `spin 0.9.8` was yanked.
 
 - Corrected constant names in the `[0.5.3]` changelog entry to match the
   code (`DAYS_PER_400_YEAR_ERA`, `YEARS_PER_ERA`).
