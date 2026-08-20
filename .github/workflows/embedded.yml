@@ -124,6 +124,7 @@ jobs:
         run: |
           rustup component add llvm-tools-preview
           cargo install cargo-binutils --locked
+          cargo install cargo-bloat --locked
 
       - name: Build probe firmware (release)
         run: >
