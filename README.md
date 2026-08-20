@@ -1,10 +1,8 @@
 # gnss-time
 
 [![CI](https://github.com/MiCkEyZzZ/gnss-time/actions/workflows/ci.yml/badge.svg)](https://github.com/MiCkEyZzZ/gnss-time/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
-![no_std](https://img.shields.io/badge/no__std-yes-blue)
-![MSRV](https://img.shields.io/badge/MSRV-1.75-blue)
-![Embedded](https://img.shields.io/badge/embedded-friendly-green)
+[![Crates.io](https://img.shields.io/crates/v/gnss-time.svg)](https://crates.io/crates/gnss-time)
+[![docs.rs](https://docs.rs/gnss-time/badge.svg)](https://docs.rs/gnss-time)
 
 **Strongly typed GNSS time model with explicit conversion semantics and zero-cost
 arithmetic.**
