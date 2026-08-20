@@ -93,6 +93,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     NAV-TIMEGPS parsing example.
   - Noted in the `defmt` section that `defmt::Format` implementations are
     compile-verified in CI.
+- Extended Dependabot to also track the `cargo` ecosystem (previously only
+  GitHub Actions), with conventional-commit prefixes (`chore(deps)`, compatible
+  with the semantic PR check), `patch`/`minor` grouping, labels, and
+  `target-branch: main`.
 
 ### Fixed
 
@@ -101,7 +105,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - `crossbeam-epoch 0.9.18` was flagged by RUSTSEC-2026-0204 (invalid pointer
     dereference in `fmt::Display`/`fmt::Pointer`).
   - `spin 0.9.8` was yanked.
-
 - Corrected constant names in the `[0.5.3]` changelog entry to match the
   code (`DAYS_PER_400_YEAR_ERA`, `YEARS_PER_ERA`).
 - Fixed the incorrect ULEB-128 byte sequence for
