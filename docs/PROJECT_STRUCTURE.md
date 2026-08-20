@@ -71,7 +71,8 @@ gnss-time
 │   │   └── main.rs
 │   ├── Cargo.lock
 │   ├── Cargo.toml
-│   └── memory.x
+│   ├── memory.x
+│   └── README.md
 ├── src
 │   ├── tables
 │   │   ├── leap_seconds.rs
