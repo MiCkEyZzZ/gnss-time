@@ -5,6 +5,36 @@ All notable changes to **gnss-time** are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 0000-00-00
+
+### Added
+
+### Changed
+
+- Aligned the benchmark crate rename from `bench/` to `benches/` across
+  project tooling and documentation.
+  - Added a workspace definition in `Cargo.toml` so `cargo check --workspace`
+    and related commands include the `benches` crate.
+  - Added a dedicated `just bench` recipe that runs
+    `cargo bench -p benches --locked`.
+  - Updated benchmark documentation and roadmap references to use the
+    `benches/` paths and crate-local benchmark commands.
+- Extended CI to cover previously untested feature and benchmark paths.
+  - Added `serde` to the test and Clippy feature matrix.
+  - Ensured `prop_tests` runs via the explicit `std` feature test job.
+  - Added a benchmark smoke-check job (`cargo bench -p benches -- --test`).
+  - Normalized CI workflow comments and step names to English.
+- Refreshed `benches/README.md` with current Criterion mid estimates from a
+  full `cargo bench -p benches` run.
+  - Updated arithmetic and conversion result tables.
+  - Added a `time_bench` results table and a zero-cost vs `u64` comparison.
+  - Documented smoke-check usage and clarified that CI timings are not gated.
+
+### Fixed
+
+- Corrected constant names in the `[0.5.3]` changelog entry to match the
+  code (`DAYS_PER_400_YEAR_ERA`, `YEARS_PER_ERA`).
+
 ## [0.5.3] - 2026-05-25
 
 ### Added
@@ -20,7 +50,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Introduce named constants for the Hinnant civil date conversion
   algorithm in `epoch.rs` to remove remaining magic numbers and
   improve symmetry with `days_from_unix_impl`.
-  - Add DAYS_PER_400_YEAR_ERAL, DAYS_FROM_CIVIL_TO_UNIX_EPOCH, YARS_PER_ERA
+  - Add DAYS_PER_400_YEAR_ERA, DAYS_FROM_CIVIL_TO_UNIX_EPOCH, YEARS_PER_ERA
   - Improve readability and maintainability of `days_from_unix_impl`
 
 - Introduced `CivilDateTime` — a proleptic Gregorian calendar date-time
@@ -109,7 +139,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     - `Time<S>` → ULEB-128 (`u64`, 1–10 bytes)
     - `Duration` → ZigZag + ULEB-128 (`i64`)
     - `DurationParts` → tuple `[u64, u32]`
-
   - Clarified that Postcard encoding is variable-length (not fixed 8 bytes)
   - Added recommended buffer sizing guidelines (≥ 16 bytes)
   - Added `heapless::Vec` example for `no_std` environments
@@ -181,7 +210,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - Added dev-dependencies:
     - `serde_json`
     - `postcard` (with `alloc` feature for tests)
-
   - Updated `docs.rs` metadata to include `serde` feature
 
 - Updated `src/lib.rs`:
@@ -310,7 +338,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - `test-deterministic`
   - `test-props`
   - `test-all`
-
 - Compile-time verification for leap second table (`BUILTIN_TABLE`):
   - `_ASSERT_FIRST_ENTRY` — validates initial offset (TAI−UTC = 19)
   - `_ASSERT_TABLE_INVARIANTS` — enforces strict ordering and +1 increments
@@ -332,7 +359,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - helper functions `gps_to_utc`, `utc_to_gps`
 - Test `test_builtin_table_matches_iers_bulletin_c`:
   - full cross-verification against IERS data
-
 - Added `#[must_use]` annotations across core types and APIs:
   - `Time<S>`, `Duration`, `GnssTimeError`, `ConvertResult<T>`
   - all arithmetic helpers (`checked_*`, `saturating_*`)
@@ -364,7 +390,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - `default-features = false`
   - `features = ["std"]`
 - Added `test-all` to the CI-oriented `just` workflow
-
 - Leap second table (`BUILTIN_TABLE`) fully verified against IERS Bulletin C
   (all 19 entries validated using threshold formula)
 - Updated leap second documentation:
@@ -376,7 +401,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - `from_slice` added as alias to `from_table` for clarity
 - Enabled crate-wide lint:
   - `#![warn(clippy::must_use_candidate)]`
-
 - Improved API correctness by enforcing explicit result usage via `#[must_use]`
 - Strengthened forward-compatibility guarantees using `#[non_exhaustive]`
 - Updated internal documentation and diagnostics for better developer feedback

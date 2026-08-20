@@ -1,3 +1,7 @@
+[workspace]
+members = [".", "benches"]
+resolver = "2"
+
 [package]
 name = "gnss-time"
 version = "0.5.3"

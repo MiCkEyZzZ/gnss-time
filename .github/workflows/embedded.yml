@@ -1,12 +1,12 @@
 # Check no_std compatibility and cross-compilation for embedded targets.
 #
 # Targets:
-#   thumbv7em-none-eabihf          — STM32F4/F7, nRF52 (Cortex-M4F/M7F с FPU)
-#   thumbv7em-none-eabi            — Cortex-M4/M7 без FPU
+#   thumbv7em-none-eabihf          — STM32F4/F7, nRF52 (Cortex-M4F/M7F with FPU)
+#   thumbv7em-none-eabi            — Cortex-M4/M7 without FPU
 #   riscv32imac-unknown-none-elf   — ESP32-C3, GD32VF103
 #
 # Runs:
-#   - syandalone on push/PR to main/develop and on tags v*.*.*
+#   - standalone on push/PR to main/develop and on tags v*.*.*
 #   - as a reusable workflow — invoked from ci.yml via workflow_call
 
 name: embedded no_std

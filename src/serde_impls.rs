@@ -94,6 +94,7 @@ struct TimeVisitor<S: TimeScale>(PhantomData<S>);
 // Error helper that implements `fmt::Display` without allocation.
 struct ScaleMismatch<'a> {
     expected: &'a str,
+
     got: &'a str,
 }
 

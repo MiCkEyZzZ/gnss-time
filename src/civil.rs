@@ -349,6 +349,7 @@ fn days_to_unix(
     } else {
         (y - YEARS_PER_ERA_MINUS_ONE) / YEARS_PER_ERA
     };
+
     let yoe = y - era * YEARS_PER_ERA; // [0, 399]
     let doy = (153 * m + 2) / 5 + d - 1; // [0, 365]
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy; // [0, 146096]

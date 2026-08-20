@@ -1,10 +1,11 @@
 # Main CI pipeline: code quality, tests, docs, MSRV, audit.
-# Runs on evry push and PR.
+# Runs on every push and PR.
 #
 # Jobs:
-#   fmt      — formating (cargo fmt + taplo)
-#   clippy   — static analisis, all feature combinations
-#   test     — cargo test (default, std, defmt, std+defmt)
+#   fmt      — formatting (cargo fmt + taplo)
+#   clippy   — static analysis, all feature combinations
+#   test     — cargo test (default, std, defmt, std+defmt, serde)
+#   bench    — benchmark smoke-check (compile + run, no timing assertions)
 #   docs     — cargo doc with no warnings
 #   deny     — licenses and CVE audit (cargo deny)
 #   msrv     — MSRV check = Rust 1.75
@@ -44,7 +45,7 @@ jobs:
         with:
           version: "0.9.3"
 
-      - name: taplo fmt --check (TOML файлы)
+      - name: taplo fmt --check (TOML files)
         run: taplo fmt --check
 
   clippy:
@@ -77,6 +78,9 @@ jobs:
       - name: clippy — defmt feature
         run: cargo clippy --all-targets --features defmt -- -D warnings
 
+      - name: clippy — serde feature
+        run: cargo clippy --all-targets --features serde -- -D warnings
+
       - name: clippy — all features
         run: cargo clippy --all-targets --all-features -- -D warnings
 
@@ -86,7 +90,6 @@ jobs:
       - name: Verify #![deny(missing_docs)]
         run: grep -n "deny(missing_docs)" src/lib.rs
 
-  # ── Тесты ─────────────────────────────────────────────────────────────────────
   test:
     name: Test (${{ matrix.features || 'default' }})
     runs-on: ubuntu-latest
@@ -95,9 +98,10 @@ jobs:
       matrix:
         features:
           - "" # default (no_std)
-          - "std"
+          - "std" # includes prop_tests (proptest)
           - "defmt"
           - "std,defmt"
+          - "serde" # includes serde_test integration tests
     steps:
       - uses: actions/checkout@v7
 
@@ -106,7 +110,7 @@ jobs:
         with:
           toolchain: nightly-2026-02-14
 
-      - name: Normalize features для cache key
+      - name: Normalize features for cache key
         id: norm
         run: |
           KEY="${{ matrix.features }}"
@@ -129,6 +133,29 @@ jobs:
           else
             cargo test --features "$FEATURES"
           fi
+
+  bench:
+    name: Benchmark smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-14
+
+      - name: Cache cargo
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-bench-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: cargo bench — smoke (compile and run, no timing assertions)
+        run: cargo bench -p benches --locked -- --test
 
   docs:
     name: Docs
@@ -177,9 +204,7 @@ jobs:
       - name: cargo check — defmt feature
         run: cargo check --lib --no-default-features --features defmt
 
-  # Invokes embedded.yml as a reusable workflow.
-  # Does not duplicate logic - embedded.yml remains the single source of truth.
   embedded:
     name: Embedded
-    needs: [fmt, clippy] # run only if basic checks have passed
+    needs: [fmt, clippy]
     uses: ./.github/workflows/embedded.yml

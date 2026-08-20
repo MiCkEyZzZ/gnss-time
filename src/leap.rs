@@ -216,6 +216,7 @@ pub struct LeapSeconds {
 #[derive(Debug)]
 pub struct RuntimeLeapSeconds {
     buf: [LeapEntry; RUNTIME_CAPACITY],
+
     len: usize,
 }
 
