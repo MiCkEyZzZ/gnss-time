@@ -7,6 +7,28 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Extended benchmark coverage (Issue #TIME-27):
+  - Added `benches/benches/providers_bench.rs`: `GPS → UTC` and direct
+    `tai_minus_utc_at` lookups across leap-second providers — builtin static
+    table (~9.6 ns), heap-free `RuntimeLeapSeconds` (~9.8 ns), empty-table
+    fallback (~2.3 ns) and a receiver-style constant offset (~1.3 ns).
+  - Added a `UTC → GPS` algorithm comparison: the public two-pass conversion
+    (~22 ns) versus a single-pass reference baseline (~8.8 ns), quantifying the
+    ~13 ns cost of the second binary search that guarantees correct
+    leap-second boundary handling.
+  - Added `ConvertResult` overhead benchmarks: `is_exact()` / `into_inner()`
+    cost ~0.5 ns each; the checked conversion path is ~2.8× the raw one due to
+    ambiguity-window detection, not the enum wrapper.
+  - Added a `Time::from_week_tow` (validated, ~2.0 ns) vs `Time::from_nanos`
+    (~0.5 ns) constructor comparison.
+- CI: the `bench` job now runs a measured Criterion pass with reduced timing
+  (`--measurement-time 1 --warm-up-time 0.3 --sample-size 20`) and uploads the
+  raw `target/criterion/` output as a `benchmark-results` artifact
+  (retained 30 days), in addition to the existing compile smoke-check.
+- Documented the new result tables and CI methodology in `benches/README.md`.
+
 ## [0.6.0] - 2026-08-20
 
 ### Added

@@ -1,7 +1,7 @@
 use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use gnss_time::{Duration, Gps, Time};
+use gnss_time::{Duration, DurationParts, Gps, Time};
 
 fn bench_u64_add(c: &mut Criterion) {
     c.bench_function("u64 add", |b| {
@@ -49,6 +49,23 @@ fn bench_from_nanos(c: &mut Criterion) {
     });
 }
 
+fn bench_from_week_tow(c: &mut Criterion) {
+    c.bench_function("Time::from_week_tow (validated)", |b| {
+        b.iter(|| {
+            black_box(
+                Time::<Gps>::from_week_tow(
+                    black_box(2345),
+                    black_box(DurationParts {
+                        seconds: 432_000,
+                        nanos: 0,
+                    }),
+                )
+                .unwrap(),
+            )
+        })
+    });
+}
+
 fn bench_to_tai(c: &mut Criterion) {
     c.bench_function("Time<Gps> -> TAI", |b| {
         b.iter(|| {
@@ -65,6 +82,7 @@ criterion_group!(
     bench_time_sub_duration,
     bench_time_diff,
     bench_from_nanos,
+    bench_from_week_tow,
     bench_to_tai
 );
 

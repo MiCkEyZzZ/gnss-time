@@ -2,7 +2,8 @@ use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use gnss_time::{
-    gps_to_utc, utc_to_gps, Beidou, DurationParts, Galileo, Gps, IntoScale, LeapSeconds, Tai, Time,
+    gps_to_utc, utc_to_gps, Beidou, ConvertResult, DurationParts, Galileo, Gps, IntoScale,
+    IntoScaleWith, LeapSeconds, Tai, Time, Utc,
 };
 
 fn bench_gps_to_tai(c: &mut Criterion) {
@@ -164,6 +165,42 @@ fn bench_leap_second_lookup(c: &mut Criterion) {
     });
 }
 
+fn bench_convert_result_overhead(c: &mut Criterion) {
+    let gps = black_box(
+        Time::<Gps>::from_week_tow(
+            2086,
+            DurationParts {
+                seconds: 0,
+                nanos: 0,
+            },
+        )
+        .unwrap(),
+    );
+    let ls = LeapSeconds::builtin();
+
+    // Pre-computed checked result for isolating the enum wrapper cost.
+    let checked: ConvertResult<Time<Utc>> = black_box(gps.into_scale_with_checked(ls).unwrap());
+
+    c.bench_function("ConvertResult / baseline gps_to_utc (no wrapper)", |b| {
+        b.iter(|| black_box(gps_to_utc(black_box(gps), ls).unwrap()))
+    });
+
+    c.bench_function("ConvertResult / into_scale_with_checked (+ wrap)", |b| {
+        b.iter(|| {
+            let r: ConvertResult<Time<Utc>> = black_box(gps).into_scale_with_checked(ls).unwrap();
+            black_box(r)
+        })
+    });
+
+    c.bench_function("ConvertResult / is_exact()", |b| {
+        b.iter(|| black_box(checked.is_exact()))
+    });
+
+    c.bench_function("ConvertResult / into_inner()", |b| {
+        b.iter(|| black_box(checked.into_inner()))
+    });
+}
+
 criterion_group!(
     conversions,
     bench_gps_to_tai,
@@ -175,5 +212,6 @@ criterion_group!(
     bench_utc_to_gps,
     bench_gps_utc_roundtrip,
     bench_leap_second_lookup,
+    bench_convert_result_overhead,
 );
 criterion_main!(conversions);
