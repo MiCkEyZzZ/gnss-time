@@ -20,6 +20,10 @@ name = "convert_bench"
 harness = false
 
 [[bench]]
+name = "providers_bench"
+harness = false
+
+[[bench]]
 name = "time_bench"
 harness = false
 

@@ -25,6 +25,7 @@ cd benches
 cargo bench --bench arithmetic_bench
 cargo bench --bench convert_bench
 cargo bench --bench time_bench
+cargo bench --bench providers_bench
 ```
 
 Smoke-check (compile and run without collecting timings):
@@ -75,6 +76,20 @@ versus raw `u64` ops. Checked paths add ~4 ns (branch + overflow check).
 **Conclusion:** fixed-offset conversions stay ~0.8–1.0 ns. Leap-second-aware
 `GPS → UTC` stays under 10 ns; roundtrips are dominated by UTC resolution.
 
+#### `ConvertResult` overhead (`convert_bench`)
+
+| Operation                                        | Time     | Note                                    |
+| ------------------------------------------------ | -------- | --------------------------------------- |
+| `gps_to_utc` (no wrapper, baseline)              | ~9.02 ns | raw contextual conversion               |
+| `into_scale_with_checked` (+ `ConvertResult`)    | ~25.7 ns | adds ambiguity-window detection         |
+| `ConvertResult::is_exact()`                      | ~504 ps  | enum match, folds to a flag test        |
+| `ConvertResult::into_inner()`                    | ~506 ps  | enum match                              |
+
+**Conclusion:** the `ConvertResult` wrapper itself costs ~0.5 ns per access —
+the enum is free once values are inlined. The checked path is ~2.8× the raw
+conversion because it performs extra leap-second lookups to detect the
+ambiguity window, not because of the enum.
+
 ### Time primitives (`time_bench`)
 
 | Operation                | Time     | Note                                    |
@@ -84,12 +99,51 @@ versus raw `u64` ops. Checked paths add ~4 ns (branch + overflow check).
 | `Time<Gps> - Duration`   | ~1.02 ns | typed subtract                          |
 | `Time<Gps>` diff         | ~1.26 ns | `Time - Time`                           |
 | `Time::from_nanos`       | ~508 ps  | constructor                             |
+| `Time::from_week_tow`    | ~2.02 ns | constructor with TOW validation         |
 | `Time<Gps> → TAI`        | ~796 ps  | fixed +19 s conversion                  |
 
 **Note:** `time_bench` and `arithmetic_bench` both exercise add/sub; numbers
 differ slightly because Criterion groups and black-box patterns are separate.
 Use `arithmetic_bench` for zero-cost vs `u64` claims; use `time_bench` for
 typed API micro-costs.
+
+### Leap-second context (`providers_bench`)
+
+Same instant (2020-01-06), different [`LeapSecondsProvider`] implementations.
+
+`GPS → UTC` through a provider:
+
+| Provider                                  | Time     | Note                              |
+| ----------------------------------------- | -------- | --------------------------------- |
+| `LeapSeconds::builtin()` (static table)   | ~9.63 ns | binary search over 19 entries     |
+| `RuntimeLeapSeconds` (19 entries)         | ~9.84 ns | heap-free buffer, same search     |
+| `RuntimeLeapSeconds` (empty, fallback)    | ~2.29 ns | early return of fallback value    |
+| custom constant (receiver-style)          | ~1.27 ns | no table lookup at all            |
+
+Direct `tai_minus_utc_at` lookup:
+
+| Provider                                  | Time     |
+| ----------------------------------------- | -------- |
+| `LeapSeconds::builtin()` (static table)   | ~6.99 ns |
+| `RuntimeLeapSeconds` (19 entries)         | ~7.24 ns |
+| `RuntimeLeapSeconds` (empty, fallback)    | ~1.79 ns |
+| custom constant (receiver-style)          | ~764 ps  |
+
+**Conclusion:** the runtime fixed-capacity table matches the static table
+within noise (~7 ns per lookup). A receiver that knows the current offset
+from the navigation message and passes it as a constant skips the search
+entirely (~0.8 ns).
+
+### UTC → GPS: two-pass vs one-pass (`providers_bench`)
+
+| Algorithm                          | Time      | Note                                   |
+| ---------------------------------- | --------- | -------------------------------------- |
+| two-pass (public `utc_to_gps`)     | ~21.98 ns | two binary searches + refinement       |
+| one-pass reference (single lookup) | ~8.83 ns  | baseline: what one search would cost   |
+
+**Conclusion:** the second pass costs ~13 ns (~2.5×). It is the price of
+correct leap-second boundary handling in the public API; the one-pass variant
+is provided as a measurement baseline only and is not part of the API.
 
 ## Zero-cost abstraction check
 
@@ -138,6 +192,15 @@ in the type, century-wide range, TDB/ET/TT support) at 3× the memory footprint.
 
 ## CI
 
-CI runs a smoke-check (`cargo bench -p benches -- --test`) to ensure
-benchmarks compile and execute. Full Criterion timing runs are local-only —
-they need a quiet host and are not used as pass/fail gates.
+The `bench` job in `ci.yml` does two things:
+
+1. Smoke-check (`cargo bench -p benches -- --test`) — benchmarks compile and
+   execute, no timing assertions.
+2. A measured run with reduced Criterion timing
+   (`--measurement-time 1 --warm-up-time 0.3 --sample-size 20`). Raw Criterion
+   output (`target/criterion/`) is uploaded as the `benchmark-results`
+   artifact (retained 30 days).
+
+CI numbers come from shared runners and are noisy; use them for trend
+detection only. Full-fidelity runs are local — they need a quiet host and are
+not used as pass/fail gates.

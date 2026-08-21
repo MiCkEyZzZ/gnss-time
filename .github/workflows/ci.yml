@@ -135,7 +135,7 @@ jobs:
           fi
 
   bench:
-    name: Benchmark smoke
+    name: Benchmark smoke + results artifact
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -156,6 +156,18 @@ jobs:
 
       - name: cargo bench — smoke (compile and run, no timing assertions)
         run: cargo bench -p benches --locked -- --test
+
+      - name: cargo bench — measured run (reduced timing for CI)
+        run: >
+          cargo bench -p benches --locked --
+          --measurement-time 1 --warm-up-time 0.3 --sample-size 20
+
+      - name: Upload criterion results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: target/criterion
+          retention-days: 30
 
   docs:
     name: Docs
