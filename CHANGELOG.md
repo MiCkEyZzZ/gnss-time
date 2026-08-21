@@ -29,6 +29,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   (retained 30 days), in addition to the existing compile smoke-check.
 - Documented the new result tables and CI methodology in `benches/README.md`.
 
+### Fixed
+
+- Fixed the `Build & measure` commands in `firmware/README.md`: run from the
+  repository root they failed (`cargo size`: "Could not determine the wanted
+  artifact"; `cargo bloat`: "only 'bin', 'dylib' and 'cdylib' crate types are
+  supported") because the probe crate is not a workspace member. The commands
+  now pass `--manifest-path firmware/Cargo.toml` (matching the `just size`
+  recipe), and an alternative variant for running from inside `firmware/` was
+  added.
+
 ## [0.6.0] - 2026-08-20
 
 ### Added
