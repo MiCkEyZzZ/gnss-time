@@ -27,36 +27,48 @@ cargo install cargo-binutils --locked
 
 ## Build & measure
 
+From the repository root (the probe crate is not a workspace member, so
+`--manifest-path` is required):
+
 ```sh
+cargo build --release --manifest-path firmware/Cargo.toml --target thumbv7em-none-eabihf
+cargo size   --release --manifest-path firmware/Cargo.toml --target thumbv7em-none-eabihf -- -A
+cargo bloat  --release --manifest-path firmware/Cargo.toml --target thumbv7em-none-eabihf -n 100
+```
+
+Or from inside `firmware/`, without `--manifest-path`:
+
+```sh
+cd firmware
 cargo build --release --target thumbv7em-none-eabihf
 cargo size   --release --target thumbv7em-none-eabihf -- -A
 cargo bloat  --release --target thumbv7em-none-eabihf -n 100
 ```
 
-(or `just size`)
+(or `just size` from the repository root)
 
 ## Current results (release, thumbv7em-none-eabihf)
 
-| Metric | Value |
-| ------ | ----- |
-| `.text` (whole binary) | 980 B |
-| `.rodata` | 388 B |
-| `.data` / `.bss` / `.uninit` | 0 B |
+| Metric                       | Value |
+| ---------------------------- | ----- |
+| `.text` (whole binary)       | 980 B |
+| `.rodata`                    | 388 B |
+| `.data` / `.bss` / `.uninit` | 0 B   |
 
 Measured symbols:
 
-| Symbol | `.text` |
-| ------ | ------- |
-| `Time<Gps>::from_week_tow` | 182 B |
-| `probe_gps_to_utc` | 180 B |
-| `LeapSeconds::tai_minus_utc_at` | 138 B |
-| `__cortex_m_rt_main` | 144 B |
-| `Time<Gps>::to_tai` | 56 B |
-| `probe_time_checked_add` | 56 B |
-| `Reset` | 62 B |
-| `probe_time_saturating_add` | 42 B |
-| `probe_from_week_tow` | 34 B |
-| `probe_into_scale` | 32 B |
+| Symbol                          | `.text` |
+| ------------------------------- | ------- |
+| `Time<Gps>::from_week_tow`      | 182 B   |
+| `probe_gps_to_utc`              | 180 B   |
+| `LeapSeconds::tai_minus_utc_at` | 138 B   |
+| `__cortex_m_rt_main`            | 144 B   |
+| `Time<Gps>::to_tai`             | 56 B    |
+| `probe_time_checked_add`        | 56 B    |
+| `Reset`                         | 62 B    |
+| `probe_time_saturating_add`     | 42 B    |
+| `probe_from_week_tow`           | 34 B    |
+| `probe_into_scale`              | 32 B    |
 
 ## Design notes
 
@@ -74,7 +86,7 @@ Measured symbols:
 
 ## Layout
 
-```
+```text
 firmware/
 ├── Cargo.toml   — package + empty [workspace] (outside the root workspace)
 ├── memory.x     — linker script
