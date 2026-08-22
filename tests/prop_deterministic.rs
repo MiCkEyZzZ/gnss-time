@@ -89,7 +89,7 @@ fn gps_samples() -> Vec<Time<Gps>> {
     }
 
     // ── Real IGS GPS weeks ────────────────────────────────────────────────────
-    for week in [1u16, 100, 500, 1000, 1500, 2000, 2086, 2100, 2200] {
+    for week in [1u32, 100, 500, 1000, 1500, 2000, 2086, 2100, 2200] {
         for seconds in [0u64, 302_400, 604_799] {
             if let Ok(t) = Time::<Gps>::from_week_tow(week, DurationParts { seconds, nanos: 0 }) {
                 pts.push(t);

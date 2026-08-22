@@ -404,13 +404,13 @@ defmt::info!("GPS timestamp: {}", t);
 
 Поддерживаемые embedded-таргеты (проверяются в CI, см. `.github/workflows/embedded.yml`):
 
-| Target                          | Архитектура            | Примеры чипов                    | CI  |
-| ------------------------------- | ---------------------- | -------------------------------- | --- |
-| `thumbv7em-none-eabihf`         | Cortex-M4F/M7F + FPU   | STM32F4/F7, nRF52840             | ✅  |
-| `thumbv7em-none-eabi`           | Cortex-M4/M7 без FPU   | STM32F3xx                        | ✅  |
-| `thumbv6m-none-eabi`            | Cortex-M0/M0+          | STM32F0xx, nRF51                 | ✅  |
-| `riscv32imac-unknown-none-elf`  | RV32IMAC               | ESP32-C3, GD32VF103, CH32V       | ✅  |
-| `riscv32i-unknown-none-elf`     | RV32I (без атомиков)   | ESP32-C2                         | ✅  |
+| Target                          | Архитектура            | Примеры чипов              | CI  |
+| ------------------------------- | ---------------------- | ---------------------------| --- |
+| `thumbv7em-none-eabihf`         | Cortex-M4F/M7F + FPU   | STM32F4/F7, nRF52840       | ✅   |
+| `thumbv7em-none-eabi`           | Cortex-M4/M7 без FPU   | STM32F3xx                  | ✅   |
+| `thumbv6m-none-eabi`            | Cortex-M0/M0+          | STM32F0xx, nRF51           | ✅   |
+| `riscv32imac-unknown-none-elf`  | RV32IMAC               | ESP32-C3, GD32VF103, CH32V | ✅   |
+| `riscv32i-unknown-none-elf`     | RV32I (без атомиков)   | ESP32-C2                   | ✅   |
 
 Для каждого таргета CI проверяет сборку без фич и с фичей `defmt`. Отдельная
 CI-джоба подтверждает, что `std` не попадает в граф зависимостей транзитивно.

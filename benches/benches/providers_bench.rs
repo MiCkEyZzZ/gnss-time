@@ -16,7 +16,7 @@ use gnss_time::{
 };
 
 /// GPS week 2086, TOW 0 → 2020-01-06 00:00:00 UTC (TAI−UTC = 37).
-const WEEK: u16 = 2086;
+const WEEK: u32 = 2086;
 
 /// TAI nanoseconds for the same instant (2020-01-06 + 37 s).
 const TAI_2020_NS: u64 = 1_262_304_037_000_000_000;
@@ -53,7 +53,10 @@ fn bench_gps_to_utc_providers(c: &mut Criterion) {
 
     let builtin = LeapSeconds::builtin();
     let runtime_full = RuntimeLeapSeconds::from_builtin();
-    let runtime_empty = RuntimeLeapSeconds::from_slice(&[]).unwrap();
+    // An all-empty table is rejected by `RuntimeLeapSeconds::from_slice`,
+    // but remains legal for the const static constructor; both share the
+    // same lookup path, so this measures the fallback branch.
+    let static_empty = LeapSeconds::from_slice(&[]);
     let custom = FixedOffset(37);
 
     let mut group = c.benchmark_group("GPS → UTC / leap second provider");
@@ -66,8 +69,8 @@ fn bench_gps_to_utc_providers(c: &mut Criterion) {
         b.iter(|| black_box(gps_to_utc(black_box(gps), &runtime_full).unwrap()))
     });
 
-    group.bench_function("RuntimeLeapSeconds (empty, fallback)", |b| {
-        b.iter(|| black_box(gps_to_utc(black_box(gps), &runtime_empty).unwrap()))
+    group.bench_function("LeapSeconds (empty, fallback)", |b| {
+        b.iter(|| black_box(gps_to_utc(black_box(gps), &static_empty).unwrap()))
     });
 
     group.bench_function("custom constant (receiver-style)", |b| {
@@ -82,7 +85,9 @@ fn bench_tai_minus_utc_providers(c: &mut Criterion) {
 
     let builtin = LeapSeconds::builtin();
     let runtime_full = RuntimeLeapSeconds::from_builtin();
-    let runtime_empty = RuntimeLeapSeconds::from_slice(&[]).unwrap();
+    // See the note in `bench_gps_to_utc_providers`: an empty table is
+    // rejected by `RuntimeLeapSeconds`, so use the static constructor.
+    let static_empty = LeapSeconds::from_slice(&[]);
     let custom = FixedOffset(37);
 
     let mut group = c.benchmark_group("tai_minus_utc_at / leap second provider");
@@ -95,8 +100,8 @@ fn bench_tai_minus_utc_providers(c: &mut Criterion) {
         b.iter(|| black_box(runtime_full.tai_minus_utc_at(black_box(tai))))
     });
 
-    group.bench_function("RuntimeLeapSeconds (empty, fallback)", |b| {
-        b.iter(|| black_box(runtime_empty.tai_minus_utc_at(black_box(tai))))
+    group.bench_function("LeapSeconds (empty, fallback)", |b| {
+        b.iter(|| black_box(static_empty.tai_minus_utc_at(black_box(tai))))
     });
 
     group.bench_function("custom constant (receiver-style)", |b| {

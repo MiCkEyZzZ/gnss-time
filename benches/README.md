@@ -117,7 +117,7 @@ Same instant (2020-01-06), different [`LeapSecondsProvider`] implementations.
 | ----------------------------------------- | -------- | --------------------------------- |
 | `LeapSeconds::builtin()` (static table)   | ~9.63 ns | binary search over 19 entries     |
 | `RuntimeLeapSeconds` (19 entries)         | ~9.84 ns | heap-free buffer, same search     |
-| `RuntimeLeapSeconds` (empty, fallback)    | ~2.29 ns | early return of fallback value    |
+| `LeapSeconds` (empty, fallback)           | ~2.29 ns | early return of fallback value    |
 | custom constant (receiver-style)          | ~1.27 ns | no table lookup at all            |
 
 Direct `tai_minus_utc_at` lookup:
@@ -126,7 +126,7 @@ Direct `tai_minus_utc_at` lookup:
 | ----------------------------------------- | -------- |
 | `LeapSeconds::builtin()` (static table)   | ~6.99 ns |
 | `RuntimeLeapSeconds` (19 entries)         | ~7.24 ns |
-| `RuntimeLeapSeconds` (empty, fallback)    | ~1.79 ns |
+| `LeapSeconds` (empty, fallback)           | ~1.79 ns |
 | custom constant (receiver-style)          | ~764 ps  |
 
 **Conclusion:** the runtime fixed-capacity table matches the static table

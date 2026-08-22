@@ -553,6 +553,10 @@ impl IntoScaleWith<Utc> for Time<Gps> {
 
 impl IntoScaleWith<Utc> for Time<Galileo> {
     /// Galileo -> UTC via GPS (both share the same TAI offset of 19s).
+    ///
+    /// The [`ConvertResult`] reports `AmbiguousLeapSecond` for the same
+    /// instants as GPS -> UTC, because Galileo is numerically equivalent
+    /// to GPS in this model.
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
@@ -564,12 +568,18 @@ impl IntoScaleWith<Utc> for Time<Galileo> {
         self,
         ls: P,
     ) -> Result<ConvertResult<Time<Utc>>, GnssTimeError> {
-        Ok(ConvertResult::Exact(galileo_to_utc(self, &ls)?))
+        // Galileo == GPS numerically (same 19 s TAI offset), so the leap-second
+        // ambiguity window is identical: reuse the GPS detector.
+        let gps = self.try_convert::<Gps>()?;
+        <Time<Gps> as IntoScaleWith<Utc>>::into_scale_with_checked(gps, ls)
     }
 }
 
 impl IntoScaleWith<Utc> for Time<Beidou> {
     /// `BeiDou` -> UTC via GPS.
+    ///
+    /// The [`ConvertResult`] reports `AmbiguousLeapSecond` for the same
+    /// physical interval as GPS -> UTC (`BeiDou` = GPS − 14 s).
     fn into_scale_with<P: LeapSecondsProvider>(
         self,
         ls: P,
@@ -581,7 +591,10 @@ impl IntoScaleWith<Utc> for Time<Beidou> {
         self,
         ls: P,
     ) -> Result<ConvertResult<Time<Utc>>, GnssTimeError> {
-        Ok(ConvertResult::Exact(beidou_to_utc(self, &ls)?))
+        // BeiDou = GPS − 14 s, so the leap-second ambiguity window maps to the
+        // GPS window shifted by 14 s: convert and reuse the GPS detector.
+        let gps = self.try_convert::<Gps>()?;
+        <Time<Gps> as IntoScaleWith<Utc>>::into_scale_with_checked(gps, ls)
     }
 }
 
