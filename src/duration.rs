@@ -117,39 +117,88 @@ impl Duration {
     }
 
     /// Creates a `Duration` from microseconds.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the result overflows `i64` (`|micros| >
+    /// 9_223_372_036_854_775`). Use [`Duration::checked_from_micros`] for
+    /// fallible construction.
     #[inline]
     pub const fn from_micros(micros: i64) -> Self {
-        Duration(micros * NANOS_PER_MICRO)
+        match micros.checked_mul(NANOS_PER_MICRO) {
+            Some(n) => Duration(n),
+            None => panic!("Duration::from_micros: overflow"),
+        }
     }
 
     /// Creates a `Duration` from milliseconds.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the result overflows `i64` (`|millis| > 9_223_372_036_854`).
+    /// Use [`Duration::checked_from_millis`] for fallible construction.
     #[inline]
     pub const fn from_millis(millis: i64) -> Self {
-        Duration(millis * NANOS_PER_MILLI)
+        match millis.checked_mul(NANOS_PER_MILLI) {
+            Some(n) => Duration(n),
+            None => panic!("Duration::from_millis: overflow"),
+        }
     }
 
     /// Creates a `Duration` from seconds.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the result overflows `i64` (`|secs| > 9_223_372_036`).
+    /// Use [`Duration::checked_from_seconds`] for fallible construction.
     #[inline]
     pub const fn from_seconds(secs: i64) -> Self {
-        Duration(secs * NANOS_PER_SECOND)
+        match secs.checked_mul(NANOS_PER_SECOND) {
+            Some(n) => Duration(n),
+            None => panic!("Duration::from_seconds: overflow"),
+        }
     }
 
     /// Creates a `Duration` from minutes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the result overflows `i64` (`|mins| > 153_722_867`).
+    /// Use [`Duration::checked_from_minutes`] for fallible construction.
     #[inline]
     pub const fn from_minutes(mins: i64) -> Self {
-        Duration(mins * 60 * NANOS_PER_SECOND)
+        match mins.checked_mul(60 * NANOS_PER_SECOND) {
+            Some(n) => Duration(n),
+            None => panic!("Duration::from_minutes: overflow"),
+        }
     }
 
     /// Creates a `Duration` from hours.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the result overflows `i64` (`|hours| > 2_562_047`).
+    /// Use [`Duration::checked_from_hours`] for fallible construction.
     #[inline]
     pub const fn from_hours(hours: i64) -> Self {
-        Duration(hours * 3_600 * NANOS_PER_SECOND)
+        match hours.checked_mul(3_600 * NANOS_PER_SECOND) {
+            Some(n) => Duration(n),
+            None => panic!("Duration::from_hours: overflow"),
+        }
     }
 
     /// Creates a `Duration` from days.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the result overflows `i64` (`|days| > 106_751`).
+    /// Use [`Duration::checked_from_days`] for fallible construction.
     #[inline]
     pub const fn from_days(days: i64) -> Self {
-        Duration(days * 86_400 * NANOS_PER_SECOND)
+        match days.checked_mul(86_400 * NANOS_PER_SECOND) {
+            Some(n) => Duration(n),
+            None => panic!("Duration::from_days: overflow"),
+        }
     }
 
     /// Creates a `Duration` from microseconds, returning `None` on overflow.
@@ -177,6 +226,72 @@ impl Duration {
     #[must_use = "returns None on overflow; check the result"]
     pub const fn checked_from_seconds(secs: i64) -> Option<Self> {
         match secs.checked_mul(NANOS_PER_SECOND) {
+            Some(n) => Some(Duration(n)),
+            None => None,
+        }
+    }
+
+    /// Creates a `Duration` from minutes, returning `None` on overflow.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::Duration;
+    ///
+    /// assert_eq!(
+    ///     Duration::checked_from_minutes(60),
+    ///     Some(Duration::from_nanos(3_600_000_000_000))
+    /// );
+    /// assert!(Duration::checked_from_minutes(i64::MAX).is_none());
+    /// ```
+    #[inline]
+    #[must_use = "returns None on overflow; check the result"]
+    pub const fn checked_from_minutes(mins: i64) -> Option<Self> {
+        match mins.checked_mul(60 * NANOS_PER_SECOND) {
+            Some(n) => Some(Duration(n)),
+            None => None,
+        }
+    }
+
+    /// Creates a `Duration` from hours, returning `None` on overflow.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::Duration;
+    ///
+    /// assert_eq!(
+    ///     Duration::checked_from_hours(1),
+    ///     Some(Duration::from_nanos(3_600_000_000_000))
+    /// );
+    /// assert!(Duration::checked_from_hours(i64::MAX).is_none());
+    /// ```
+    #[inline]
+    #[must_use = "returns None on overflow; check the result"]
+    pub const fn checked_from_hours(hours: i64) -> Option<Self> {
+        match hours.checked_mul(3_600 * NANOS_PER_SECOND) {
+            Some(n) => Some(Duration(n)),
+            None => None,
+        }
+    }
+
+    /// Creates a `Duration` from days, returning `None` on overflow.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::Duration;
+    ///
+    /// assert_eq!(
+    ///     Duration::checked_from_days(1),
+    ///     Some(Duration::from_nanos(86_400_000_000_000))
+    /// );
+    /// assert!(Duration::checked_from_days(i64::MAX).is_none());
+    /// ```
+    #[inline]
+    #[must_use = "returns None on overflow; check the result"]
+    pub const fn checked_from_days(days: i64) -> Option<Self> {
+        match days.checked_mul(86_400 * NANOS_PER_SECOND) {
             Some(n) => Some(Duration(n)),
             None => None,
         }

@@ -197,8 +197,7 @@ impl<S: TimeScale> Time<S> {
         self.nanos / 1_000_000_000
     }
 
-    /// Seconds as `f64`. For large timestamps (> ~2^53 ns), precision loss
-    /// affects even milliseconds
+    /// Split into whole seconds and the sub-second nanosecond remainder.
     #[inline]
     #[must_use]
     pub const fn as_parts(self) -> (u64, u32) {
@@ -643,9 +642,10 @@ impl Time<Gps> {
     /// - `tow.nanos >= 1_000_000_000`
     ///
     /// Returns [`GnssTimeError::Overflow`] if the resulting nanosecond
-    /// calculation exceeds `u64::MAX`.
+    /// calculation exceeds `u64::MAX` (practically: `week > 30_498` with a
+    /// non-zero `tow`, since the internal storage is `u64` nanoseconds).
     pub fn from_week_tow(
-        week: u16,
+        week: u32,
         tow: DurationParts,
     ) -> Result<Self, GnssTimeError> {
         if tow.seconds >= 604_800 {
@@ -967,11 +967,18 @@ impl Time<Utc> {
     /// The result expresses the instant as a human-readable date and
     /// time-of-day in the proleptic Gregorian calendar.
     ///
+    /// # Infallibility
+    ///
+    /// This method cannot fail for any `Time<Utc>` value: the stored `u64`
+    /// nanoseconds are non-negative by construction, and
+    /// [`CivilDateTime::from_utc_nanos`] only reports overflow for inputs
+    /// outside that range. The `expect` below therefore documents an
+    /// invariant rather than a reachable panic.
+    ///
     /// # Panics
     ///
-    /// Panics if converting the internal UTC nanosecond count to
-    /// [`CivilDateTime`] fails. In normal use this should not happen because
-    /// `Time<Utc>` is already constrained to the UTC epoch range.
+    /// Only if the invariant above were violated (unreachable for any valid
+    /// `Time<Utc>` value).
     ///
     /// # Examples
     ///
@@ -992,7 +999,8 @@ impl Time<Utc> {
     /// ```
     #[must_use]
     pub fn to_civil(self) -> CivilDateTime {
-        CivilDateTime::from_utc_nanos(self.as_nanos()).unwrap()
+        CivilDateTime::from_utc_nanos(self.as_nanos())
+            .expect("u64 nanos since 1972-01-01 are always representable as a civil date")
     }
 }
 

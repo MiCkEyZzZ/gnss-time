@@ -20,7 +20,7 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 
 #[inline(never)]
 fn probe_from_week_tow(
-    week: u16,
+    week: u32,
     tow: DurationParts,
 ) -> Time<Gps> {
     match Time::<Gps>::from_week_tow(week, tow) {

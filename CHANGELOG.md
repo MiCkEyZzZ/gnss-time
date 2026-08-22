@@ -28,6 +28,34 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   raw `target/criterion/` output as a `benchmark-results` artifact
   (retained 30 days), in addition to the existing compile smoke-check.
 - Documented the new result tables and CI methodology in `benches/README.md`.
+- Completed the fallible constructor family: `Duration::checked_from_minutes`,
+  `checked_from_hours`, and `checked_from_days` return `None` on overflow
+  (Issue #TIME-27.1).
+- Added `LeapSeconds::try_from_slice`: validated constructor for custom static
+  leap-second tables — rejects empty tables, non-ascending timestamps and
+  non-unit `tai_minus_utc` increments (Issue #TIME-27.1).
+- Added `LeapExtendError::EmptyTable` variant (Issue #TIME-27.1).
+
+### Changed
+
+- **Breaking:** `Time::<Gps>::from_week_tow` now takes the week number as
+  `u32` instead of `u16`, aligning the constructor with the `week()` accessor
+  (`-> u32`) and removing caller-side casts. Values above ~30 498 weeks still
+  return `GnssTimeError::Overflow` (bounded by the internal `u64` nanosecond
+  storage) (Issue #TIME-27.1).
+- `Duration::from_micros/from_millis/from_seconds/from_minutes/from_hours/
+  from_days` now deterministically **panic** on overflow in all build
+  profiles. Previously they panicked in debug builds but silently wrapped to
+  a wrong (possibly negative) value in release builds with overflow checks
+  disabled (Issue #TIME-27.1).
+- Adapted the `providers_bench` "empty, fallback" case to the new runtime
+  table validation (Issue #TIME-27.1): empty tables are rejected by
+  `RuntimeLeapSeconds::from_slice` (`LeapExtendError::EmptyTable`), so the
+  fallback-path benchmark now uses the const static constructor
+  `LeapSeconds::from_slice(&[])` (identical lookup code path). Benchmark
+  labels and the corresponding rows in `benches/README.md` were renamed from
+  "`RuntimeLeapSeconds` (empty, fallback)" to "`LeapSeconds` (empty,
+  fallback)".
 
 ### Fixed
 
@@ -38,6 +66,29 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   now pass `--manifest-path firmware/Cargo.toml` (matching the `just size`
   recipe), and an alternative variant for running from inside `firmware/` was
   added.
+- Leap-second ambiguity reporting is now consistent across scales:
+  `IntoScaleWithChecked → Utc` for `Time<Galileo>` and `Time<Beidou>` returns
+  `ConvertResult::AmbiguousLeapSecond` inside the same physical insertion
+  window that GPS → UTC flags. Previously both always returned `Exact`,
+  silently suppressing the signal (Galileo ≡ GPS numerically,
+  BeiDou = GPS − 14 s) (Issue #TIME-27.1).
+- `RuntimeLeapSeconds::from_slice` now validates every entry through
+  `try_extend`: descending timestamps, duplicate timestamps and non-unit
+  `tai_minus_utc` jumps are rejected instead of being written into the table
+  unchecked (only the capacity limit was verified before). An empty entry list
+  is also rejected via the new `LeapExtendError::EmptyTable` variant;
+  construction failures no longer leave a partially filled invalid table
+  (Issue #TIME-27.1).
+- Removed a hidden panic path in `Time::<Utc>::to_civil`: the internal
+  `.unwrap()` is replaced by an `.expect(...)` with a documented
+  representability invariant (`u64` nanoseconds are always convertible).
+- Corrected documentation and display defects (Issue #TIME-27.1):
+  - `Display` for `LeapExtendError::NonUnitIncrement` said "one more *tham*"
+    → "*than*".
+  - Doc typo "BUILTIN_YABLE" → "BUILTIN_TABLE" in
+    `RuntimeLeapSeconds::from_builtin`.
+  - `Time::as_parts` doc claimed an `f64` result; it actually returns
+    `(u64, u32)` seconds + sub-second nanos.
 
 ## [0.6.0] - 2026-08-20
 

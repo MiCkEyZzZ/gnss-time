@@ -18,7 +18,7 @@
 //!
 //! ## Supported conversions
 //!
-//! | Function            | Leap-second context?        |
+//! | Function           | Leap-second context?        |
 //! |--------------------|-----------------------------|
 //! | `glonass_to_utc`   | **no** (constant shift)     |
 //! | `utc_to_glonass`   | **no** (constant shift)     |
@@ -135,6 +135,12 @@ pub enum LeapExtendError {
 
     /// The runtime buffer is full; no more entries can be appended.
     BufferFull,
+
+    /// An empty entry list was passed to a constructor that requires at least
+    /// one entry. An empty table cannot answer `TAI − UTC` queries correctly,
+    /// so it is rejected instead of silently falling back to an arbitrary
+    /// offset.
+    EmptyTable,
 }
 
 /// One leap-second table entry.
@@ -288,10 +294,65 @@ impl LeapSeconds {
     /// # Requirements
     ///
     /// `entries` must be sorted by `tai_nanos` in ascending order.
+    ///
+    /// # Panics (debug builds)
+    ///
+    /// Asserts the ordering requirement in debug builds; in release builds an
+    /// invalid order silently breaks binary-search lookups. Prefer
+    /// [`try_from_slice`](Self::try_from_slice) for untrusted data.
     #[inline]
     #[must_use]
     pub const fn from_table(entries: &'static [LeapEntry]) -> Self {
         Self { entries }
+    }
+
+    /// Creates a table from a static slice, validating it first.
+    ///
+    /// This is the safe counterpart of [`from_table`](Self::from_table):
+    /// it rejects empty tables and any violation of the strict ordering /
+    /// unit-increment contract that binary search relies on.
+    ///
+    /// # Errors
+    ///
+    /// - [`LeapExtendError::EmptyTable`] — `entries` is empty
+    /// - [`LeapExtendError::NotStrictlyAscending`] — timestamps not strictly
+    ///   ascending
+    /// - [`LeapExtendError::NonUnitIncrement`] — `tai_minus_utc` does not
+    ///   increment by exactly 1 between consecutive entries
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::{LeapEntry, LeapSeconds};
+    ///
+    /// static TABLE: [LeapEntry; 2] = [
+    ///     LeapEntry::new(0, 19),
+    ///     LeapEntry::new(1_116_264_000_000_000_000, 20),
+    /// ];
+    ///
+    /// assert!(LeapSeconds::try_from_slice(&TABLE).is_ok());
+    /// assert!(LeapSeconds::try_from_slice(&[]).is_err());
+    /// ```
+    pub fn try_from_slice(entries: &'static [LeapEntry]) -> Result<Self, LeapExtendError> {
+        if entries.is_empty() {
+            return Err(LeapExtendError::EmptyTable);
+        }
+
+        let mut prev = &entries[0];
+
+        for entry in &entries[1..] {
+            if entry.tai_nanos <= prev.tai_nanos {
+                return Err(LeapExtendError::NotStrictlyAscending);
+            }
+
+            if entry.tai_minus_utc != prev.tai_minus_utc + 1 {
+                return Err(LeapExtendError::NonUnitIncrement);
+            }
+
+            prev = entry;
+        }
+
+        Ok(Self { entries })
     }
 
     /// Returns the number of entries in the table.
@@ -390,7 +451,7 @@ impl RuntimeLeapSeconds {
     ///
     /// # Panics
     ///
-    /// Panics if `BUILTIN_YABLE.len() > RUNTIME_CAPACITY` (cannot happen with
+    /// Panics if `BUILTIN_TABLE.len() > RUNTIME_CAPACITY` (cannot happen with
     /// current constants, but asserted for correctness).
     #[must_use]
     pub fn from_builtin() -> Self {
@@ -414,12 +475,25 @@ impl RuntimeLeapSeconds {
     /// Mirrors [`LeapSeconds::from_slice`] for contexts where a mutable /
     /// extendable table is needed.
     ///
+    /// # Validation
+    ///
+    /// Every entry is checked with [`try_extend`](Self::try_extend), so the
+    /// resulting table is guaranteed to be strictly sorted by `tai_nanos`
+    /// with unit `tai_minus_utc` increments. On error, no partial table is
+    /// returned.
+    ///
     /// # Errors
     ///
-    /// Returns [`LeapExtendError::BufferFull`] if `entries.len() >
-    /// RUNTIME_CAPACITY`.
-    #[inline]
+    /// - [`LeapExtendError::EmptyTable`] — `entries` is empty
+    /// - [`LeapExtendError::BufferFull`] — `entries.len() > RUNTIME_CAPACITY`
+    /// - [`LeapExtendError::NotStrictlyAscending`] /
+    ///   [`LeapExtendError::NonUnitIncrement`] — an entry breaks ordering or
+    ///   unit-increment invariants
     pub fn from_slice(entries: &[LeapEntry]) -> Result<Self, LeapExtendError> {
+        if entries.is_empty() {
+            return Err(LeapExtendError::EmptyTable);
+        }
+
         if entries.len() > RUNTIME_CAPACITY {
             return Err(LeapExtendError::BufferFull);
         }
@@ -427,8 +501,7 @@ impl RuntimeLeapSeconds {
         let mut rt = Self::new();
 
         for &entry in entries {
-            rt.buf[rt.len] = entry;
-            rt.len += 1;
+            rt.try_extend(entry)?;
         }
 
         Ok(rt)
@@ -944,10 +1017,13 @@ impl core::fmt::Display for LeapExtendError {
                 f.write_str("new entry tai_nanos is not strictly greater than the last entry")
             }
             LeapExtendError::NonUnitIncrement => {
-                f.write_str("new entry tai_minus_utc be exactly one more tham the last entry")
+                f.write_str("new entry tai_minus_utc must be exactly one more than the last entry")
             }
             LeapExtendError::BufferFull => {
                 f.write_str("runtime leap-second buffer is full; cannot add more entries")
+            }
+            LeapExtendError::EmptyTable => {
+                f.write_str("leap-second table must contain at least one entry")
             }
         }
     }
