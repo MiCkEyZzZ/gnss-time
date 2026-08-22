@@ -51,7 +51,7 @@ cargo bloat  --release --target thumbv7em-none-eabihf -n 100
 
 | Metric                       | Value |
 | ---------------------------- | ----- |
-| `.text` (whole binary)       | 980 B |
+| `.text` (whole binary)       | 972 B |
 | `.rodata`                    | 388 B |
 | `.data` / `.bss` / `.uninit` | 0 B   |
 
