@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "gnss-time"
+abstract: >-
+  Type-safe GNSS time scales: GPS, GLONASS, Galileo, BeiDou, TAI, UTC —
+  strongly typed time model with explicit conversion semantics and zero-cost
+  arithmetic, no_std by default.
+authors:
+  - given-names: "Mikhail"
+    family-names: "Zhuravlev"
+    alias: "Mickeyzzz"
+type: software
+license: "MIT OR Apache-2.0"
+version: "0.7.0"
+date-released: "2026-08-22"
+repository-code: "https://github.com/MiCkEyZzZ/gnss-time"
+url: "https://crates.io/crates/gnss-time"
+keywords:
+  - glonass
+  - gnss
+  - gps
+  - time
+  - no-std
