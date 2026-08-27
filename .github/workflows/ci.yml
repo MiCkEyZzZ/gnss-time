@@ -163,7 +163,7 @@ jobs:
           --measurement-time 1 --warm-up-time 0.3 --sample-size 20
 
       - name: Upload criterion results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-results
           path: target/criterion
