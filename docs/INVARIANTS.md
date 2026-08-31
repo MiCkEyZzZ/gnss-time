@@ -1,97 +1,97 @@
-# Инварианты и гарантии безопасности
+# Invariants and safety guarantees
 
-В этом документе перечислены инварианты, которые соблюдает `gnss-time`, а также
-механизмы, обеспечивающие их выполнение.
+This document lists the invariants that `gnss-time` upholds, along with the
+mechanisms that enforce them.
 
-## Инварианты на уровне типов
+## Type-level invariants
 
-### I-1: Изоляция доменов
+### I-1: Domain isolation
 
-Значения `Time<A>` и `Time<B>` (где `A ≠ B`) нельзя смешивать в
-арифметических выражениях.
+`Time<A>` and `Time<B>` values (where `A ≠ B`) cannot be mixed in arithmetic
+expressions.
 
-**Обеспечение:** система типов Rust. Реализации `Sub<Time<S>>` и `Add<Duration>`
-существуют только для `Time<S>` с одинаковым `S`. Любая попытка вычесть
-временную метку GLONASS из временной метки GPS приведёт к ошибке компиляции.
+**Enforcement:** the Rust type system. The `Sub<Time<S>>` and `Add<Duration>`
+impls exist only for `Time<S>` with the same `S`. Any attempt to subtract a
+GLONASS timestamp from a GPS timestamp results in a compile error.
 
-### I-2: Нет неявных преобразований
+### I-2: No implicit conversions
 
-Отсутствуют реализации `From` / `Into` между различными шкалами. Любое
-преобразование выполняется явно через вызов `into_scale()` или
+There are no `From` / `Into` implementations between different scales. Every
+conversion is done explicitly through a call to `into_scale()` or
 `into_scale_with(ls)`.
 
-**Обеспечение:** отсутствие blanket-реализаций. Все реализации
-`IntoScale` / `IntoScaleWith` прописаны вручную и проверены.
+**Enforcement:** the absence of blanket implementations. All the
+`IntoScale` / `IntoScaleWith` implementations are written by hand and verified.
 
-### I-3: Запечатанные шкалы времени
+### I-3: Sealed time scales
 
-Внешний код не может реализовать `TimeScale`. Набор допустимых шкал:
+External code cannot implement `TimeScale`. The set of valid scales is:
 `{Gps, Glonass, Galileo, Beidou, Tai, Utc}`.
 
-**Обеспечение:** паттерн супертрейта `private::Sealed`. Трейт `Sealed`
-находится в приватном модуле и не имеет публичного пути.
+**Enforcement:** the `private::Sealed` supertrait pattern. The `Sealed` trait
+lives in a private module and has no public path.
 
-## Арифметические инварианты
+## Arithmetic invariants
 
-### I-4: Нет тихого переполнения
+### I-4: No silent overflow
 
-Все операторы `+` и `-` для `Time<S>` и `Duration` вызывают panic при
-переполнении. Для кода, где panic недопустим, предоставлены
-checked/saturating/fallible варианты.
+All `+` and `-` operators for `Time<S>` and `Duration` panic on overflow. For
+code where panicking is unacceptable, checked/saturating/fallible variants are
+provided.
 
-**Обеспечение:** wrapping-арифметика не используется. Линт
-`#[deny(arithmetic_overflow)]` (через `-D warnings` в CI) отлавливает любые
-случайные переполнения на этапе компиляции. `#[allow(arithmetic_overflow)]`
-запрещён в CI.
+**Enforcement:** wrapping arithmetic is not used. The
+`#[deny(arithmetic_overflow)]` lint (via `-D warnings` in CI) catches any
+accidental overflow at compile time. `#[allow(arithmetic_overflow)]` is banned
+in CI.
 
-### I-5: `u64::MAX` — жёсткий предел
+### I-5: `u64::MAX` is the hard limit
 
-`Time::<S>::MAX.as_nanos() == u64::MAX`. Ни одна операция не может
-создать значение больше этого; вместо этого она либо вызывает panic,
-либо возвращает `None`, насыщается, либо возвращает `Err`.
+`Time::<S>::MAX.as_nanos() == u64::MAX`. No operation can create a value
+larger than this; instead it either panics, returns `None`, saturates, or
+returns `Err`.
 
-**Обеспечение:** вся арифметика выполняется в `i128` с последующей проверкой
-диапазона перед приведением обратно к `u64`.
+**Enforcement:** all arithmetic is done in `i128` with a range check before
+casting back to `u64`.
 
-### I-6: `Duration` — знаковый
+### I-6: `Duration` is signed
 
-`Duration` использует наносекунды `i64`. Вычитание более позднего времени
-из более раннего даёт отрицательный `Duration`. Это позволяет естественно
-работать в обоих направлениях.
+`Duration` uses `i64` nanoseconds. Subtracting a later time from an earlier
+one yields a negative `Duration`. This makes it natural to work in both
+directions.
 
-## Инварианты преобразований
+## Conversion invariants
 
-### I-7: TAI — универсальный pivot
+### I-7: TAI is the universal pivot
 
 ```text
 T_tai = T_self + S::OFFSET_TO_TAI
 ```
 
-Это уравнение выполняется для всех шкал с фиксированным смещением
-(`Gps`, `Galileo`, `Beidou`, `Tai`). Все попарные преобразования
-выводятся из этой формулы. Никакой «магии» для конкретных пар шкал нет.
+This equation holds for all scales with a fixed offset (`Gps`, `Galileo`,
+`Beidou`, `Tai`). All pairwise conversions are derived from this formula.
+There is no "magic" for specific pairs of scales.
 
-**Обеспечение:** `try_convert<T>` вызывает `to_tai()`, затем
-`T::from_tai()`. Ни одно преобразование не обходит TAI.
+**Enforcement:** `try_convert<T>` calls `to_tai()`, then `T::from_tai()`. No
+conversion bypasses TAI.
 
-### I-8: Тождество GPS–Galileo
+### I-8: GPS–Galileo identity
 
-GPS и Galileo имеют одинаковое смещение
-`OFFSET_TO_TAI = 19_000_000_000 ns`. Следовательно,
-`T_gps.as_nanos() == T_gal.as_nanos()` для одного и того же физического момента.
+GPS and Galileo have the same offset
+`OFFSET_TO_TAI = 19_000_000_000 ns`. Therefore,
+`T_gps.as_nanos() == T_gal.as_nanos()` for the same physical moment.
 
-**Тест:** `test_gps_galileo_identity_via_tai` в `src/time.rs`.
+**Test:** `test_gps_galileo_identity_via_tai` in `src/time.rs`.
 
-### I-9: Фиксированное смещение GPS–BeiDou
+### I-9: Fixed GPS–BeiDou offset
 
-`BDT = GPS − 14s` всегда. Это следует из `GPS+19 = BDT+33 = TAI`.
+`BDT = GPS − 14s` always. This follows from `GPS+19 = BDT+33 = TAI`.
 
-**Тест:** `test_gps_to_beidou_subtracts_14_seconds` в `src/time.rs`.
+**Test:** `test_gps_to_beidou_subtracts_14_seconds` in `src/time.rs`.
 
-### I-10: Смещение эпох GLONASS–UTC
+### I-10: GLONASS–UTC epoch offset
 
-Эпоха GLONASS = 1995-12-31 21:00:00 UTC = 757 371 600 секунд от эпохи UTC
-(1972-01-01). Это константа времени компиляции, проверяемая так:
+The GLONASS epoch = 1995-12-31 21:00:00 UTC = 757 371 600 seconds from the UTC
+epoch (1972-01-01). This is a compile-time constant, verified as follows:
 
 ```rust
 const _VERIFY_GLONASS_OFFSET: () = {
@@ -99,53 +99,53 @@ const _VERIFY_GLONASS_OFFSET: () = {
 };
 ```
 
-### I-11: Корректность двухпроходного алгоритма UTC → GPS
+### I-11: Correctness of the two-pass UTC → GPS algorithm
 
-Двухпроходный алгоритм `utc_to_gps` корректен на всех 18 границах
-високосных секунд эпохи GPS.
-**Тесты:** `prop_all_18_leap_second_transitions_correct` в
-`tests/prop_tests.rs` и отдельные тесты переходов в `src/leap.rs`.
+The two-pass `utc_to_gps` algorithm is correct at all 18 leap-second
+boundaries of the GPS era.
+**Tests:** `prop_all_18_leap_second_transitions_correct` in
+`tests/prop_tests.rs` and the individual transition tests in `src/leap.rs`.
 
-### I-12: Точность roundtrip вне окна неоднозначности
+### I-12: Roundtrip accuracy outside the ambiguity window
 
-Для любого `t: Time<Gps>`, который **не** попадает в 1-секундное окно
-неоднозначности високосной секунды:
+For any `t: Time<Gps>` that does **not** fall into the 1-second leap-second
+ambiguity window:
 `gps_to_utc(utc_to_gps(t, ls), ls) == t`.
 
-**Тест:** `prop_gps_utc_gps_roundtrip_for_all_samples` в
-`tests/prop_tests.rs` (256 точек, окно неоднозначности пропускается через
+**Test:** `prop_gps_utc_gps_roundtrip_for_all_samples` in
+`tests/prop_tests.rs` (256 points; the ambiguity window is skipped via
 `AmbiguousLeapSecond`).
 
-## Инварианты памяти
+## Memory invariants
 
-### I-13: Нет выделения памяти в куче
+### I-13: No heap allocation
 
-`Time<S>` и `Duration` — это `Copy`-типы без реализации `Drop`.
-`LeapSeconds::builtin()` возвращает `&'static LeapSeconds`, указывающий на
-статический массив. Крейт `alloc` нигде не используется.
+`Time<S>` and `Duration` are `Copy` types without a `Drop` implementation.
+`LeapSeconds::builtin()` returns a `&'static LeapSeconds` pointing to a static
+array. The `alloc` crate is not used anywhere.
 
-**Обеспечение:** `#![no_std]` в `lib.rs` без `extern crate alloc`.
-Тест `all_conversions_are_stack_only` в `tests/no_std_compat.rs`.
+**Enforcement:** `#![no_std]` in `lib.rs` without `extern crate alloc`.
+The `all_conversions_are_stack_only` test in `tests/no_std_compat.rs`.
 
-### I-14: Размер 8 байт
+### I-14: 8-byte size
 
-`size_of::<Time<S>>() == 8` для всех `S: TimeScale`.
+`size_of::<Time<S>>() == 8` for all `S: TimeScale`.
 
-**Обеспечение:** unit-тест `test_size_equals_u64` выполняется в CI через job
-`type-sizes` в `.github/workflows/embedded.yml`.
+**Enforcement:** the unit test `test_size_equals_u64` runs in CI through the
+`type-sizes` job in `.github/workflows/embedded.yml`.
 
-## Инварианты безопасности
+## Safety invariants
 
-### I-15: Нет unsafe-кода
+### I-15: No unsafe code
 
-`#![forbid(unsafe_code)]` в `lib.rs`. Любая попытка добавить unsafe-код —
-это ошибка компиляции, а не предупреждение.
+`#![forbid(unsafe_code)]` in `lib.rs`. Any attempt to add unsafe code is a
+compile error, not a warning.
 
-**Проверка в CI:** `grep -n "forbid(unsafe_code)" src/lib.rs` в job `lint`.
+**CI check:** `grep -n "forbid(unsafe_code)" src/lib.rs` in the `lint` job.
 
-### I-16: Нет пропущенной документации
+### I-16: No missing documentation
 
-`#![deny(missing_docs)]` в `lib.rs`. Каждый публичный элемент обязан иметь
-документацию.
+`#![deny(missing_docs)]` in `lib.rs`. Every public item is required to have
+documentation.
 
-**Проверка в CI:** `cargo clippy -- -D warnings` в job `lint`.
+**CI check:** `cargo clippy -- -D warnings` in the `lint` job.

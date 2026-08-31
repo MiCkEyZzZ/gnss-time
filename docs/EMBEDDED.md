@@ -1,6 +1,6 @@
 # Embedded Usage Guide
 
-Как использовать `gnss-time` в окружениях `no_std` (STM32, nRF52, ESP32-C3 и т.д.).
+How to use `gnss-time` in `no_std` environments (STM32, nRF52, ESP32-C3, etc.).
 
 ## Quick start
 
@@ -20,24 +20,24 @@ heapless   = "0.8"
 serde      = { version = "1", default-features = false }
 ```
 
-Фича `std` не требуется. Крейт по умолчанию работает в `no_std`.
+The `std` feature is not required. The crate works in `no_std` by default.
 
 ## Feature flags
 
 | Feature | Effect                                                               | Adds dependency |
 | ------- | -------------------------------------------------------------------- | --------------- |
-| (none)  | Чистый `no_std`, нет внешних зависимостей                            | —               |
-| `std`   | `impl std::error::Error` для типов ошибок                            | —               |
-| `serde` | `Serialize`/`Deserialize` для `Time<S>`, `Duration`, `DurationParts` | `serde`         |
-| `defmt` | `impl defmt::Format` для всех публичных типов                        | `defmt`         |
+| (none)  | Pure `no_std`, no external dependencies                              | —               |
+| `std`   | `impl std::error::Error` for error types                             | —               |
+| `serde` | `Serialize`/`Deserialize` for `Time<S>`, `Duration`, `DurationParts` | `serde`         |
+| `defmt` | `impl defmt::Format` for all public types                            | `defmt`         |
 
 ## Size guarantees
 
 ### In-memory representation
 
-Каждый публичный тип занимает в памяти **ровно 8 байт** — подходит для
-DMA-буферов и пакетов телеметрии фиксированного размера. Это относится к
-представлению значения в памяти Rust:
+Every public type occupies **exactly 8 bytes** in memory — suitable for
+DMA buffers and fixed-size telemetry packets. This refers to the in-memory
+representation of the value in Rust:
 
 | Type            | Size | Alignment |
 | --------------- | ---- | --------- |
@@ -49,110 +49,113 @@ DMA-буферов и пакетов телеметрии фиксированн
 | `Time<Utc>`     | 8 B  | 8 B       |
 | `Duration`      | 8 B  | 8 B       |
 
-Все типы-маркеры шкал (`Gps`, `Glonass`, ...) имеют нулевой размер.
+All scale marker types (`Gps`, `Glonass`, ...) are zero-sized.
 
-> **Не путайте in-memory и wire-представления.** Размер в памяти (8 B) не равен
-> размеру при сериализации через `serde` + `postcard`: там используется
-> отдельное wire-представление, описанное ниже, и его размер **не фиксирован**
-> (зависит от величины значения).
+> **Do not confuse in-memory and wire representations.** The in-memory size
+> (8 B) is not the same as the size when serialized via `serde` + `postcard`:
+> there a separate wire representation is used, described below, and its size
+> **is not fixed** (it depends on the magnitude of the value).
 
-## Доказательство zero-cost абстракций
+## Proof of zero-cost abstractions
 
 Benchmark results on x86_64 (Criterion, release mode):
 
 | Operation                                | Time    |
 | ---------------------------------------- | ------- |
-| `Time<Gps> + Duration` (panic-версия)    | 516 ps  |
-| `u64 + u64` (базовый уровень)            | 516 ps  |
+| `Time<Gps> + Duration` (panicking variant) | 516 ps |
+| `u64 + u64` (baseline)                   | 516 ps  |
 | `Time<Gps>.saturating_add`               | 516 ps  |
-| `GPS → Galileo` (тождественное)          | 785 ps  |
-| `GPS → TAI` (фиксированные +19 с)        | 822 ps  |
-| `GPS → BeiDou` (фиксированные -14 с)     | 928 ps  |
-| `GPS → UTC` (бинарный поиск, 19 записей) | 9.8 ns  |
-| `UTC → GPS` (двухпроходный алгоритм)     | 22.5 ns |
+| `GPS → Galileo` (identity)               | 785 ps  |
+| `GPS → TAI` (fixed +19 s)                | 822 ps  |
+| `GPS → BeiDou` (fixed -14 s)             | 928 ps  |
+| `GPS → UTC` (binary search, 19 entries)  | 9.8 ns  |
+| `UTC → GPS` (two-pass algorithm)         | 22.5 ns |
 
-Операторы `+` и `-`, вызывающие panic, компилируются ровно в те же инструкции,
-что и обычная арифметика `u64` — абстракция не имеет накладных расходов во время
-выполнения.
+The panicking `+` and `-` operators compile down to exactly the same
+instructions as plain `u64` arithmetic — the abstraction has no runtime
+overhead.
 
-## Размер кода (.text)
+## Code size (.text)
 
-Измеряется автоматически в CI (см. `size-report` в `.github/workflows/embedded.yml`)
-на прошивке-зонде `firmware/` для `thumbv7em-none-eabihf` (release). Каждая
-операция вынесена в отдельный `#[inline(never)]`-символ с `black_box`-
-ограничителями, чтобы её можно было замерить независимо.
+Measured automatically in CI (see `size-report` in
+`.github/workflows/embedded.yml`) on the `firmware/` probe for
+`thumbv7em-none-eabihf` (release). Each operation is isolated into its own
+`#[inline(never)]` symbol with `black_box` guards so it can be measured
+independently.
 
-Прошивка-зонд намеренно избегает `unwrap()`/`panic!` и panicking-операторов
-(это size probe, а не пользовательское приложение), поэтому в `.text` не
-попадает panic/`core::fmt`-машинерия. Итоговый `.text` всего бинарника —
-**980 B**. Основная часть `.text` приходится на код `gnss-time`, probe-функции и
-необходимую runtime-инфраструктуру `cortex-m-rt` (векторная таблица 1 KiB,
-загрузчик `Reset` 62 B, обработчики ~18 B).
+The probe deliberately avoids `unwrap()`/`panic!` and the panicking operators
+(these are size probes, not a user application), so no panic/`core::fmt`
+machinery ends up in `.text`. The resulting `.text` of the whole binary is
+**980 B**. Most of `.text` is gnss-time code, probe functions, and the
+required `cortex-m-rt` runtime infrastructure (vector table 1 KiB, `Reset`
+loader 62 B, handlers ~18 B).
 
-Измеренные символы в этом бинарнике (размер конкретного ELF-символа, release):
+Measured symbols in this binary (size of a concrete ELF symbol, release):
 
-| Символ в этом бинарнике                          | `.text` |
+| Symbol in this binary                            | `.text` |
 | ------------------------------------------------ | ------- |
-| `Time<Gps>::from_week_tow` (валидация + расчёт)  | 182 B   |
-| `probe_gps_to_utc` (сгенерированная функция)     | 180 B   |
+| `Time<Gps>::from_week_tow` (validation + computation) | 182 B |
+| `probe_gps_to_utc` (generated function)          | 180 B   |
 | `LeapSeconds::tai_minus_utc_at` (binary search)  | 138 B   |
 | `Time<Gps>::to_tai` (GPS → TAI, +19 s)           | 56 B    |
 | `probe_time_checked_add`                         | 56 B    |
 | `probe_time_saturating_add`                      | 42 B    |
-| `probe_from_week_tow` (обвязка пробы)            | 34 B    |
-| `probe_into_scale` (обвязка пробы)               | 32 B    |
+| `probe_from_week_tow` (probe wrapper)            | 34 B    |
+| `probe_into_scale` (probe wrapper)               | 32 B    |
 
-Ключевой вывод: `Time + Duration` не требует дополнительного слоя абстракции —
-после мономорфизации операция сводится к обычной арифметике над внутренним
-`u64`-представлением. На `thumbv7em-none-eabihf` это реализуется
-последовательностью 32-битных ARM-инструкций (`adds`/`adcs`).
+Key takeaway: `Time + Duration` requires no additional abstraction layer —
+after monomorphization the operation reduces to plain arithmetic over the
+internal `u64` representation. On `thumbv7em-none-eabihf` this is implemented
+by a sequence of 32-bit ARM instructions (`adds`/`adcs`).
 `probe_time_saturating_add` = 42 B, `probe_time_checked_add` = 56 B.
 
-> **Panicking-операторы тянут panic-машинерию.** Пробой проверены только
-> безаварийные операции. Если добавить в бинарник оператор `+`/`-` (который при
-> переполнении делает `panic!`), компилятор подтягивает и
-> `core::panic`/`core::fmt`-инфраструктуру (~1.9 KiB: `do_count_chars`,
-> `Formatter::pad`, `panic_fmt` и т.д.), и `.text` прошивки вырастает до ~2.9 KiB.
-> Сам символ panicking-`+` при этом всего ~52 B — но цена в panic-ветке.
-> Для embedded используйте `saturating_add` / `checked_add` / `try_add`.
+> **Panicking operators pull in the panic machinery.** The probes only check
+> non-panicking operations. If you add a `+`/`-` operator (which does `panic!`
+> on overflow) to the binary, the compiler also pulls in the
+> `core::panic`/`core::fmt` infrastructure (~1.9 KiB: `do_count_chars`,
+> `Formatter::pad`, `panic_fmt`, etc.), and the firmware `.text` grows to
+> ~2.9 KiB. The panicking `+` symbol itself is only ~52 B — but the cost is in
+> the panic branch. For embedded, use `saturating_add` / `checked_add` /
+> `try_add`.
 
-> **Точность формулировок.** Размеры выше — это размеры конкретных символов в
-> *данном* бинарнике: «сгенерированная функция `probe_gps_to_utc` — 180 B», а не
-> «GPS → UTC стоит ровно 180 B». `probe_gps_to_utc` использует общий код
-> `into_scale_with` + `LeapSeconds::tai_minus_utc_at` (138 B) + таблицу
-> `BUILTIN_LEAP` (8 B); часть кода может переиспользоваться линкером с другими
-> символами. То же касается остальных операций: `checked_add`/`saturating_add`
-> различаются на уровне этих probe-символов всего на 14 B, но это не значит,
-> что это полная стоимость операции в любом бинарнике.
+> **Precision of the figures.** The sizes above are sizes of concrete symbols
+> in *this* binary: "generated function `probe_gps_to_utc` — 180 B", not
+> "GPS → UTC costs exactly 180 B". `probe_gps_to_utc` uses the shared code of
+> `into_scale_with` + `LeapSeconds::tai_minus_utc_at` (138 B) + the
+> `BUILTIN_LEAP` table (8 B); part of the code may be reused by the linker
+> with other symbols. The same applies to the other operations:
+> `checked_add`/`saturating_add` differ at the level of these probe symbols by
+> only 14 B, but that does not mean that is the full cost of the operation in
+> any binary.
 
-CI-порог: `.text` прошивки-зонда < 2 KiB. Сборка и замер локально:
+CI threshold: probe firmware `.text` < 2 KiB. Build and measure locally:
 
 ```sh
 just setup-size   # cargo install cargo-binutils; rustup component add llvm-tools-preview
 just size         # build firmware + cargo size -A + cargo bloat
 ```
 
-Проверка, что арифметика осталась нуль-затратной:
+Verify that arithmetic stayed zero-cost:
 
 ```sh
 cargo objdump --release --manifest-path firmware/Cargo.toml \
   --target thumbv7em-none-eabihf -- -d \
-  | grep -A8 'probe_time_saturating_add>'   # ищем adds/adcs
+  | grep -A8 'probe_time_saturating_add>'   # look for adds/adcs
 ```
 
-> Примечание: `cargo bloat` отвечает на вопрос «какие символы занимают место»,
-> `cargo size -- -A` — на вопрос «сколько занимают секции `.text`/`.rodata`/...».
-> Для проверки «< N байт на операцию» единственный надёжный источник — размер
-> конкретного ELF-символа / дизассемблер, т.к. оптимизатор может заинлайнить
-> функцию и отдельного символа не останется.
+> Note: `cargo bloat` answers the question "which symbols take up space",
+> `cargo size -- -A` answers "how much do the `.text`/`.rodata`/... sections
+> take". To check "< N bytes per operation" the only reliable source is the
+> size of a concrete ELF symbol / the disassembler, because the optimizer may
+> inline a function and no separate symbol remains.
 
-## Безопасная арифметика для embedded
+## Safe arithmetic for embedded
 
-В типичных `no_std` embedded-конфигурациях panic не использует полноценный
-unwinding runtime; конкретное поведение определяется вашим `#[panic_handler]`
-(например, остановка, `abort`-подобное поведение или передача информации о
-panic через `defmt`). Универсального «panic = abort» не существует — например,
-прошивка-зонд в этом репозитории использует бесконечный цикл:
+In typical `no_std` embedded configurations panic does not use a full
+unwinding runtime; the concrete behavior is determined by your
+`#[panic_handler]` (for example, halting, `abort`-like behavior, or passing
+panic information through `defmt`). There is no universal "panic = abort" —
+for example, the probe firmware in this repository uses an infinite loop:
 
 ```rust
 #[panic_handler]
@@ -161,8 +164,8 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 }
 ```
 
-Поэтому на борту используйте варианты без panic. Пример внутри функции,
-возвращающей `Result` (без `unwrap`):
+Therefore, on-device use the non-panicking variants. Example inside a function
+returning `Result` (without `unwrap`):
 
 ```rust
 use gnss_time::{Duration, DurationParts, Gps, GnssTimeError, Time};
@@ -173,22 +176,22 @@ fn next_window() -> Result<Time<Gps>, GnssTimeError> {
         DurationParts { seconds: 432_000, nanos: 0 },
     )?;
 
-    // Option — возвращает None при переполнении
+    // Option — returns None on overflow
     let safe: Option<Time<Gps>> = t.checked_add(Duration::from_seconds(3600));
 
-    // Насыщение до MAX/EPOCH — никогда не паникует
+    // Saturates to MAX/EPOCH — never panics
     let clamped: Time<Gps> = t.saturating_add(Duration::from_seconds(3600));
 
-    // Возвращает GnssTimeError::Overflow при переполнении
+    // Returns GnssTimeError::Overflow on overflow
     let fallible: Result<Time<Gps>, GnssTimeError> = t.try_add(Duration::from_seconds(3600));
 
     Ok(clamped)
 }
 ```
 
-## Статические инициализаторы
+## Static initializers
 
-Ключевые типы поддерживают `const`-конструирование для использования в `static`:
+The key types support `const` construction for use in `static`:
 
 ```rust
 use gnss_time::{Time, Duration, Gps};
@@ -200,9 +203,9 @@ const FIVE_MINUTES: Duration = Duration::from_seconds(300);
 
 ## Compact binary serialization (postcard)
 
-### Требования
+### Requirements
 
-Включите фичу `serde` и добавьте `postcard` в зависимости:
+Enable the `serde` feature and add `postcard` to the dependencies:
 
 ```toml
 [dependencies]
@@ -214,13 +217,14 @@ serde      = { version = "1", default-features = false }
 
 ### Wire format
 
-postcard использует **ULEB-128** (Unsigned Little-Endian Base-128) для целых чисел
-без знака и **Zigzag + ULEB-128** для знаковых.
+postcard uses **ULEB-128** (Unsigned Little-Endian Base-128) for unsigned
+integers and **Zigzag + ULEB-128** for signed ones.
 
 #### `Time<S>` — raw `u64` ULEB-128
 
-В компактном формате `Time<S>` сериализуется как сырое значение `u64` наносекунд.
-**Тег шкалы не хранится** — шкала зашита в системе типов Rust.
+In the compact format `Time<S>` is serialized as a raw `u64` of nanoseconds.
+**The scale tag is not stored** — the scale is embedded in the Rust type
+system.
 
 ```text
 Encoding: ULEB-128(nanos: u64)
@@ -235,27 +239,27 @@ Examples:
   u64::MAX                    → [0xFF×9, 0x01]            (10 bytes)
 ```
 
-| Диапазон значений       | Размер (байт) |
-| ----------------------- | ------------- |
-| 0 … 127                 | 1             |
-| 128 … 16 383            | 2             |
-| 16 384 … 2 097 151      | 3             |
-| 2 097 152 … 268 435 455 | 4             |
-| 268 435 456 … 2^35−1    | 5             |
-| 2^35 … 2^42−1           | 6             |
-| 2^42 … 2^49−1           | 7             |
-| 2^49 … 2^56−1           | 8             |
-| 2^56 … 2^63−1           | 9             |
-| 2^63 … u64::MAX         | 10            |
+| Value range            | Size (bytes) |
+| ---------------------- | ------------ |
+| 0 … 127                | 1            |
+| 128 … 16 383           | 2            |
+| 16 384 … 2 097 151     | 3            |
+| 2 097 152 … 268 435 455| 4            |
+| 268 435 456 … 2^35−1   | 5            |
+| 2^35 … 2^42−1          | 6            |
+| 2^42 … 2^49−1          | 7            |
+| 2^49 … 2^56−1          | 8            |
+| 2^56 … 2^63−1          | 9            |
+| 2^63 … u64::MAX        | 10           |
 
-> **Важно:** размер не фиксирован — он зависит от величины значения.
-> Для большинства реальных GPS-меток (~2023) требуется 9 байт.
-> Выделяйте буфер не менее **16 байт** для любого `Time<S>`.
+> **Important:** the size is not fixed — it depends on the magnitude of the
+> value. Most real GPS timestamps (~2023) require 9 bytes. Allocate a buffer
+> of at least **16 bytes** for any `Time<S>`.
 
 #### `Duration` — Zigzag + ULEB-128
 
-`Duration` сериализуется как `i64` с Zigzag-кодированием (отрицательные числа
-кодируются компактно):
+`Duration` is serialized as an `i64` with Zigzag encoding (negative numbers
+are encoded compactly):
 
 ```text
 Encoding: Zigzag(ULEB-128(nanos: i64))
@@ -275,11 +279,11 @@ Example: { seconds: 5, nanos: 500_000_000 }
   Total:                → 6 bytes
 ```
 
-> Все байтовые последовательности в этом разделе проверены golden-тестами
-> (`serde_impls::tests::*postcard_golden` в `src/serde_impls.rs`) — они являются
-> источником истины, а не наоборот.
+> All byte sequences in this section are verified by golden tests
+> (`serde_impls::tests::*postcard_golden` in `src/serde_impls.rs`) — they are
+> the source of truth, not the other way around.
 
-### Использование с heapless (no_std без alloc)
+### Usage with heapless (no_std without alloc)
 
 ```rust
 #![no_std]
@@ -287,17 +291,17 @@ Example: { seconds: 5, nanos: 500_000_000 }
 use gnss_time::{Time, Gps, DurationParts};
 use heapless::Vec;
 
-// Сериализация без alloc — буфер на стеке
+// Serialization without alloc — stack buffer
 fn serialize_gps_timestamp(t: Time<Gps>) -> Result<Vec<u8, 16>, postcard::Error> {
     postcard::to_vec(&t)
 }
 
-// Десериализация
+// Deserialization
 fn deserialize_gps_timestamp(bytes: &[u8]) -> Result<Time<Gps>, postcard::Error> {
     postcard::from_bytes(bytes)
 }
 
-// Полный пример с конструктором
+// Full example with a constructor
 fn example() -> Result<(), postcard::Error> {
     let gps = Time::<Gps>::from_week_tow(
         2345,
@@ -305,12 +309,12 @@ fn example() -> Result<(), postcard::Error> {
     )
     .unwrap();
 
-    // Сериализация в heapless буфер (максимум 16 байт)
+    // Serialize into a heapless buffer (max 16 bytes)
     let buf: Vec<u8, 16> = serialize_gps_timestamp(gps)?;
 
-    // Передача по UART / SPI / I2C ...
+    // Transmit over UART / SPI / I2C ...
 
-    // Десериализация на принимающей стороне
+    // Deserialize on the receiving side
     let decoded = deserialize_gps_timestamp(&buf)?;
     assert_eq!(gps, decoded);
 
@@ -318,29 +322,29 @@ fn example() -> Result<(), postcard::Error> {
 }
 ```
 
-### Рекомендуемые размеры буферов
+### Recommended buffer sizes
 
-| Тип             | Макс. размер | Рекомендуемый буфер |
-| --------------- | ------------ | ------------------- |
-| `Time<S>`       | 10 байт      | `Vec<u8, 16>`       |
-| `Duration`      | 10 байт      | `Vec<u8, 16>`       |
-| `DurationParts` | 15 байт      | `Vec<u8, 16>`       |
-| Типичный пакет  | ≤ 32 байт    | `Vec<u8, 32>`       |
+| Type             | Max size  | Recommended buffer |
+| ---------------- | --------- | ------------------ |
+| `Time<S>`        | 10 bytes  | `Vec<u8, 16>`      |
+| `Duration`       | 10 bytes  | `Vec<u8, 16>`      |
+| `DurationParts`  | 15 bytes  | `Vec<u8, 16>`      |
+| Typical packet   | ≤ 32 bytes| `Vec<u8, 32>`      |
 
-### Пример телеметрического пакета
+### Telemetry packet example
 
 ```rust
 use gnss_time::{Time, Duration, Gps, DurationParts};
 use heapless::Vec;
 
-/// Телеметрический пакет GPS-приёмника
+/// GPS receiver telemetry packet
 #[derive(serde::Serialize, serde::Deserialize)]
 struct NavPacket {
-    /// GPS-метка времени
+    /// GPS timestamp
     timestamp: Time<Gps>,
-    /// Поправка к времени (отклонение от эталона)
+    /// Time correction (offset from the reference)
     clock_offset: Duration,
-    /// Количество видимых спутников
+    /// Number of visible satellites
     sv_count: u8,
 }
 
@@ -353,15 +357,15 @@ fn receive_nav_packet(bytes: &[u8]) -> Result<NavPacket, postcard::Error> {
 }
 ```
 
-Типичный пакет (8 SV, 2023-год timestamp, нулевая поправка) занимает ≈ 11 байт:
+A typical packet (8 SV, 2023-year timestamp, zero correction) takes ≈ 11 bytes:
 
-- `timestamp`: 9 байт (ULEB-128 ~2023)
-- `clock_offset`: 1 байт (zigzag(0) = 0x00)
-- `sv_count`: 1 байт
+- `timestamp`: 9 bytes (ULEB-128 ~2023)
+- `clock_offset`: 1 byte (zigzag(0) = 0x00)
+- `sv_count`: 1 byte
 
-### Совместимость JSON ↔ postcard
+### JSON ↔ postcard compatibility
 
-Один и тот же тип поддерживает оба формата. Выбор происходит автоматически через
+The same type supports both formats. The choice is made automatically via
 `is_human_readable()`:
 
 ```rust
@@ -373,13 +377,13 @@ let json = serde_json::to_string(&gps).unwrap();
 let bytes = postcard::to_allocvec(&gps).unwrap();
 // [raw ULEB-128 bytes, no scale tag]
 
-// Оба десериализуются обратно в тот же тип:
+// Both deserialize back into the same type:
 let from_json: Time<Gps> = serde_json::from_str(&json).unwrap();
 let from_postcard: Time<Gps> = postcard::from_bytes(&bytes).unwrap();
 assert_eq!(from_json, from_postcard);
 ```
 
-## Интеграция с defmt
+## defmt integration
 
 ```rust
 use gnss_time::{Time, Gps, DurationParts};
@@ -389,49 +393,50 @@ let t = Time::<Gps>::from_week_tow(
     DurationParts { seconds: 432_000, nanos: 0 },
 ).unwrap();
 defmt::info!("GPS timestamp: {}", t);
-// Вывод: GPS 2345:432000.000
+// Output: GPS 2345:432000.000
 ```
 
-Все публичные типы реализуют `defmt::Format` при включённой фиче
-(проверяется компиляцией в CI: `embedded.yml` собирает `--features defmt`
-для каждого embedded-таргета):
+All public types implement `defmt::Format` when the feature is enabled
+(verified by compilation in CI: `embedded.yml` builds `--features defmt`
+for every embedded target):
 
-- `Time<S>` — тот же формат, что и `Display`
-- `Duration` — формат `"Xs Yns"` (как `Display`)
-- `GnssTimeError` — короткая строка ошибки
+- `Time<S>` — the same format as `Display`
+- `Duration` — format `"Xs Yns"` (same as `Display`)
+- `GnssTimeError` — short error string
 
-## Кросс-компиляция
+## Cross-compilation
 
-Поддерживаемые embedded-таргеты (проверяются в CI, см. `.github/workflows/embedded.yml`):
+Supported embedded targets (verified in CI, see `.github/workflows/embedded.yml`):
 
-| Target                          | Архитектура            | Примеры чипов              | CI  |
-| ------------------------------- | ---------------------- | ---------------------------| --- |
-| `thumbv7em-none-eabihf`         | Cortex-M4F/M7F + FPU   | STM32F4/F7, nRF52840       | ✅   |
-| `thumbv7em-none-eabi`           | Cortex-M4/M7 без FPU   | STM32F3xx                  | ✅   |
-| `thumbv6m-none-eabi`            | Cortex-M0/M0+          | STM32F0xx, nRF51           | ✅   |
-| `riscv32imac-unknown-none-elf`  | RV32IMAC               | ESP32-C3, GD32VF103, CH32V | ✅   |
-| `riscv32i-unknown-none-elf`     | RV32I (без атомиков)   | ESP32-C2                   | ✅   |
+| Target                          | Architecture            | Example chips            | CI  |
+| ------------------------------- | ----------------------- | -------------------------| --- |
+| `thumbv7em-none-eabihf`         | Cortex-M4F/M7F + FPU    | STM32F4/F7, nRF52840     | ✅   |
+| `thumbv7em-none-eabi`           | Cortex-M4/M7 without FPU| STM32F3xx                | ✅   |
+| `thumbv6m-none-eabi`            | Cortex-M0/M0+           | STM32F0xx, nRF51         | ✅   |
+| `riscv32imac-unknown-none-elf`  | RV32IMAC                | ESP32-C3, GD32VF103, CH32V | ✅ |
+| `riscv32i-unknown-none-elf`     | RV32I (no atomics)      | ESP32-C2                 | ✅   |
 
-Для каждого таргета CI проверяет сборку без фич и с фичей `defmt`. Отдельная
-CI-джоба подтверждает, что `std` не попадает в граф зависимостей транзитивно.
+For each target CI verifies the build without features and with the `defmt`
+feature. A separate CI job confirms that `std` does not enter the dependency
+graph transitively.
 
-Локальная проверка:
+Local check:
 
 ```sh
 # ARM Cortex-M
 cargo check --lib --target thumbv7em-none-eabihf        # STM32F4/F7, nRF52
-cargo check --lib --target thumbv7em-none-eabi          # Cortex-M4/M7 без FPU
+cargo check --lib --target thumbv7em-none-eabi          # Cortex-M4/M7 without FPU
 cargo check --lib --target thumbv6m-none-eabi           # Cortex-M0/M0+
 
 # RISC-V
 cargo check --lib --target riscv32imac-unknown-none-elf # ESP32-C3
 cargo check --lib --target riscv32i-unknown-none-elf    # ESP32-C2
 
-# С serde:
+# With serde:
 cargo check --lib --features serde --target thumbv7em-none-eabihf
 ```
 
-Таргеты устанавливаются автоматически из `rust-toolchain.toml`; либо вручную:
+Targets are installed automatically from `rust-toolchain.toml`; or manually:
 
 ```sh
 rustup target add thumbv7em-none-eabihf
@@ -440,7 +445,7 @@ rustup target add riscv32imac-unknown-none-elf
 rustup target add riscv32i-unknown-none-elf
 ```
 
-Через `just`:
+Via `just`:
 
 ```sh
 just check-no-std           # thumbv7em-none-eabihf
@@ -448,12 +453,12 @@ just check-no-std-cortex-m0 # thumbv6m-none-eabi
 just check-riscv            # riscv32imac + riscv32i
 ```
 
-## Паттерн memory-mapped регистров
+## Memory-mapped register pattern
 
 ```rust
 use gnss_time::{Time, Duration, Gps};
 
-// Хранение GPS-метки в 64-битном регистре или ячейке FRAM:
+// Storage of a GPS timestamp in a 64-bit register or FRAM cell:
 fn write_timestamp(reg: &mut u64, t: Time<Gps>) {
     *reg = t.as_nanos();
 }
@@ -463,14 +468,14 @@ fn read_timestamp(reg: u64) -> Time<Gps> {
 }
 ```
 
-## Парсинг пакета UBX NAV-TIMEGPS
+## Parsing a UBX NAV-TIMEGPS packet
 
 ```rust
 use gnss_time::{GnssTimeError, Time, Gps, DurationParts};
 
-/// Парсит GPS-время из payload UBX NAV-TIMEGPS (28 байт).
+/// Parses GPS time from a UBX NAV-TIMEGPS payload (28 bytes).
 pub fn parse_ubx_nav_timegps(payload: &[u8; 28]) -> Result<Time<Gps>, GnssTimeError> {
-    // payload — массив фиксированной длины, индексы 0..4 / 8..10 статически валидны
+    // payload is a fixed-length array, indices 0..4 / 8..10 are statically valid
     let itow_ms = u32::from_le_bytes([payload[0], payload[1], payload[2], payload[3]]) as u64;
     let week    = u16::from_le_bytes([payload[8], payload[9]]);
     let valid   = payload[24];

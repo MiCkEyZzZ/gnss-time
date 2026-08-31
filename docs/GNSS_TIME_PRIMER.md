@@ -1,117 +1,116 @@
-# Основы времени GNSS
+# GNSS Time Primer
 
-Практическое руководство по системам времени GNSS для разработчиков ПО.
+A practical guide to GNSS time systems for software developers.
 
-## Почему время в GNSS — это сложно
+## Why time in GNSS is hard
 
-В большинстве программ время — это единая концепция. Вы вызываете `now()`,
-получаете число, и это число означает одно и то же везде.
+In most programs time is a single concept. You call `now()`, get a number, and
+that number means the same thing everywhere.
 
-В GNSS это не так.
+In GNSS that is not the case.
 
-Каждая спутниковая навигационная система поддерживает собственные независимые
-часы. Эти часы запущены в разные календарные даты, привязаны к разным эталонам
-и накапливают разные целочисленные смещения со временем. Один и тот же
-физический момент в реальном мире имеет разное числовое значение в зависимости
-от того, какую систему вы спрашиваете.
+Every satellite navigation system maintains its own independent clock. These
+clocks start on different calendar dates, are anchored to different standards,
+and accumulate different integer offsets over time. The same physical moment
+in the real world has a different numeric value depending on which system you
+ask.
 
-Это не та особенность, которую можно «замазать». Ошибка приводит к тому, что
-метки времени вашего приёмника будут отличаться на 14, 18 или 19 секунд — и вы
-этого даже не заметите.
+This is not a quirk you can "paper over". An error means your receiver's
+timestamps differ by 14, 18, or 19 seconds — and you would not even notice.
 
-## Четыре шкалы времени, которые нужно понимать
+## Four time scales you need to understand
 
-### TAI — Международное атомное время
+### TAI — International Atomic Time
 
-TAI (Temps Atomique International) — основа всего современного времени.
+TAI (Temps Atomique International) is the basis of all modern time.
 
-- Поддерживается взвешенным средним ~450 атомных часов по всему миру
-- Не содержит високосных секунд. Абсолютно равномерная шкала
-- Эпоха: **1958-01-01 00:00:00**
-- Все GNSS-системы связаны с TAI фиксированным или вычисляемым смещением
+- Maintained by the weighted average of ~450 atomic clocks worldwide
+- Contains no leap seconds. An absolutely uniform scale
+- Epoch: **1958-01-01 00:00:00**
+- All GNSS systems are tied to TAI by a fixed or computed offset
 
-TAI — это **опорная шкала** для всех преобразований в этой библиотеке. Любое
-преобразование между шкалами GNSS внутри проходит через TAI.
+TAI is the **reference scale** for all conversions in this library. Any
+conversion between GNSS scales passes through TAI internally.
 
-### UTC — Всемирное координированное время
+### UTC — Coordinated Universal Time
 
-UTC — это то, что показывают ваши настенные часы (примерно).
+UTC is what your wall clock shows (approximately).
 
-- UTC поддерживается близким к UT1 (вращение Земли)
-- Когда вращение Земли замедляется, добавляется **високосная секунда**
-- UTC = TAI − N, где N — количество вставленных високосных секунд
-- На 2017 год: **TAI − UTC = 37 секунд**
+- UTC is kept close to UT1 (Earth rotation)
+- When Earth's rotation slows, a **leap second** is added
+- UTC = TAI − N, where N is the number of inserted leap seconds
+- As of 2017: **TAI − UTC = 37 seconds**
 
-Високосные секунды объявляются организацией IERS заранее (примерно за 6 месяцев).
-Формулы для их предсказания нет — нужна таблица.
+Leap seconds are announced by the IERS in advance (about 6 months before).
+There is no formula to predict them — a table is required.
 
-### Время GLONASS
+### GLONASS time
 
-GLONASS — российская навигационная система.
+GLONASS is the Russian navigation system.
 
-- Эпоха: **1996-01-01 00:00:00 UTC(SU)** = 1995-12-31 21:00:00 UTC
-- GLONASS отслеживает **UTC(SU)** — российскую реализацию UTC, которая равна
-  UTC + 3 часа (московское время), **но включает високосные секунды**
-- Поскольку GLONASS синхронизирован с UTC, преобразование GLONASS <-> UTC — это
-  просто сдвиг эпохи: **+757 371 600 секунд**
-- Таблица високосных секунд не нужна для GLONASS <-> UTC
-- Но она **нужна** для GLONASS <-> GPS / Galileo / BeiDou
+- Epoch: **1996-01-01 00:00:00 UTC(SU)** = 1995-12-31 21:00:00 UTC
+- GLONASS tracks **UTC(SU)** — the Russian realization of UTC, which equals
+  UTC + 3 hours (Moscow time), **but includes leap seconds**
+- Because GLONASS is synchronized to UTC, the GLONASS <-> UTC conversion is
+  just an epoch shift: **+757 371 600 seconds**
+- The leap-second table is not needed for GLONASS <-> UTC
+- But it **is** needed for GLONASS <-> GPS / Galileo / BeiDou
 
-### Время GPS
+### GPS time
 
-GPS — американская система навигации.
+GPS is the American navigation system.
 
-- Эпоха: **1980-01-06 00:00:00 UTC**
-- Смещение: **GPS = TAI − 19 секунд** (фиксированное, без високосных секунд)
-- GPS был синхронизирован с UTC в момент своей эпохи, когда TAI − UTC = 19 с
-- В GPS никогда не вставлялись високосные секунды — время течёт непрерывно
-- На 2017 год: **GPS опережает UTC на 18 секунд**
+- Epoch: **1980-01-06 00:00:00 UTC**
+- Offset: **GPS = TAI − 19 seconds** (fixed, no leap seconds)
+- GPS was synchronized to UTC at its epoch, when TAI − UTC = 19 s
+- No leap seconds have ever been inserted into GPS — time runs continuously
+- As of 2017: **GPS is 18 seconds ahead of UTC**
 
-Приёмники GPS передают текущее смещение GPS–UTC в навигационных сообщениях, чтобы
-можно было вычислить гражданское время.
+GPS receivers transmit the current GPS–UTC offset in navigation messages so
+that civil time can be computed.
 
-### Время Galileo
+### Galileo time
 
-Galileo — европейская навигационная система.
+Galileo is the European navigation system.
 
-- Эпоха: **1999-08-22 00:00:00 UTC** (GPS неделя 1024, TOW 0)
-- Смещение: **Galileo = TAI − 19 секунд** — идентично GPS
-- Наносекунда Galileo и GPS с одинаковым значением **представляют один и тот же
-  физический момент**
-- Преобразование GPS <-> Galileo — тождественное: числовое значение наносекунд не
-  меняется
+- Epoch: **1999-08-22 00:00:00 UTC** (GPS week 1024, TOW 0)
+- Offset: **Galileo = TAI − 19 seconds** — identical to GPS
+- A Galileo and GPS nanosecond with the same value **represent the same
+  physical moment**
+- The GPS <-> Galileo conversion is identity: the numeric nanosecond value
+  does not change
 
-### Время BeiDou
+### BeiDou time
 
-BDT — китайская навигационная система.
+BDT is the Chinese navigation system.
 
-- Эпоха: **2006-01-01 00:00:00 UTC**
-- Смещение: **BDT = TAI − 33 секунды**
-- Так как GPS = TAI − 19 с, получаем: **BDT = GPS − 14 секунд**
-- Это различие в 14 секунд фиксировано и никогда не изменится
+- Epoch: **2006-01-01 00:00:00 UTC**
+- Offset: **BDT = TAI − 33 seconds**
+- Since GPS = TAI − 19 s, we get: **BDT = GPS − 14 seconds**
+- This 14-second difference is fixed and will never change
 
-## Проблема високосных секунд
+## The leap-second problem
 
-Високосные секунды — самая сложная часть работы со временем GNSS.
+Leap seconds are the hardest part of working with GNSS time.
 
-### Что такое високосная секунда?
+### What is a leap second?
 
-Когда вращение Земли замедляется, UTC начинает опережать UT1 (солнечное время).
-Чтобы удерживать разницу в пределах 0.9 секунды, IERS иногда вставляет
-**положительную високосную секунду**:
+When Earth's rotation slows, UTC begins to run ahead of UT1 (solar time). To
+keep the difference within 0.9 seconds, the IERS sometimes inserts a
+**positive leap second**:
 
-часы UTC показывают **23:59:60** перед переходом на **00:00:00**.
+UTC clocks show **23:59:60** before rolling over to **00:00:00**.
 
-Отрицательные високосные секунды (удаление секунды) теоретически возможны, но
-никогда не применялись.
+Negative leap seconds (removing a second) are theoretically possible, but have
+never been applied.
 
-### Как GPS работает с високосными секундами
+### How GPS handles leap seconds
 
-В GPS нет високосных секунд. Время просто увеличивается.
+GPS has no leap seconds. Time just increases.
 
-Когда в UTC вставляется високосная секунда, разница GPS–UTC увеличивается на 1.
+When a leap second is inserted into UTC, the GPS–UTC difference increases by 1.
 
-До 1981-07-01 разница была 0. После 2017-01-01 — уже 18 секунд.
+Before 1981-07-01 the difference was 0. After 2017-01-01 it is 18 seconds.
 
 | Event      | TAI − UTC | GPS − UTC |
 | ---------- | --------- | --------- |
@@ -121,102 +120,102 @@ BDT — китайская навигационная система.
 | 1999-01-01 | 32 s      | 13 s      |
 | 2017-01-01 | 37 s      | 18 s      |
 
-Приёмники GPS передают текущее смещение GPS – UTC (поле `IODC`), чтобы ПО могло
-вычислить гражданское время.
+GPS receivers transmit the current GPS – UTC offset (the `IODC` field) so that
+software can compute civil time.
 
-### Окно неоднозначности в 1 секунду
+### The 1-second ambiguity window
 
-В момент вставки високосной секунды существует окно длительностью 1 секунда, в
-котором одна и та же GPS-метка времени соответствует двум значениям UTC:
+At the moment of a leap-second insertion there is a 1-second window in which
+the same GPS timestamp corresponds to two UTC values:
 
 ```zsh
-GPS: 1_167_264_017 ns  →  UTC: 23:59:59  (последняя секунда перед leap second)
-GPS: 1_167_264_018 ns  →  UTC: 23:59:60  (вставленная leap second)
-GPS: 1_167_264_018 ns  →  UTC: 00:00:00  (начало следующего дня — то же GPS значение!)
+GPS: 1_167_264_017 ns  →  UTC: 23:59:59  (last second before the leap second)
+GPS: 1_167_264_018 ns  →  UTC: 23:59:60  (the inserted leap second)
+GPS: 1_167_264_018 ns  →  UTC: 00:00:00  (start of the next day — same GPS value!)
 ```
 
-Эта библиотека обнаруживает такое окно и сигнализирует о нём через
+This library detects the window and signals it via
 `ConvertResult::AmbiguousLeapSecond`.
 
-## Граф преобразований
+## Conversion graph
 
 ```text
                     ┌──────────────────────────────────────────────┐
-                    │           TAI (опорная шкала)                │
+                    │           TAI (reference scale)              │
                     │  T_tai = T_self + OFFSET_TO_TAI              │
                     └──────┬──────┬───────┬──────┬─────────────────┘
                            │      │       │      │
-               фикс +19с   │      │+19с   │+33с  │  контекстно
+               fixed +19s  │      │+19s   │+33s  │  contextual
                            ▼      ▼       ▼      │
                           GPS   Galileo  BeiDou  │
                            │      │       │      │
-                           │ тождественно фикс   │
+                           │ identity fixed     │
                            │                     ▼
                            │               UTC ←──── GLONASS
-                           │               │  сдвиг эпохи
+                           │               │  epoch shift
                            └───────────────┘
-                            контекстно (нужна таблица leap seconds)
+                            contextual (needs the leap-second table)
 ```
 
-Фиксированные преобразования (не требуют leap seconds):
+Fixed conversions (no leap seconds required):
 
 - GPS ↔ TAI, GPS ↔ Galileo, GPS ↔ BeiDou
 - Galileo ↔ BeiDou, Galileo ↔ TAI, BeiDou ↔ TAI
 - GLONASS ↔ UTC
 
-Контекстные преобразования (нужен `LeapSecondsProvider`):
+Contextual conversions (a `LeapSecondsProvider` is required):
 
 - GPS ↔ UTC, GPS ↔ GLONASS
 - Galileo ↔ UTC, Galileo ↔ GLONASS
 - BeiDou ↔ UTC, BeiDou ↔ GLONASS
 
-## Типичные ошибки
+## Common mistakes
 
-### Использовать GPS как UTC
+### Using GPS as UTC
 
 ```rust
-// WRONG — GPS опережает UTC на 18 секунд после 2017 года
+// WRONG — GPS is 18 seconds ahead of UTC after 2017
 let gps = Time::<Gps>::from_seconds(gps_seconds_from_receiver);
-let civil_time = gps.as_seconds(); // ← это GPS секунды, не UTC!
+let civil_time = gps.as_seconds(); // ← these are GPS seconds, not UTC!
 ```
 
 ```rust
 // RIGHT
 let utc = gps.into_scale_with(LeapSeconds::builtin()).unwrap();
-let civil_seconds = utc.as_seconds(); // UTC секунды от 1972-01-01
+let civil_seconds = utc.as_seconds(); // UTC seconds since 1972-01-01
 ```
 
-### Игнорировать leap seconds при GPS → UTC
+### Ignoring leap seconds in GPS → UTC
 
 ```rust
-// WRONG — предполагает фиксированные 18 секунд
+// WRONG — assumes a fixed 18 seconds
 let utc_seconds = gps.as_seconds() - 18;
 ```
 
 ```rust
-// RIGHT — использует полную таблицу високосных секунд
+// RIGHT — uses the full leap-second table
 let utc = gps.into_scale_with(LeapSeconds::builtin()).unwrap();
 ```
 
-### Смешивать шкалы времени в арифметике
+### Mixing time scales in arithmetic
 
 ```rust
-// WRONG — не скомпилируется в gnss-time, но частая ошибка:
+// WRONG — will not compile in gnss-time, but a common mistake:
 // let delta = gps_time - glonass_time;
 ```
 
 ```rust
-// RIGHT — сначала привести к одной шкале
+// RIGHT — first convert to a single scale
 let glo_as_utc: Time<Utc> = glonass.into_scale().unwrap();
 let gps_as_utc: Time<Utc> = gps.into_scale_with(ls).unwrap();
 let delta = gps_as_utc - glo_as_utc;
 ```
 
-## Источники
+## Sources
 
-- IS-GPS-200 Rev. N (2022) — спецификация интерфейса GPS
-- ICD-GLONASS v5.1 (2008) — документ управления интерфейсом GLONASS
+- IS-GPS-200 Rev. N (2022) — GPS interface specification
+- ICD-GLONASS v5.1 (2008) — GLONASS interface control document
 - OS-SIS-ICD Issue 2.0 (2021) — Galileo ICD
 - BDS-SIS-ICD-B1I-3.0 (2019) — BeiDou ICD
-- IERS Bulletin C — объявления о високосных секундах: [https://www.iers.org](https://www.iers.org)
+- IERS Bulletin C — leap-second announcements: [https://www.iers.org](https://www.iers.org)
 - Howard Hinnant, "Date Algorithms": [http://howardhinnant.github.io/date_algorithms.html](http://howardhinnant.github.io/date_algorithms.html)

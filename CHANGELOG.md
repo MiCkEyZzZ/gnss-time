@@ -5,7 +5,24 @@ All notable changes to **gnss-time** are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 0000-08-00
+## [Unreleased] - 0000-00-00
+
+### Changed
+
+- Translated the documentation (`docs/ARCHITECTURE.md`,
+  `docs/EMBEDDED.md`, `docs/GNSS_TIME_PRIMER.md`, `docs/INVARIANTS.md`,
+  `docs/LEAP_SECONDS.md`) from Russian to English. Content, structure,
+  tables, formulas and code examples are preserved unchanged.
+
+### Fixed
+
+- Fixed the `Build & measure` commands in `firmware/README.md`: run from the
+  repository root they failed (`cargo size`: "Could not determine the wanted
+  artifact"; `cargo bloat`: "only 'bin', 'dylib' and 'cdylib' crate types are
+  supported") because the probe crate is not a workspace member. The commands
+  now pass `--manifest-path firmware/Cargo.toml` (matching the `just size`
+  recipe), and an alternative variant for running from inside `firmware/` was
+  added.
 
 ## [0.7.0] - 2026-08-22
 

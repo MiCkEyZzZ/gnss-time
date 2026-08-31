@@ -9,34 +9,34 @@ src/
 ├── tables/
 │   ├── leap_seconds.rs  — BUILTIN_TABLE (19 GPS-era entries)
 │   └── mod.rs
-├── convert.rs      — трейты IntoScale / IntoScaleWith + все реализации
-├── duration.rs     — Duration (знаковый интервал в наносекундах)
-├── epoch.rs        — CivilDate, константные смещения эпох, Unix offsets
+├── convert.rs      — IntoScale / IntoScaleWith traits + all implementations
+├── duration.rs     — Duration (signed interval in nanoseconds)
+├── epoch.rs        — CivilDate, constant epoch offsets, Unix offsets
 ├── error.rs        — GnssTimeError
-├── leap.rs         — LeapSecondsProvider, LeapSeconds, все функции преобразований
-├── lib.rs          — корень крейта, #![no_std], pub use реэкспорты
+├── leap.rs         — LeapSecondsProvider, LeapSeconds, all conversion functions
+├── lib.rs          — crate root, #![no_std], pub use re-exports
 ├── matrix.rs       — ConversionMatrix, ScaleId, ConversionKind
-├── prelude.rs      — удобные re-export'ы
-├── scale.rs        — sealed-трейт TimeScale + 6 маркерных типов
-├── serde_impls.rs  — Serialize/Deserialize для Time<S>, Duration, DurationParts
-│                     (только при feature = "serde")
-└── time.rs         — структура Time<S>, конструкторы, арифметика, Unix-методы
+├── prelude.rs      — convenient re-exports
+├── scale.rs        — sealed trait TimeScale + 6 marker types
+├── serde_impls.rs  — Serialize/Deserialize for Time<S>, Duration, DurationParts
+│                     (only when feature = "serde")
+└── time.rs         — Time<S> struct, constructors, arithmetic, Unix methods
 ```
 
 ## Core invariant: TAI as the universal pivot
 
-Любое преобразование с фиксированным смещением проходит через TAI:
+Any conversion with a fixed offset goes through TAI:
 
 ```text
 T_tai = T_self + S::OFFSET_TO_TAI
 T_target = T_tai - Target::OFFSET_TO_TAI
 ```
 
-Это означает, что все попарные преобразования выводятся из единого согласованного
-набора смещений относительно TAI. Нет возможности получить ошибки вида off-by-one
-между отдельными парами шкал.
+This means that all pairwise conversions are derived from a single consistent
+set of offsets relative to TAI. There is no possibility of off-by-one errors
+between individual pairs of scales.
 
-Смещения (в наносекундах) — это константы времени компиляции, встроенные в enum
+The offsets (in nanoseconds) are compile-time constants, embedded in the enum
 `OffsetToTai`:
 
 | Scale   | OFFSET_TO_TAI      |
@@ -48,9 +48,9 @@ T_target = T_tai - Target::OFFSET_TO_TAI
 | UTC     | Contextual         |
 | GLONASS | Contextual         |
 
-## Паттерн sealed trait
+## Sealed trait pattern
 
-`TimeScale` — закрытый (sealed) трейт, его нельзя реализовать вне этого крейта:
+`TimeScale` is a sealed trait — it cannot be implemented outside this crate:
 
 ```rust
 mod private { pub trait Sealed {} }
@@ -58,79 +58,79 @@ mod private { pub trait Sealed {} }
 pub trait TimeScale: private::Sealed + ... { ... }
 ```
 
-Это предотвращает ситуацию, когда пользователь создаёт новую «псевдошкалу времени»,
-которая незаметно ломает все преобразования. Множество поддерживаемых шкал фиксировано.
+This prevents a user from creating a new "pseudo time scale" that silently
+breaks all conversions. The set of supported scales is fixed.
 
-## Представление в памяти
+## Memory representation
 
-`Time<S>` — ровно 8 байт (идентично `u64`):
+`Time<S>` is exactly 8 bytes (identical to `u64`):
 
 ```rust
 pub struct Time<S: TimeScale> {
     nanos: u64,
-    _scale: PhantomData<S>,  // нулевого размера
+    _scale: PhantomData<S>,  // zero-sized
 }
 ```
 
-- Маркерные типы `S` (`Gps`, `Glonass`, …) тоже нулевого размера
-- Нет выделений памяти в куче
-- Вся типизация существует только на этапе компиляции
+- The marker types `S` (`Gps`, `Glonass`, …) are also zero-sized
+- No heap allocations
+- All typing exists only at compile time
 
-## Архитектура високосных секунд
+## Leap-second architecture
 
-### Почему явный контекст?
+### Why explicit context?
 
 ```rust
-// ❌ Скрытое состояние — откуда берутся leap seconds?
+// ❌ Hidden state — where do the leap seconds come from?
 let utc = gps.to_utc();
 
-// ✅ Явный контекст — тестируемо, совместимо с no_std, детерминированно
+// ✅ Explicit context — testable, no_std-compatible, deterministic
 let utc = gps_to_utc(gps, LeapSeconds::builtin())?;
 ```
 
-### Двухпроходный алгоритм UTC → GPS
+### Two-pass UTC → GPS algorithm
 
-Наивное преобразование UTC → GPS даёт ошибку ±1 секунда рядом с моментом вставки
-високосной секунды. В библиотеке используется двухпроходный алгоритм:
+A naive UTC → GPS conversion yields a ±1 second error near the moment of a
+leap-second insertion. The library uses a two-pass algorithm:
 
-**Проход 1:** приближённо вычисляется TAI, предполагая GPS − UTC = 0
+**Pass 1:** TAI is computed approximately, assuming GPS − UTC = 0
 
-**Проход 2:** уточнение с использованием количества leap seconds из первого прохода
+**Pass 2:** refinement using the number of leap seconds from the first pass
 
-Это устраняет ошибку на границах всех исторических вставок високосных секунд.
-Тесты `utc_to_gps` покрывают все 18 переходов эпохи GPS.
+This removes the error at the boundaries of all historical leap-second
+insertions. The `utc_to_gps` tests cover all 18 transitions of the GPS era.
 
 ## Unix time interoperability
 
-`Time<Utc>` считает наносекунды от **1972-01-01** (UTC epoch), тогда как Unix time
-считает от **1970-01-01**. Разница — `UTC_EPOCH_UNIX_OFFSET_S = 63_072_000 с`
-(730 дней).
+`Time<Utc>` counts nanoseconds from **1972-01-01** (UTC epoch), whereas Unix
+time counts from **1970-01-01**. The difference is
+`UTC_EPOCH_UNIX_OFFSET_S = 63_072_000 s` (730 days).
 
 ```text
 unix_seconds    = utc_seconds_from_1972 + UTC_EPOCH_UNIX_OFFSET_S
 utc_from_1972   = unix_seconds          - UTC_EPOCH_UNIX_OFFSET_S
 ```
 
-Предоставляемые методы:
+Provided methods:
 
-| Тип         | Метод                                       |
-| ----------- | ------------------------------------------- |
-| `Time<Utc>` | `from_unix_seconds(i64) -> Result<Self>`    |
-| `Time<Utc>` | `from_unix_nanos(i64)   -> Result<Self>`    |
-| `Time<Utc>` | `as_unix_seconds() -> i64`                  |
-| `Time<Utc>` | `as_unix_nanos()   -> i64`                  |
-| `Time<Gps>` | `from_unix_seconds(i64, P) -> Result<Self>` |
-| `Time<Gps>` | `as_unix_seconds(P) -> Result<i64>`         |
+| Type         | Method                                       |
+| ------------ | -------------------------------------------- |
+| `Time<Utc>`  | `from_unix_seconds(i64) -> Result<Self>`     |
+| `Time<Utc>`  | `from_unix_nanos(i64)   -> Result<Self>`     |
+| `Time<Utc>`  | `as_unix_seconds() -> i64`                   |
+| `Time<Utc>`  | `as_unix_nanos()   -> i64`                   |
+| `Time<Gps>`  | `from_unix_seconds(i64, P) -> Result<Self>`  |
+| `Time<Gps>`  | `as_unix_seconds(P) -> Result<i64>`          |
 
-## Serde поддержка (feature = "serde")
+## Serde support (feature = "serde")
 
-Подключение:
+Enable it:
 
 ```toml
 gnss-time = { version = "0.7", features = ["serde"] }
 ```
 
-### Форматы
+### Formats
 
 #### `Time<S>`
 
@@ -140,36 +140,37 @@ gnss-time = { version = "0.7", features = ["serde"] }
 { "scale": "GPS", "nanos": 1356566418000000000 }
 ```
 
-Поле `scale` валидируется при десериализации — попытка десериализовать
-`{ "scale": "UTC", ... }` в `Time<Gps>` вернёт ошибку.
+The `scale` field is validated during deserialization — trying to deserialize
+`{ "scale": "UTC", ... }` into `Time<Gps>` returns an error.
 
-**Compact** (postcard, bincode, MessagePack): сырой `u64` наносекунд без тега шкалы.
-Шкала несёт система типов.
+**Compact** (postcard, bincode, MessagePack): a raw `u64` of nanoseconds with
+no scale tag. The scale is carried by the type system.
 
 #### `Duration`
 
-| Формат         | Вид                        |
-| -------------- | -------------------------- |
-| Human-readable | `{ "nanos": -7000000000 }` |
-| Compact        | raw `i64`                  |
+| Format         | Form                        |
+| -------------- | --------------------------- |
+| Human-readable | `{ "nanos": -7000000000 }`  |
+| Compact        | raw `i64`                   |
 
 #### `DurationParts`
 
-| Формат         | Вид                                    |
-| -------------- | -------------------------------------- |
-| Human-readable | `{ "seconds": 5, "nanos": 500000000 }` |
-| Compact        | 2-element tuple `[u64, u32]`           |
+| Format         | Form                                  |
+| -------------- | ------------------------------------- |
+| Human-readable | `{ "seconds": 5, "nanos": 500000000 }`|
+| Compact        | 2-element tuple `[u64, u32]`          |
 
-### Принципы реализации
+### Implementation principles
 
-- **Нет proc-macro** — реализации написаны вручную через `serde` visitor API
-- **no_std совместимо** — `serde` подключается с `default-features = false`
-- `is_human_readable()` определяет формат во время выполнения — одна реализация
-  работает как с JSON, так и с postcard
-- Ошибки масштабирования не требуют `alloc` — используется `fmt::Display`
+- **No proc-macro** — implementations are written by hand using the `serde`
+  visitor API
+- **no_std compatible** — `serde` is pulled in with `default-features = false`
+- `is_human_readable()` determines the format at runtime — one implementation
+  works with both JSON and postcard
+- Scale errors do not require `alloc` — `fmt::Display` is used
 
 ```rust
-// Пример — JSON round-trip
+// Example — JSON round-trip
 let gps = Time::<Gps>::from_seconds(1_356_566_418);
 let json = serde_json::to_string(&gps).unwrap();
 // {"scale":"GPS","nanos":1356566418000000000}
@@ -177,31 +178,31 @@ let json = serde_json::to_string(&gps).unwrap();
 let back: Time<Gps> = serde_json::from_str(&json).unwrap();
 assert_eq!(gps, back);
 
-// Пример — postcard round-trip
+// Example — postcard round-trip
 let bytes = postcard::to_allocvec(&gps).unwrap();
 let back: Time<Gps> = postcard::from_bytes(&bytes).unwrap();
 assert_eq!(gps, back);
 ```
 
-## Feature-флаги
+## Feature flags
 
 | Feature | Effect                                             |
 | ------- | -------------------------------------------------- |
-| (none)  | Чистый `no_std`, без внешних зависимостей          |
+| (none)  | Pure `no_std`, no external dependencies            |
 | `std`   | `impl std::error::Error for GnssTimeError`         |
-| `serde` | `Serialize`/`Deserialize` для всех публичных типов |
-| `alloc` | Heap-строки в serde error messages                 |
-| `defmt` | `impl defmt::Format` для всех публичных типов      |
+| `serde` | `Serialize`/`Deserialize` for all public types     |
+| `alloc` | Heap strings in serde error messages               |
+| `defmt` | `impl defmt::Format` for all public types          |
 
-## Дизайн трейтов преобразования
+## Conversion trait design
 
 ```rust
-// Фиксированное смещение — GPS ↔ TAI, GPS ↔ Galileo, GLONASS ↔ UTC
+// Fixed offset — GPS ↔ TAI, GPS ↔ Galileo, GLONASS ↔ UTC
 pub trait IntoScale<Target: TimeScale>: Sized {
     fn into_scale(self) -> Result<Time<Target>, GnssTimeError>;
 }
 
-// Контекстные преобразования — GPS ↔ UTC, GPS ↔ GLONASS и т.д.
+// Contextual conversions — GPS ↔ UTC, GPS ↔ GLONASS, etc.
 pub trait IntoScaleWith<Target: TimeScale>: Sized {
     fn into_scale_with<P: LeapSecondsProvider>(self, ls: P)
         -> Result<Time<Target>, GnssTimeError>;
@@ -210,17 +211,17 @@ pub trait IntoScaleWith<Target: TimeScale>: Sized {
 }
 ```
 
-`ConvertResult<T>` добавляет сигнал о попадании в окно неоднозначности
-високосной секунды.
+`ConvertResult<T>` adds a signal about falling into a leap-second ambiguity
+window.
 
 ## CI guarantees
 
-| Check                        | Tool                                                       |
-| ---------------------------- | ---------------------------------------------------------- |
-| Нет небезопасного кода       | `#![forbid(unsafe_code)]`                                  |
-| Нет недокументированного API | `#![deny(missing_docs)]`                                   |
-| Сборка под embedded-цели     | `cargo check --target thumbv7em-none-eabihf`               |
-| Размер типов = 8 байт        | unit-тест `test_size_equals_u64`                           |
-| Безопасная арифметика        | `-D warnings` + отсутствие `#[allow(arithmetic_overflow)]` |
-| Serde roundtrip (JSON)       | тесты в `src/serde_impls.rs`                               |
-| Serde roundtrip (postcard)   | тесты в `src/serde_impls.rs`                               |
+| Check                              | Tool                                                            |
+| ---------------------------------- | --------------------------------------------------------------- |
+| No unsafe code                     | `#![forbid(unsafe_code)]`                                       |
+| No undocumented API                | `#![deny(missing_docs)]`                                        |
+| Builds for embedded targets        | `cargo check --target thumbv7em-none-eabihf`                    |
+| Type size = 8 bytes                | unit test `test_size_equals_u64`                                |
+| Safe arithmetic                    | `-D warnings` + absence of `#[allow(arithmetic_overflow)]`      |
+| Serde roundtrip (JSON)             | tests in `src/serde_impls.rs`                                   |
+| Serde roundtrip (postcard)         | tests in `src/serde_impls.rs`                                   |
