@@ -7,15 +7,63 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased] - 0000-00-00
 
+### Added
+
+- Added German and Russian translations of the architecture documentation
+  (`docs/ARCHITECTURE.de.md`, `docs/ARCHITECTURE.ru.md`), kept in sync with
+  the English `docs/ARCHITECTURE.md` (structure, tables, formulas and code
+  examples identical).
+- Added German and Russian translations of the embedded usage guide
+  (`docs/EMBEDDED.de.md`, `docs/EMBEDDED.ru.md`), faithful mirrors of
+  `docs/EMBEDDED.md`: identical structure, tables and commands; code examples
+  unchanged apart from translated inline comments.
+
 ### Changed
 
 - Translated the documentation (`docs/ARCHITECTURE.md`,
   `docs/EMBEDDED.md`, `docs/GNSS_TIME_PRIMER.md`, `docs/INVARIANTS.md`,
   `docs/LEAP_SECONDS.md`) from Russian to English. Content, structure,
   tables, formulas and code examples are preserved unchanged.
+- Documentation (`docs/ARCHITECTURE.md` and `docs/ARCHITECTURE.de.md`):
+  - Added `civil.rs` (`CivilDateTime`, ISO 8601 / RFC 3339) to the module
+    layout.
+  - Scoped the TAI pivot to fixed-offset conversions and explained why
+    `GLONASS ↔ UTC` is a fixed `IntoScale` conversion despite GLONASS using
+    `OffsetToTai::Contextual` (GLONASS is defined from UTC(SU) = UTC + 3 h).
+  - Documented that the built-in leap-second table holds 19 entries: the
+    initial GPS-era state (TAI − UTC = 19 s) plus 18 transition events up to
+    TAI − UTC = 37 s.
+  - Clarified that the Unix mapping of `Time<Utc>` is a linear count-to-count
+    offset without leap-second discontinuities; leap seconds are applied only
+    when converting between time scales.
+  - Clarified that `DurationParts` is a non-negative parts type
+    (`seconds: u64`, `nanos: u32`) for week/day constructors and never encodes
+    a sign.
+  - Noted that the `serde` code itself stays `no_std`-compatible, while the
+    `postcard::to_allocvec()` example requires `alloc`.
+- `alloc` feature description in `Cargo.toml` and `README.md` now states it is
+  a reserved no-op (heap-backed serde error messages are planned but not yet
+  implemented), in line with `docs/INVARIANTS.md` (I-13).
+- Documentation (`docs/EMBEDDED.md` and `docs/EMBEDDED.de.md`):
+  - Scoped the "exactly 8 bytes" claim to the time and duration types listed
+    in the table, since `DurationParts`, `GnssTimeError` and other public types
+    are larger.
+  - Reworded the zero-cost claim to state that, after monomorphization, the
+    `+`/`-` operators reduce to the same elementary arithmetic as the
+    underlying `u64` value, instead of asserting instruction-identical code
+    based on equal benchmark timings alone.
 
 ### Fixed
 
+- Fixed the inverted Unix-time equations in the doc comments of
+  `src/epoch.rs` (module doc, `UTC_EPOCH_UNIX_OFFSET_S`,
+  `UTC_EPOCH_UNIX_OFFSET_NS`). The signs were swapped, contradicting the
+  implementation in `src/time.rs` and `docs/ARCHITECTURE.md`
+  (`unix_s = utc_s + 63_072_000`, `utc_s = unix_s − 63_072_000`).
+- `src/serde_impls.rs`: corrected the module-doc example version from "0.6" to
+  "0.7" and fixed the "dependensies" typo.
+- Removed the misleading (inverted-formula) comments from the
+  `test_unix_before_utc_epoch_is_negative_in_utc` test.
 - Fixed the `Build & measure` commands in `firmware/README.md`: run from the
   repository root they failed (`cargo size`: "Could not determine the wanted
   artifact"; `cargo bloat`: "only 'bin', 'dylib' and 'cdylib' crate types are

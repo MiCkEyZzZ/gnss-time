@@ -10,6 +10,7 @@ src/
 │   ├── leap_seconds.rs  — BUILTIN_TABLE (19 GPS-era entries)
 │   └── mod.rs
 ├── convert.rs      — IntoScale / IntoScaleWith traits + all implementations
+├── civil.rs        — CivilDateTime (ISO 8601 / RFC 3339, from Time<Utc>)
 ├── duration.rs     — Duration (signed interval in nanoseconds)
 ├── epoch.rs        — CivilDate, constant epoch offsets, Unix offsets
 ├── error.rs        — GnssTimeError
@@ -23,18 +24,24 @@ src/
 └── time.rs         — Time<S> struct, constructors, arithmetic, Unix methods
 ```
 
-## Core invariant: TAI as the universal pivot
+## Core invariant: TAI as the pivot for fixed-offset conversions
 
-Any conversion with a fixed offset goes through TAI:
+Any conversion with a fixed offset to TAI goes through TAI:
 
 ```text
 T_tai = T_self + S::OFFSET_TO_TAI
 T_target = T_tai - Target::OFFSET_TO_TAI
 ```
 
-This means that all pairwise conversions are derived from a single consistent
-set of offsets relative to TAI. There is no possibility of off-by-one errors
-between individual pairs of scales.
+This means that all pairwise conversions between scales with a fixed TAI
+offset are derived from a single consistent set of offsets relative to TAI.
+There is no possibility of off-by-one errors between individual pairs of
+scales.
+
+The two contextual scales — UTC and GLONASS — use `OffsetToTai::Contextual`,
+so they have no constant TAI relation. Nevertheless, GLONASS ↔ UTC is itself
+a fixed conversion (`IntoScale`): GLONASS is defined from UTC(SU) = UTC + 3 h
+and therefore maps via a constant epoch shift.
 
 The offsets (in nanoseconds) are compile-time constants, embedded in the enum
 `OffsetToTai`:
@@ -98,18 +105,27 @@ leap-second insertion. The library uses a two-pass algorithm:
 **Pass 2:** refinement using the number of leap seconds from the first pass
 
 This removes the error at the boundaries of all historical leap-second
-insertions. The `utc_to_gps` tests cover all 18 transitions of the GPS era.
+insertions. The built-in leap-second table holds 19 entries: the initial
+state of the GPS era (TAI − UTC = 19 s) plus 18 subsequent leap-second
+transitions, up to TAI − UTC = 37 s (2017-01-01). The table and its tests
+cover all 18 transitions of the GPS era.
 
 ## Unix time interoperability
 
 `Time<Utc>` counts nanoseconds from **1972-01-01** (UTC epoch), whereas Unix
 time counts from **1970-01-01**. The difference is
-`UTC_EPOCH_UNIX_OFFSET_S = 63_072_000 s` (730 days).
+`UTC_EPOCH_UNIX_OFFSET_S = 63_072_000 s` (730 days):
 
 ```text
 unix_seconds    = utc_seconds_from_1972 + UTC_EPOCH_UNIX_OFFSET_S
 utc_from_1972   = unix_seconds          - UTC_EPOCH_UNIX_OFFSET_S
 ```
+
+This is a pure count-to-count mapping: `Time<Utc>` stores a linear count of
+nanoseconds with no leap-second discontinuities. Leap seconds are applied only
+when converting between time scales (see above) — not in this Unix mapping,
+which therefore works on the internal representation rather than on a
+leap-second-aware civil calendar.
 
 Provided methods:
 
@@ -160,6 +176,11 @@ no scale tag. The scale is carried by the type system.
 | Human-readable | `{ "seconds": 5, "nanos": 500000000 }`|
 | Compact        | 2-element tuple `[u64, u32]`          |
 
+`DurationParts` is a separate, non-negative parts type
+(`seconds: u64`, `nanos: u32`) used by GNSS week/day constructors. It never
+encodes a sign — negative intervals exist only in `Duration` itself (compact
+`i64`).
+
 ### Implementation principles
 
 - **No proc-macro** — implementations are written by hand using the `serde`
@@ -184,15 +205,19 @@ let back: Time<Gps> = postcard::from_bytes(&bytes).unwrap();
 assert_eq!(gps, back);
 ```
 
+Note: the `gnss-time` serde code itself stays `no_std`-compatible; the
+`postcard::to_allocvec()` call in the example additionally requires `alloc`
+(the `alloc` feature of the `postcard` crate).
+
 ## Feature flags
 
-| Feature | Effect                                             |
-| ------- | -------------------------------------------------- |
-| (none)  | Pure `no_std`, no external dependencies            |
-| `std`   | `impl std::error::Error for GnssTimeError`         |
-| `serde` | `Serialize`/`Deserialize` for all public types     |
-| `alloc` | Heap strings in serde error messages               |
-| `defmt` | `impl defmt::Format` for all public types          |
+| Feature | Effect                                                    |
+| ------- | --------------------------------------------------------- |
+| (none)  | Pure `no_std`, no external dependencies                   |
+| `std`   | `impl std::error::Error for GnssTimeError`                |
+| `serde` | `Serialize`/`Deserialize` for all public types            |
+| `alloc` | Reserved no-op — heap-backed serde error messages planned |
+| `defmt` | `impl defmt::Format` for all public types                 |
 
 ## Conversion trait design
 

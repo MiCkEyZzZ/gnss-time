@@ -32,9 +32,8 @@
 //! The constant [`UTC_EPOCH_UNIX_OFFSET_S`] expresses this gap:
 //!
 //! ```text
-//! unix_seconds = utc_seconds_from_1972 - UTC_EPOCH_UNIX_OFFSET_S
-//!                                        (= -63_072_000)
-//! utc_nanos    = unix_nanos + UTC_EPOCH_UNIX_OFFSET_NS
+//! unix_seconds = utc_seconds_from_1972 + UTC_EPOCH_UNIX_OFFSET_S
+//! utc_nanos    = unix_nanos            - UTC_EPOCH_UNIX_OFFSET_NS
 //! ```
 //!
 //! ## Notes on representation
@@ -208,8 +207,8 @@ pub const BEIDOU_EPOCH: CivilDate = CivilDate::new(2006, 1, 1);
 /// seconds from 1970-01-01. This constant bridges the two:
 ///
 /// ```text
-/// unix_seconds     = utc_seconds_from_1972 - UTC_EPOCH_UNIX_OFFSET_S
-/// utc_from_1972    = unix_seconds          + UTC_EPOCH_UNIX_OFFSET_S
+/// unix_seconds     = utc_seconds_from_1972 + UTC_EPOCH_UNIX_OFFSET_S
+/// utc_from_1972    = unix_seconds          - UTC_EPOCH_UNIX_OFFSET_S
 /// ```
 ///
 /// Value: 730 days × 86 400 s/day = **63 072 000 s**.
@@ -230,8 +229,8 @@ pub const UTC_EPOCH_UNIX_OFFSET_S: i64 = UNIX_EPOCH.seconds_until(UTC_CIVIL_EPOC
 /// Nanoseconds from the Unix epoch (1970-01-01) to the UTC epoch (1972-01-01).
 ///
 /// ```text
-/// utc_nanos_from_1972 = unix_nanos + UTC_EPOCH_UNIX_OFFSET_NS
-/// unix_nanos          = utc_nanos  - UTC_EPOCH_UNIX_OFFSET_NS
+/// utc_nanos_from_1972 = unix_nanos - UTC_EPOCH_UNIX_OFFSET_NS
+/// unix_nanos          = utc_nanos  + UTC_EPOCH_UNIX_OFFSET_NS
 /// ```
 pub const UTC_EPOCH_UNIX_OFFSET_NS: i64 = UTC_EPOCH_UNIX_OFFSET_S * 1_000_000_000;
 
@@ -506,14 +505,11 @@ mod tests {
 
     #[test]
     fn test_unix_before_utc_epoch_is_negative_in_utc() {
-        // unix_seconds < UTC_EPOCH_UNIX_OFFSET_S → UTC seconds from 1972 < 0
+        // unix_s < UTC_EPOCH_UNIX_OFFSET_S → UTC seconds from 1972 < 0
         let unix_s: i64 = 0;
-        let utc_from_1972 = unix_s + UTC_EPOCH_UNIX_OFFSET_S; // still positive for unix=0
-                                                              // Actually unix=0 gives utc_from_1972 = -63_072_000 (before UTC epoch)
-        let utc_from_1972_correct = unix_s - UTC_EPOCH_UNIX_OFFSET_S;
+        let utc_from_1972 = unix_s - UTC_EPOCH_UNIX_OFFSET_S;
 
-        assert!(utc_from_1972_correct < 0);
-        let _ = utc_from_1972; // suppress unused warning
+        assert!(utc_from_1972 < 0);
     }
 
     #[test]

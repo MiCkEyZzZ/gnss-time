@@ -61,7 +61,9 @@ defmt = ["dep:defmt"]
 #   DurationParts → 2-element tuple [u64, u32]
 serde = ["dep:serde"]
 
-# alloc: enables heap-based error messages in serde deserialization.
+# alloc: reserved no-op — heap-based error messages in serde deserialization
+# are planned for a future version; the flag is currently accepted but has no
+# effect (see docs/INVARIANTS.md, I-13).
 alloc = []
 
 [dependencies]
@@ -77,7 +79,7 @@ criterion = { version = "0.8.2", features = ["html_reports"] }
 proptest = { version = "1.8.0", default-features = false, features = ["std"] }
 
 # postcard: compact binary serialization for embedded / no_std.
-# - `alloc` feature: enables postcard::to_allocvec (requires std/alloc)
+# - postcard's `alloc` (crate) feature: enables postcard::to_allocvec (requires std/alloc)
 # - `heapless` feature: enables postcard::to_vec into heapless::Vec (no_std)
 postcard = { version = "1", features = ["alloc"] }
 serde_json = { version = "1" }

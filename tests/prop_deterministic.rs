@@ -1,30 +1,30 @@
-//! # Deterministic property-based tests
-//!
-//! This file tests mathematical invariants of `gnss-time` using a fixed set
-//! of deterministic sample points — no `proptest`, no randomness, no `std`
-//! dependency beyond what `cargo test` already implies on a host target.
-//!
-//! ## Why two files?
-//!
-//! | File | Generator | Requires |
-//! |------|-----------|----------|
-//! | `prop_deterministic.rs` (this) | fixed samples | always runs on host |
-//! | `prop_tests.rs` | `proptest` strategies | `feature = "std"` |
-//!
-//! The separation keeps the embedded CI (`thumbv7em-none-eabihf`) unaffected:
-//! integration tests are never built for bare-metal targets anyway, but the
-//! deterministic file can be audited independently of `proptest`.
-//!
-//! ## Properties covered
-//!
-//! 1. `GPS → TAI → GPS = t`                        (roundtrip)
-//! 2. `GPS → Galileo → GPS = t`                    (identity scale)
-//! 3. `GPS → BeiDou → GPS = t`                     (fixed offset)
-//! 4. `GPS → UTC → GPS = t` (outside leap window)  (contextual roundtrip)
-//! 5. `Duration` addition: commutativity, associativity, identity
-//! 6. `Time<S> + d - d == Time<S>`                  (arithmetic inverse)
-//! 7. `glonass_to_utc` is strictly monotone
-//! 8. `ConvertResult::AmbiguousLeapSecond` occurs only in the 1-second window
+// # Deterministic property-based tests
+//
+// This file tests mathematical invariants of `gnss-time` using a fixed set
+// of deterministic sample points — no `proptest`, no randomness, no `std`
+// dependency beyond what `cargo test` already implies on a host target.
+//
+// ## Why two files?
+//
+// | File                           | Generator             | Requires            |
+// |--------------------------------|-----------------------|---------------------|
+// | `prop_deterministic.rs` (this) | fixed samples         | always runs on host |
+// | `prop_tests.rs`                | `proptest` strategies | `feature = "std"`   |
+//
+// The separation keeps the embedded CI (`thumbv7em-none-eabihf`) unaffected:
+// integration tests are never built for bare-metal targets anyway, but the
+// deterministic file can be audited independently of `proptest`.
+//
+// ## Properties covered
+//
+// 1. `GPS → TAI → GPS = t`                        (roundtrip)
+// 2. `GPS → Galileo → GPS = t`                    (identity scale)
+// 3. `GPS → BeiDou → GPS = t`                     (fixed offset)
+// 4. `GPS → UTC → GPS = t` (outside leap window)  (contextual roundtrip)
+// 5. `Duration` addition: commutativity, associativity, identity
+// 6. `Time<S> + d - d == Time<S>`                  (arithmetic inverse)
+// 7. `glonass_to_utc` is strictly monotone
+// 8. `ConvertResult::AmbiguousLeapSecond` occurs only in the 1-second window
 
 use gnss_time::{
     glonass_to_utc, gps_to_utc, utc_to_gps, Beidou, ConvertResult, Duration, DurationParts,

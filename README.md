@@ -65,12 +65,12 @@ via feature flags (see below).
 
 ## Feature flags
 
-| Feature  | Default | Description                                                                 |
-| -------- | ------- | --------------------------------------------------------------------------- |
-| `std`    | no      | `impl std::error::Error` for `GnssTimeError` (do not enable for embedded)    |
-| `serde`  | no      | `Serialize` / `Deserialize` for `Time<S>`, `Duration`, `DurationParts`       |
-| `defmt`  | no      | `impl defmt::Format` for all public types (structured embedded logging)      |
-| `alloc`  | no      | Heap-backed error messages in `serde` deserialization                        |
+| Feature  | Default | Description                                                                   |
+| -------- | ------- | ----------------------------------------------------------------------------- |
+| `std`    | no      | `impl std::error::Error` for `GnssTimeError` (do not enable for embedded)     |
+| `serde`  | no      | `Serialize` / `Deserialize` for `Time<S>`, `Duration`, `DurationParts`        |
+| `defmt`  | no      | `impl defmt::Format` for all public types (structured embedded logging)       |
+| `alloc`  | no      | Reserved no-op (heap-backed error messages in `serde` deserialization planned)|
 
 ```toml
 [dependencies]

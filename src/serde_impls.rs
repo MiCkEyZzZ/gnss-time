@@ -3,8 +3,8 @@
 //! Enabled with the `serde` feature flag:
 //!
 //! ```toml
-//! [dependensies]
-//! gnss-time = { version = "0.6", features = ["serde"] }
+//! [dependencies]
+//! gnss-time = { version = "0.7", features = ["serde"] }
 //! ```
 //!
 //! # Formats

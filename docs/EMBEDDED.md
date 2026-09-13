@@ -35,9 +35,9 @@ The `std` feature is not required. The crate works in `no_std` by default.
 
 ### In-memory representation
 
-Every public type occupies **exactly 8 bytes** in memory — suitable for
-DMA buffers and fixed-size telemetry packets. This refers to the in-memory
-representation of the value in Rust:
+Each of the time and duration types listed below occupies **exactly 8 bytes**
+in memory — suitable for DMA buffers and fixed-size telemetry packets. This
+refers to the in-memory representation of the value in Rust:
 
 | Type            | Size | Alignment |
 | --------------- | ---- | --------- |
@@ -71,9 +71,9 @@ Benchmark results on x86_64 (Criterion, release mode):
 | `GPS → UTC` (binary search, 19 entries)  | 9.8 ns  |
 | `UTC → GPS` (two-pass algorithm)         | 22.5 ns |
 
-The panicking `+` and `-` operators compile down to exactly the same
-instructions as plain `u64` arithmetic — the abstraction has no runtime
-overhead.
+The `+` and `-` operators panic on overflow; after monomorphization they
+reduce to the same elementary arithmetic as the underlying `u64` value — the
+abstraction has no runtime overhead.
 
 ## Code size (.text)
 
@@ -92,16 +92,16 @@ loader 62 B, handlers ~18 B).
 
 Measured symbols in this binary (size of a concrete ELF symbol, release):
 
-| Symbol in this binary                            | `.text` |
-| ------------------------------------------------ | ------- |
-| `Time<Gps>::from_week_tow` (validation + computation) | 182 B |
-| `probe_gps_to_utc` (generated function)          | 180 B   |
-| `LeapSeconds::tai_minus_utc_at` (binary search)  | 138 B   |
-| `Time<Gps>::to_tai` (GPS → TAI, +19 s)           | 56 B    |
-| `probe_time_checked_add`                         | 56 B    |
-| `probe_time_saturating_add`                      | 42 B    |
-| `probe_from_week_tow` (probe wrapper)            | 34 B    |
-| `probe_into_scale` (probe wrapper)               | 32 B    |
+| Symbol in this binary                                 | `.text` |
+| ----------------------------------------------------- | ------- |
+| `Time<Gps>::from_week_tow` (validation + computation) | 182 B   |
+| `probe_gps_to_utc` (generated function)               | 180 B   |
+| `LeapSeconds::tai_minus_utc_at` (binary search)       | 138 B   |
+| `Time<Gps>::to_tai` (GPS → TAI, +19 s)                | 56 B    |
+| `probe_time_checked_add`                              | 56 B    |
+| `probe_time_saturating_add`                           | 42 B    |
+| `probe_from_week_tow` (probe wrapper)                 | 34 B    |
+| `probe_into_scale` (probe wrapper)                    | 32 B    |
 
 Key takeaway: `Time + Duration` requires no additional abstraction layer —
 after monomorphization the operation reduces to plain arithmetic over the

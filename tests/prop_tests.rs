@@ -1,29 +1,30 @@
-//! # Property-based tests using `proptest`
-//!
-//! This file uses the [`proptest`] crate to generate random inputs and verify
-//! mathematical invariants of `gnss-time`.
-//!
-//! ## Why `#![cfg(feature = "std")]`?
-//!
-//! `proptest` requires `std` (it uses `std::collections`, thread-local RNG,
-//! and the `std::io` trait). The `gnss-time` crate is `#![no_std]` by default,
-//! so `proptest` can only run when the consumer enables the `std` feature.
-//!
-//! Build matrix:
-//!
-//! | Command | Runs these tests? |
-//! |---------|-------------------|
-//! | `cargo test` (host, default) | ✅ yes — `std` is implied on host |
-//! | `cargo test --features std` | ✅ yes |
-//! | `cargo test --no-default-features` | ❌ no — proptest requires std |
-//! | `cargo check --target thumbv7em-none-eabihf` | ❌ n/a — integration tests not built for bare-metal |
-//!
-//! Deterministic coverage that always runs is in `tests/prop_deterministic.rs`.
+// # Property-based tests using `proptest`
+//
+// This file uses the [`proptest`] crate to generate random inputs and verify
+// mathematical invariants of `gnss-time`.
+//
+// ## Why `#![cfg(feature = "std")]`?
+//
+// `proptest` requires `std` (it uses `std::collections`, thread-local RNG,
+// and the `std::io` trait). The `gnss-time` crate is `#![no_std]` by default,
+// so `proptest` can only run when the consumer enables the `std` feature.
+//
+// Build matrix:
+//
+// | Command                                      | Runs these tests?                                  |
+// |----------------------------------------------|----------------------------------------------------|
+// | `cargo test` (host, default)                 | ✅ yes — `std` is implied on host                   |
+// | `cargo test --features std`                  | ✅ yes                                              |
+// | `cargo test --no-default-features`           | ❌ no — proptest requires std                       |
+// | `cargo check --target thumbv7em-none-eabihf` | ❌ n/a — integration tests not built for bare-metal |
+//
+// Deterministic coverage that always runs is in `tests/prop_deterministic.rs`.
 
 // Guard the entire file: compile only when std is available.
 // On a host `cargo test` run, `std` is always available even without
 // `--features std`, because the test harness itself links std.
 // The cfg guard here makes it explicit and prevents confusion.
+
 #![cfg(feature = "std")]
 
 use gnss_time::{
