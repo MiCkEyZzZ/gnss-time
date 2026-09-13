@@ -149,7 +149,7 @@ This library detects the window and signals it via
                            ▼      ▼       ▼      │
                           GPS   Galileo  BeiDou  │
                            │      │       │      │
-                           │ identity fixed     │
+                           │ identity fixed      │
                            │                     ▼
                            │               UTC ←──── GLONASS
                            │               │  epoch shift

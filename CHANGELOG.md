@@ -17,6 +17,18 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   (`docs/EMBEDDED.de.md`, `docs/EMBEDDED.ru.md`), faithful mirrors of
   `docs/EMBEDDED.md`: identical structure, tables and commands; code examples
   unchanged apart from translated inline comments.
+- Added German and Russian translations of the GNSS time primer
+  (`docs/GNSS_TIME_PRIMER.de.md`, `docs/GNSS_TIME_PRIMER.ru.md`), faithful
+  mirrors of `docs/GNSS_TIME_PRIMER.md`: identical structure, tables, formulas
+  and code examples, native German/Russian prose.
+- Added German and Russian translations of the invariants document
+  (`docs/INVARIANTS.de.md`, `docs/INVARIANTS.ru.md`), faithful mirrors of
+  `docs/INVARIANTS.md`: identical invariant numbering, formulas and code
+  examples, native German/Russian prose.
+- Added German and Russian translations of the leap-seconds documentation
+  (`docs/LEAP_SECONDS.de.md`, `docs/LEAP_SECONDS.ru.md`), faithful mirrors of
+  `docs/LEAP_SECONDS.md`: identical 19-entry table, formulas and code examples,
+  native German/Russian prose.
 
 ### Changed
 

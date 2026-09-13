@@ -51,27 +51,27 @@ threshold = (1_167_264_000 + 37) × 10⁹  = 1_167_264_037_000_000_000
 
 ## Full table (19 entries, GPS era)
 
-| #   | Event date | TAI−UTC | GPS−UTC | tai_nanos threshold      |
-| --- | ---------- | ------- | ------- | ------------------------ |
-| 0   | 1980-01-06 | 19      | 0       | 0                        |
-| 1   | 1981-07-01 | 20      | 1       | 46 828 820 000 000 000   |
-| 2   | 1982-07-01 | 21      | 2       | 78 364 821 000 000 000   |
-| 3   | 1983-07-01 | 22      | 3       | 109 900 822 000 000 000  |
-| 4   | 1985-07-01 | 23      | 4       | 173 059 223 000 000 000  |
-| 5   | 1988-01-01 | 24      | 5       | 252 028 824 000 000 000  |
-| 6   | 1990-01-01 | 25      | 6       | 315 187 225 000 000 000  |
-| 7   | 1991-01-01 | 26      | 7       | 346 723 226 000 000 000  |
-| 8   | 1992-07-01 | 27      | 8       | 393 984 027 000 000 000  |
-| 9   | 1993-07-01 | 28      | 9       | 425 520 028 000 000 000  |
-| 10  | 1994-07-01 | 29      | 10      | 457 056 029 000 000 000  |
-| 11  | 1996-01-01 | 30      | 11      | 504 489 630 000 000 000  |
-| 12  | 1997-07-01 | 31      | 12      | 551 750 431 000 000 000  |
-| 13  | 1999-01-01 | 32      | 13      | 599 184 032 000 000 000  |
-| 14  | 2006-01-01 | 33      | 14      | 820 108 833 000 000 000  |
-| 15  | 2009-01-01 | 34      | 15      | 914 803 234 000 000 000  |
-| 16  | 2012-07-01 | 35      | 16      | 1 025 136 035 000 000 000|
-| 17  | 2015-07-01 | 36      | 17      | 1 119 744 036 000 000 000|
-| 18  | 2017-01-01 | 37      | 18      | 1 167 264 037 000 000 000|
+| #   | Event date | TAI−UTC | GPS−UTC | tai_nanos threshold       |
+| --- | ---------- | ------- | ------- | ------------------------- |
+| 0   | 1980-01-06 | 19      | 0       | 0                         |
+| 1   | 1981-07-01 | 20      | 1       | 46 828 820 000 000 000    |
+| 2   | 1982-07-01 | 21      | 2       | 78 364 821 000 000 000    |
+| 3   | 1983-07-01 | 22      | 3       | 109 900 822 000 000 000   |
+| 4   | 1985-07-01 | 23      | 4       | 173 059 223 000 000 000   |
+| 5   | 1988-01-01 | 24      | 5       | 252 028 824 000 000 000   |
+| 6   | 1990-01-01 | 25      | 6       | 315 187 225 000 000 000   |
+| 7   | 1991-01-01 | 26      | 7       | 346 723 226 000 000 000   |
+| 8   | 1992-07-01 | 27      | 8       | 393 984 027 000 000 000   |
+| 9   | 1993-07-01 | 28      | 9       | 425 520 028 000 000 000   |
+| 10  | 1994-07-01 | 29      | 10      | 457 056 029 000 000 000   |
+| 11  | 1996-01-01 | 30      | 11      | 504 489 630 000 000 000   |
+| 12  | 1997-07-01 | 31      | 12      | 551 750 431 000 000 000   |
+| 13  | 1999-01-01 | 32      | 13      | 599 184 032 000 000 000   |
+| 14  | 2006-01-01 | 33      | 14      | 820 108 833 000 000 000   |
+| 15  | 2009-01-01 | 34      | 15      | 914 803 234 000 000 000   |
+| 16  | 2012-07-01 | 35      | 16      | 1 025 136 035 000 000 000 |
+| 17  | 2015-07-01 | 36      | 17      | 1 119 744 036 000 000 000 |
+| 18  | 2017-01-01 | 37      | 18      | 1 167 264 037 000 000 000 |
 
 ## Table update policy
 
@@ -111,11 +111,11 @@ If IERS announces a new leap second:
 In `src/tables/leap_seconds.rs` three `const`-assertions are defined that fire
 during **compilation** (not only at test time):
 
-| Assertion                | What it checks                                      |
-| ------------------------ | --------------------------------------------------- |
-| `_ASSERT_FIRST_ENTRY`    | `tai_nanos == 0`, `tai_minus_utc == 19`             |
+| Assertion                | What it checks                                             |
+| ------------------------ | ---------------------------------------------------------- |
+| `_ASSERT_FIRST_ENTRY`    | `tai_nanos == 0`, `tai_minus_utc == 19`                    |
 | `_ASSERT_TABLE_INVARIANTS`| strict ordering and a +1 increment across the whole table |
-| `_ASSERT_LAST_ENTRY`     | the last entry matches 2017-01-01, `n == 37`        |
+| `_ASSERT_LAST_ENTRY`     | the last entry matches 2017-01-01, `n == 37`               |
 
 If you add an entry with an incorrect threshold or skip an increment, the
 compiler rejects it **immediately**, without running tests.
@@ -167,15 +167,15 @@ let utc = gnss_time::gps_to_utc(gps, &rt).unwrap();
 
 ### `RuntimeLeapSeconds` API
 
-| Method                     | Description                            |
-| -------------------------- | -------------------------------------- |
+| Method                     | Description                                    |
+| -------------------------- | ---------------------------------------------- |
 | `from_builtin()`           | Creates a table from the compile-time snapshot |
-| `from_slice(&[LeapEntry])`| Creates from an arbitrary slice        |
-| `try_extend(entry)`        | Adds a new entry with validation       |
-| `last_update()`            | TAI moment of the last event           |
-| `current_tai_minus_utc()`  | Current TAI−UTC value                  |
-| `len()` / `is_empty()`     | Table size                             |
-| `entries()`                | All entries as a slice                 |
+| `from_slice(&[LeapEntry])` | Creates from an arbitrary slice                |
+| `try_extend(entry)`        | Adds a new entry with validation               |
+| `last_update()`            | TAI moment of the last event                   |
+| `current_tai_minus_utc()`  | Current TAI−UTC value                          |
+| `len()` / `is_empty()`     | Table size                                     |
+| `entries()`                | All entries as a slice                         |
 
 ### Validation on `try_extend`
 
