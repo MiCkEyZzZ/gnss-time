@@ -287,6 +287,162 @@ def main() -> None:
 
     print(f"generated {count} seeds in {wt_dir}")
 
+    # ── fuzz_day_tod ─────────────────────────────────────────────────────────
+    dd_dir = os.path.join(here, "..", "corpus", "fuzz_day_tod")
+    os.makedirs(dd_dir, exist_ok=True)
+    for entry in os.listdir(dd_dir):
+        os.remove(os.path.join(dd_dir, entry))
+
+    count = 0
+
+    # RAW anchors over the u32/u64 day × tod domain (17-byte layout).
+    RAW_DAY_TOD = [
+        (0, 0, 0),  # GLONASS epoch
+        (0, 86_399, 999_999_999),  # last valid tod with day 0
+        (1_460, 0, 0),  # last day of the first 4-year interval
+        (1_461, 0, 0),  # first day of the second 4-year interval
+        (213_502, 0, 0),  # just below the overflow rim
+        (213_503, 0, 0),  # day rim: valid with small tod
+        (213_503, 7, 0),  # still valid
+        (213_504, 0, 0),  # overflow by one day
+        (213_504, 1, 0),  # overflow
+        (65_535, 0, 0),
+        (262_143, 0, 0),
+        (2**32 - 1, 0, 0),  # day == u32::MAX
+        (0, 86_400, 0),  # invalid: tod seconds == 86_400
+        (0, 86_401, 0),  # invalid
+        (0, 2**64 - 1, 0),  # invalid: tod seconds == u64::MAX
+        (0, 0, 1_000_000_000),  # invalid: nanos == 1e9
+        (0, 0, 2**32 - 1),  # invalid: nanos == u32::MAX
+        (1, 86_399, 999_999_999),  # max valid tod, day 1
+    ]
+
+    def raw_dd_seed(day: int, secs: int, nanos: int) -> bytes:
+        return b"\x00" + struct.pack("<IQI", day, secs, nanos)
+
+    for day, secs, nanos in RAW_DAY_TOD:
+        with open(os.path.join(dd_dir, f"dd_raw_{count:04d}"), "wb") as fh:
+            fh.write(raw_dd_seed(day, secs, nanos))
+        count += 1
+
+    # small perturbations around the raw anchors
+    for day, secs, nanos in RAW_DAY_TOD:
+        for dw in (-1, 1):
+            d = day + dw
+            if d < 0 or d >= 2**32:
+                continue
+            for ds in (-1, 1):
+                s = secs + ds
+                if s < 0 or s >= 2**64:
+                    continue
+                for dn in (-1, 1):
+                    n = nanos + dn
+                    if n < 0 or n >= 2**32:
+                        continue
+                    with open(os.path.join(dd_dir, f"dd_raw_{count:04d}"), "wb") as fh:
+                        fh.write(raw_dd_seed(d, s, n))
+                    count += 1
+
+    # BOUNDARY seeds: single-axis edges are independent — day affects only
+    # Overflow, secs/nanos only InvalidInput. No cross-product needed.
+    DAY_EDGES = [
+        0,
+        1,
+        1_460,
+        1_461,
+        1_462,
+        10_000,
+        100_000,
+        209_715,
+        213_502,
+        213_503,
+        213_504,
+        213_505,
+        65_535,
+        262_143,
+        1_000_000,
+        2**32 - 1,
+    ]
+    TOD_EDGES = [0, 1, 1_439, 86_399, 86_400, 86_401, 2**32 - 1, 2**64 - 1]
+    NANOS_EDGES_DD = [
+        0,
+        1,
+        999_999_998,
+        999_999_999,
+        1_000_000_000,
+        1_000_000_001,
+        2**32 - 2,
+        2**32 - 1,
+    ]
+
+    def dd_boundary_seed(di: int, si: int, ni: int, jd: int, js: int, jn: int) -> bytes:
+        return bytes([0x80, di, si, ni]) + struct.pack("<iii", jd, js, jn)
+
+    def write_dd(
+        di: int, si: int, ni: int, jd: int = 0, js: int = 0, jn: int = 0
+    ) -> None:
+        nonlocal count
+        with open(os.path.join(dd_dir, f"dd_bd_{count:04d}"), "wb") as fh:
+            fh.write(dd_boundary_seed(di, si, ni, jd, js, jn))
+        count += 1
+
+    # One seed per day edge, tods at zero.
+    for di in range(len(DAY_EDGES)):
+        write_dd(di, 0, 0)
+
+    # One seed per tod-seconds edge, day and nanos at zero.
+    for si in range(len(TOD_EDGES)):
+        write_dd(0, si, 0)
+
+    # One seed per nanos edge, day and tod at zero.
+    for ni in range(len(NANOS_EDGES_DD)):
+        write_dd(0, 0, ni)
+
+    # Overflow rim walks: jitter walks day across 213_503 → 213_504.
+    for jd in (-4, -3, -2, -1, 1, 2, 3, 4):
+        write_dd(DAY_EDGES.index(213_503), 0, 0, jd=jd)
+
+    # TOD-boundary jitter walks: secs across 86_399 → 86_400.
+    for js in (-4, -2, -1, 1, 2, 4):
+        write_dd(0, TOD_EDGES.index(86_399), 0, js=js)
+        write_dd(0, TOD_EDGES.index(86_400), 0, js=js)
+
+    # Nanos-boundary jitter walks: nanos across 999_999_999 → 1_000_000_000.
+    for jn in (-2, -1, 1, 2):
+        write_dd(0, 0, NANOS_EDGES_DD.index(999_999_999), jn=jn)
+        write_dd(0, 0, NANOS_EDGES_DD.index(1_000_000_000), jn=jn)
+
+    # Four-year interval walk: day across 1_460 → 1_461.
+    for jd in (0, 1, -1):
+        write_dd(DAY_EDGES.index(1_460), 0, 0, jd=jd)
+        write_dd(DAY_EDGES.index(1_461), 0, 0, jd=jd)
+
+    # Combos: intersecting valid / invalid classes.
+    write_dd(
+        DAY_EDGES.index(213_503),
+        TOD_EDGES.index(86_399),
+        NANOS_EDGES_DD.index(999_999_999),
+    )  # max in-range
+    write_dd(
+        DAY_EDGES.index(213_502),
+        TOD_EDGES.index(86_399),
+        NANOS_EDGES_DD.index(999_999_999),
+    )  # valid
+    write_dd(
+        DAY_EDGES.index(213_504), TOD_EDGES.index(0), NANOS_EDGES_DD.index(0)
+    )  # overflow
+    write_dd(
+        DAY_EDGES.index(213_503), TOD_EDGES.index(1), NANOS_EDGES_DD.index(0)
+    )  # day rim + a few seconds
+    write_dd(
+        DAY_EDGES.index(0), TOD_EDGES.index(86_400), NANOS_EDGES_DD.index(1_000_000_000)
+    )  # double invalid
+    write_dd(
+        DAY_EDGES.index(1), TOD_EDGES.index(86_399), NANOS_EDGES_DD.index(999_999_999)
+    )  # max valid tod
+
+    print(f"generated {count} seeds in {dd_dir}")
+
 
 if __name__ == "__main__":
     main()

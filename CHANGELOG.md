@@ -31,9 +31,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   native German/Russian prose.
 - Added `fuzz/` sub-crate (`gnss-time-fuzz`) with cargo-fuzz / libFuzzer
   integration (`Cargo.toml`, `README.md`, `fuzz_gps_utc.dict`,
-  `fuzz_week_tow.dict` dictionaries, `fuzz_targets/` harnesses and
-  `tools/gen_corpus.py`, `tools/gen_corpus.sh`, `tools/run-fuzz.sh` helper
-  scripts).
+  `fuzz_week_tow.dict`, `fuzz_day_tod.dict` dictionaries, `fuzz_targets/`
+  harnesses and `tools/gen_corpus.py`, `tools/gen_corpus.sh`,
+  `tools/run-fuzz.sh` helper scripts).
   - `fuzz_gps_utc` target (dual-mode: RAW full-`u64` domain + BOUNDARY
     structured walk around all 18 leap-second ambiguity windows) covering
     GPS ↔ UTC roundtrip exactness (invariant I-12), UTC monotonicity and
@@ -45,9 +45,29 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     `tow_seconds()` / `sub_second_nanos()` roundtrips and determinism. Edge
     sets span the `604_800` TOW-seconds boundary, the `1_000_000_000`
     sub-second boundary and the `u64` week-overflow rim (≈ `30_501`).
+  - `fuzz_day_tod` target (dual-mode: RAW full `day × tod` domain +
+    BOUNDARY edge walk over its own edge sets) covering
+    `Time::<Glonass>::from_day_tod` error classification, exact constructor
+    arithmetic, `day()` / `tod_seconds()` / `sub_second_nanos()` roundtrips,
+    determinism and `day_of_week()` range consistency (`1..=7`) with
+    `is_weekend()`. Edge sets span the `86_400` TOD-seconds boundary, the
+    `1_000_000_000` sub-second boundary, the 4-year GLONASS cycle
+    (day 1_460 → 1_461), historic counter widths and the `u64` day-overflow
+    rim (≈ `213_503`). The compile-time assertion pins the overflow rim to
+    `DAY_NS` via `u128` arithmetic so a typo in the constant breaks the
+    build.
+  - Tooling hardening shared by all targets: compile-time assertions pin
+    overflow rims to the `u64` storage bound (no self-referential asserts);
+    error classification uses a dedicated `ExpectedKind` enum instead of
+    discriminant comparisons with fabricated payloads; `day_of_week()`
+    invariants avoid re-deriving the implementation formula (exact weekdays
+    are pinned by unit tests, the harness range-checks only).
   - Corpus generator emits per-axis edge seeds (no cross-product) plus
     boundary jitter walks, keeping the seed corpus small (`fuzz_gps_utc`:
-    407, `fuzz_week_tow`: 137) and reproducible.
+    407, `fuzz_week_tow`: 137, `fuzz_day_tod`: 134) and reproducible.
+  - `tools/run-fuzz.sh` dispatches per-target `-max_len` and `-dict`, falling
+    through to `cargo fuzz run`; `tools/gen_corpus.sh` regenerates and
+    reports all three corpora.
 - Added `setup-fuzz`, `fuzz-build` and `fuzz` recipes to the `justfile`;
   `just fuzz [secs=300]` runs all five targets locally.
 - Added `.gitattributes` to normalize line endings (LF) for text files and

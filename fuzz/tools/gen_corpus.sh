@@ -10,6 +10,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."  # fuzz/
 
 python3 tools/gen_corpus.py
-echo "corpus size: $(find corpus/fuzz_gps_utc -type f | wc -l) files (fuzz_gps_utc), $(find corpus/fuzz_week_tow -type f | wc -l) files (fuzz_week_tow)"
+echo "corpus size: $(find corpus/fuzz_gps_utc -type f | wc -l) files (fuzz_gps_utc), $(find corpus/fuzz_week_tow -type f | wc -l) files (fuzz_week_tow), $(find corpus/fuzz_day_tod -type f | wc -l) files (fuzz_day_tod)"
 echo
-echo "next:  ./tools/run-fuzz.sh fuzz_gps_utc   # or: ./tools/run-fuzz.sh fuzz_week_tow"
+echo "next:  ./tools/run-fuzz.sh fuzz_gps_utc   # or: fuzz_week_tow, fuzz_day_tod"

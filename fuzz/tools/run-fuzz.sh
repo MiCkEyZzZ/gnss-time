@@ -18,6 +18,7 @@ timeout_seconds="${MAX_TOTAL_TIME:-300}"
 case "$target" in
     fuzz_gps_utc)  max_len=12; dict="fuzz_gps_utc.dict" ;;
     fuzz_week_tow) max_len=17; dict="fuzz_week_tow.dict" ;;
+    fuzz_day_tod)  max_len=17; dict="fuzz_day_tod.dict" ;;
     *) echo "unknown target: $target" >&2; exit 1 ;;
 esac
 
