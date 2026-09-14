@@ -1094,6 +1094,7 @@ mod tests {
     #[test]
     fn test_builtin_table_ends_with_tai_minus_utc_37() {
         let last = *LeapSeconds::builtin().entries().last().unwrap();
+
         assert_eq!(last.tai_minus_utc, 37);
     }
 
@@ -1225,12 +1226,14 @@ mod tests {
     #[test]
     fn test_lookup_at_tai_zero_returns_19() {
         let ls = LeapSeconds::builtin();
+
         assert_eq!(ls.tai_minus_utc_at(Time::<Tai>::EPOCH), 19);
     }
 
     #[test]
     fn test_lookup_at_max_tai_returns_37() {
         let ls = LeapSeconds::builtin();
+
         assert_eq!(ls.tai_minus_utc_at(Time::<Tai>::MAX), 37);
     }
 

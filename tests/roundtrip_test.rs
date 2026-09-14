@@ -259,16 +259,13 @@ struct LeapTransition {
 
 fn test_check_transition(t: &LeapTransition) {
     let ls = LeapSeconds::builtin();
-
     // 1 second before the event: GPS leads by (tai_before - 19) seconds
     let gps_before = gps_from_unix(t.unix_event - 1, t.tai_before);
     // At the event moment: GPS leads by (tai_after - 19) seconds
     let gps_after = gps_from_unix(t.unix_event, t.tai_after);
-
     let utc_before: gnss_time::Time<gnss_time::scale::Utc> =
         gps_before.into_scale_with(ls).unwrap();
     let utc_after: gnss_time::Time<gnss_time::scale::Utc> = gps_after.into_scale_with(ls).unwrap();
-
     // GPS jumps by 2 s, UTC by 1 s (a leap second is inserted)
     let gps_jump = (gps_after.as_nanos() as i128 - gps_before.as_nanos() as i128) / 1_000_000_000;
     let utc_jump = (utc_after.as_nanos() as i128 - utc_before.as_nanos() as i128) / 1_000_000_000;

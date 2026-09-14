@@ -173,6 +173,7 @@ const fn days_from_unix_impl(
     let doy = (153 * m as i64 + 2) / 5 + d as i64 - 1;
     // Day within 400-year era [0, 146096]
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+
     // Days since 1970-01-01 (719468 = offset from start of 400-year era to 1970)
     era * DAYS_PER_400_YEAR_ERA + doe - DAYS_FROM_CIVIL_TO_UNIX_EPOCH
 }
@@ -280,12 +281,14 @@ pub const NANOS_GPS_TO_BEIDOU_EPOCH_CALENDAR: i64 = GPS_EPOCH.nanos_until(BEIDOU
 // Galileo−GPS calendar delta must equal 619 315 200 s.
 const _VERIFY_GALILEO: () = {
     let s = NANOS_GPS_TO_GALILEO_EPOCH / 1_000_000_000;
+
     assert!(s == 619_315_200, "Galileo epoch offset check failed");
 };
 
 // BeiDou−GPS calendar delta must equal 820 108 800 s.
 const _VERIFY_BEIDOU: () = {
     let s = NANOS_GPS_TO_BEIDOU_EPOCH_CALENDAR / 1_000_000_000;
+
     assert!(s == 820_108_800, "BeiDou epoch offset check failed");
 };
 

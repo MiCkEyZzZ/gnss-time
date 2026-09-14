@@ -1,92 +1,37 @@
-[workspace]
-members = [".", "benches"]
-resolver = "2"
-
 [package]
 name = "gnss-time"
 version = "0.7.0"
-description = "Type-safe GNSS time scales: GPS, GLONASS, Galileo, BeiDou, TAI, UTC — no_std by default"
-documentation = "https://docs.rs/gnss-time"
-homepage = "https://github.com/MiCkEyZzZ/gnss-time"
-repository = "https://github.com/MiCkEyZzZ/gnss-time"
-keywords = ["glonass", "gnss", "gps", "time", "no-std"]
-categories = ["no-std", "science", "date-and-time"]
-readme = "README.md"
-license = "MIT OR Apache-2.0"
 edition = "2021"
 rust-version = "1.75"
+description = "Type-safe GNSS time scales: GPS, GLONASS, Galileo, BeiDou, TAI, UTC — no_std by default"
+documentation = "https://docs.rs/gnss-time"
+readme = "README.md"
+homepage = "https://github.com/MiCkEyZzZ/gnss-time"
+repository = "https://github.com/MiCkEyZzZ/gnss-time"
+license = "MIT OR Apache-2.0"
+keywords = ["glonass", "gnss", "gps", "no-std", "time"]
+categories = ["date-and-time", "no-std", "science"]
 
 # List of files included in the crates.io package (excludes dev files)
 include = [
-    "src/**/*",
-    "Cargo.toml",
-    "README.md",
     "CHANGELOG.md",
     "CITATION.cff",
-    "LICENSE.MIT",
+    "Cargo.toml",
     "LICENSE.APACHE",
+    "LICENSE.MIT",
+    "README.md",
+    "src/**/*",
 ]
 
-[features]
-# Default feature set is empty.
-# The crate compiles in no_std environments with no flags enabled.
-default = []
+[package.metadata.docs.rs]
+# docs.rs builds with features = ["std", "defmt"] to expose full API
+features = ["std", "serde", "defmt"]
+# Targets for documentation builds
+targets = ["x86_64-unknown-linux-gnu", "thumbv7em-none-eabihf"]
 
-# std: adds impl std::error::Error for GnssTimeError.
-# Only needed if the consumer uses Box<dyn Error> or anyhow.
-# Do NOT enable for embedded builds!
-std = []
-
-# defmt: adds impl defmt::Format for all public types.
-# Used for structured logging via probe-rs / defmt-rtt.
-#
-# Usage in Cargo.toml:
-#   [dependencies]
-#   gnss-time = { version = "0.7", features = ["defmt"] }
-#   defmt     = "0.3"
-#
-# defmt versions: https://crates.io/crates/defmt
-defmt = ["dep:defmt"]
-
-# serde: Serialize / Deserialize for Time<S>, Duration, DurationParts.
-#
-# Human-readable (JSON, TOML):
-#   Time<Gps> → { "scale": "GPS", "nanos": 1356566418000000000 }
-#   Duration  → { "nanos": -7000000000 }
-#   DurationParts → { "seconds": 5, "nanos": 500000000 }
-#
-# Compact (postcard, bincode):
-#   Time<Gps> → raw u64 nanoseconds
-#   Duration  → raw i64 nanoseconds
-#   DurationParts → 2-element tuple [u64, u32]
-serde = ["dep:serde"]
-
-# alloc: reserved no-op — heap-based error messages in serde deserialization
-# are planned for a future version; the flag is currently accepted but has no
-# effect (see docs/INVARIANTS.md, I-13).
-alloc = []
-
-[dependencies]
-defmt = { version = "0.3", optional = true }
-serde = { version = "1", default-features = false, optional = true }
-
-[dev-dependencies]
-criterion = { version = "0.8.2", features = ["html_reports"] }
-# proptest requires std (thread-local RNG, std::collections).
-# Used only in tests/prop_tests.rs, which is guarded by #[cfg(feature = "std")].
-# On a host `cargo test` run std is always available, so this always compiles.
-# For bare-metal CI (thumbv7em) integration tests are never built.
-proptest = { version = "1.8.0", default-features = false, features = ["std"] }
-
-# postcard: compact binary serialization for embedded / no_std.
-# - postcard's `alloc` (crate) feature: enables postcard::to_allocvec (requires std/alloc)
-# - `heapless` feature: enables postcard::to_vec into heapless::Vec (no_std)
-postcard = { version = "1", features = ["alloc"] }
-serde_json = { version = "1" }
-
-# heapless: stack-allocated data structures for no_std environments.
-# Used in tests/serde_test.rs to verify no_std compatible serialization.
-heapless = "0.8"
+[workspace]
+resolver = "2"
+members = [".", "benches"]
 
 [[example]]
 name = "civil_time"
@@ -132,8 +77,63 @@ path = "examples/unix_time.rs"
 name = "embedded_minimal"
 path = "examples/embedded_minimal.rs"
 
-[package.metadata.docs.rs]
-# docs.rs builds with features = ["std", "defmt"] to expose full API
-features = ["std", "serde", "defmt"]
-# Targets for documentation builds
-targets = ["x86_64-unknown-linux-gnu", "thumbv7em-none-eabihf"]
+[dependencies]
+defmt = { version = "0.3", optional = true }
+serde = { version = "1", default-features = false, optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.8.2", features = ["html_reports"] }
+# proptest requires std (thread-local RNG, std::collections).
+# Used only in tests/prop_tests.rs, which is guarded by #[cfg(feature = "std")].
+# On a host `cargo test` run std is always available, so this always compiles.
+# For bare-metal CI (thumbv7em) integration tests are never built.
+proptest = { version = "1.8.0", default-features = false, features = ["std"] }
+
+# postcard: compact binary serialization for embedded / no_std.
+# - postcard's `alloc` (crate) feature: enables postcard::to_allocvec (requires std/alloc)
+# - `heapless` feature: enables postcard::to_vec into heapless::Vec (no_std)
+postcard = { version = "1", features = ["alloc"] }
+serde_json = { version = "1" }
+
+# heapless: stack-allocated data structures for no_std environments.
+# Used in tests/serde_test.rs to verify no_std compatible serialization.
+heapless = "0.8"
+
+[features]
+# Default feature set is empty.
+# The crate compiles in no_std environments with no flags enabled.
+default = []
+
+# std: adds impl std::error::Error for GnssTimeError.
+# Only needed if the consumer uses Box<dyn Error> or anyhow.
+# Do NOT enable for embedded builds!
+std = []
+
+# defmt: adds impl defmt::Format for all public types.
+# Used for structured logging via probe-rs / defmt-rtt.
+#
+# Usage in Cargo.toml:
+#   [dependencies]
+#   gnss-time = { version = "0.7", features = ["defmt"] }
+#   defmt     = "0.3"
+#
+# defmt versions: https://crates.io/crates/defmt
+defmt = ["dep:defmt"]
+
+# serde: Serialize / Deserialize for Time<S>, Duration, DurationParts.
+#
+# Human-readable (JSON, TOML):
+#   Time<Gps> → { "scale": "GPS", "nanos": 1356566418000000000 }
+#   Duration  → { "nanos": -7000000000 }
+#   DurationParts → { "seconds": 5, "nanos": 500000000 }
+#
+# Compact (postcard, bincode):
+#   Time<Gps> → raw u64 nanoseconds
+#   Duration  → raw i64 nanoseconds
+#   DurationParts → 2-element tuple [u64, u32]
+serde = ["dep:serde"]
+
+# alloc: reserved no-op — heap-based error messages in serde deserialization
+# are planned for a future version; the flag is currently accepted but has no
+# effect (see docs/INVARIANTS.md, I-13).
+alloc = []

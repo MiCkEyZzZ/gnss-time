@@ -1681,6 +1681,7 @@ mod tests {
     #[test]
     fn test_checked_elapsed_zero_gives_zero_duration() {
         let t = Time::<Gps>::from_seconds(1_000);
+
         assert_eq!(t.checked_elapsed(t), Some(Duration::ZERO));
     }
 
@@ -1728,6 +1729,7 @@ mod tests {
             },
         )
         .unwrap();
+
         assert_eq!(t.to_string(), "GPS 2345:432000.000");
     }
 
@@ -1769,6 +1771,7 @@ mod tests {
     fn test_utc_from_unix_seconds_at_utc_epoch_gives_epoch() {
         // 1972-01-01 00:00:00 UTC = unix 63_072_000
         let utc = Time::<Utc>::from_unix_seconds(63_072_000).unwrap();
+
         assert_eq!(utc, Time::<Utc>::EPOCH);
     }
 
@@ -1776,6 +1779,7 @@ mod tests {
     fn test_utc_from_unix_seconds_roundtrip() {
         let unix_s: i64 = 1_700_000_000; // 2023-11-14
         let utc = Time::<Utc>::from_unix_seconds(unix_s).unwrap();
+
         assert_eq!(utc.as_unix_seconds(), unix_s);
     }
 
@@ -1784,12 +1788,14 @@ mod tests {
         // 2024-01-01 00:00:00 UTC = Unix 1_704_067_200
         let unix_s: i64 = 1_704_067_200;
         let utc = Time::<Utc>::from_unix_seconds(unix_s).unwrap();
+
         assert_eq!(utc.as_unix_seconds(), unix_s);
     }
 
     #[test]
     fn test_utc_as_unix_seconds_at_epoch_equals_offset() {
         use crate::UTC_EPOCH_UNIX_OFFSET_S;
+
         assert_eq!(
             Time::<Utc>::EPOCH.as_unix_seconds(),
             UTC_EPOCH_UNIX_OFFSET_S
@@ -1800,6 +1806,7 @@ mod tests {
     #[test]
     fn test_utc_as_unix_seconds_one_second_after_epoch() {
         let utc = Time::<Utc>::from_nanos(1_000_000_000); // 1 s after UTC epoch
+
         assert_eq!(utc.as_unix_seconds(), 63_072_001);
     }
 
@@ -1807,6 +1814,7 @@ mod tests {
     fn test_utc_from_unix_nanos_at_utc_epoch() {
         use crate::UTC_EPOCH_UNIX_OFFSET_NS;
         let utc = Time::<Utc>::from_unix_nanos(UTC_EPOCH_UNIX_OFFSET_NS).unwrap();
+
         assert_eq!(utc, Time::<Utc>::EPOCH);
     }
 
@@ -1830,12 +1838,14 @@ mod tests {
     fn test_utc_from_unix_nanos_roundtrip() {
         let unix_ns: i64 = 1_700_000_000_123_456_789;
         let utc = Time::<Utc>::from_unix_nanos(unix_ns).unwrap();
+
         assert_eq!(utc.as_unix_nanos(), unix_ns);
     }
 
     #[test]
     fn test_utc_as_unix_nanos_at_epoch() {
         use crate::UTC_EPOCH_UNIX_OFFSET_NS;
+
         assert_eq!(Time::<Utc>::EPOCH.as_unix_nanos(), UTC_EPOCH_UNIX_OFFSET_NS);
         assert_eq!(Time::<Utc>::EPOCH.as_unix_nanos(), 63_072_000_000_000_000);
     }
@@ -1843,6 +1853,7 @@ mod tests {
     #[test]
     fn test_utc_as_unix_nanos_one_ns_after_epoch() {
         let utc = Time::<Utc>::from_nanos(1);
+
         assert_eq!(utc.as_unix_nanos(), 63_072_000_000_000_001);
     }
 
@@ -1852,6 +1863,7 @@ mod tests {
         let unix_ns: i64 = unix_s * 1_000_000_000;
         let from_s = Time::<Utc>::from_unix_seconds(unix_s).unwrap();
         let from_ns = Time::<Utc>::from_unix_nanos(unix_ns).unwrap();
+
         assert_eq!(from_s, from_ns);
     }
 
@@ -1859,6 +1871,7 @@ mod tests {
     fn test_utc_unix_nanos_sub_second_preserved() {
         let unix_ns: i64 = 1_700_000_000_500_000_000; // .5 s
         let utc = Time::<Utc>::from_unix_nanos(unix_ns).unwrap();
+
         // seconds part
         assert_eq!(utc.as_unix_seconds(), 1_700_000_000);
         // nanoseconds round-trip
@@ -1871,12 +1884,14 @@ mod tests {
         // GPS epoch (1980-01-06) in Unix time = 315_964_800
         // At that moment GPS − UTC = 0
         let gps = Time::<Gps>::from_unix_seconds(315_964_800, ls).unwrap();
+
         assert_eq!(gps, Time::<Gps>::EPOCH);
     }
 
     #[test]
     fn test_gps_from_unix_seconds_before_utc_epoch_fails() {
         let ls = LeapSeconds::builtin();
+
         // Before 1972-01-01 (UTC epoch) → error in utc step
         assert!(Time::<Gps>::from_unix_seconds(0, ls).is_err());
     }
@@ -1884,6 +1899,7 @@ mod tests {
     #[test]
     fn test_gps_as_unix_seconds_at_gps_epoch() {
         let ls = LeapSeconds::builtin();
+
         assert_eq!(Time::<Gps>::EPOCH.as_unix_seconds(ls).unwrap(), 315_964_800);
     }
 
@@ -1893,6 +1909,7 @@ mod tests {
         // 2020-01-01 00:00:00 UTC = Unix 1_577_836_800
         let unix_s: i64 = 1_577_836_800;
         let gps = Time::<Gps>::from_unix_seconds(unix_s, ls).unwrap();
+
         assert_eq!(gps.as_unix_seconds(ls).unwrap(), unix_s);
     }
 
@@ -1902,6 +1919,7 @@ mod tests {
         // 2023-01-01 00:00:00 UTC = Unix 1_672_531_200
         let unix_s: i64 = 1_672_531_200;
         let gps = Time::<Gps>::from_unix_seconds(unix_s, ls).unwrap();
+
         assert_eq!(gps.as_unix_seconds(ls).unwrap(), unix_s);
     }
 
@@ -1912,6 +1930,7 @@ mod tests {
         let unix_s: i64 = 1_672_531_200; // 2023-01-01 UTC
         let gps = Time::<Gps>::from_unix_seconds(unix_s, ls).unwrap();
         let expected_gps_s = u64::try_from(i128::from(unix_s) - 315_964_800i128 + 18i128).unwrap();
+
         assert_eq!(gps.as_seconds(), expected_gps_s);
     }
 }

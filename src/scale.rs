@@ -371,6 +371,7 @@ mod tests {
     #[test]
     fn test_scale_is_copy() {
         fn assert_copy<T: Copy + Clone + Eq + PartialEq + core::fmt::Debug>() {}
+
         assert_copy::<Glonass>();
         assert_copy::<Gps>();
         assert_copy::<Galileo>();

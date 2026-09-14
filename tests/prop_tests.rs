@@ -155,6 +155,7 @@ proptest! {
         // Small range guarantees no overflow → always Some
         let ab = a.checked_add(b).unwrap();
         let ba = b.checked_add(a).unwrap();
+
         prop_assert_eq!(ab, ba);
     }
 }
@@ -205,6 +206,7 @@ proptest! {
         nanos in (i64::MIN + 1)..=i64::MAX
     ) {
         let d = Duration::from_nanos(nanos);
+
         prop_assert_eq!(-(-d), d);
     }
 }
@@ -239,6 +241,7 @@ proptest! {
     fn prop_time_ord_consistent_with_u64(a in gps_strategy(), b in gps_strategy()) {
         let time_cmp = a.cmp(&b);
         let u64_cmp = a.as_nanos().cmp(&b.as_nanos());
+
         prop_assert_eq!(time_cmp, u64_cmp);
     }
 }
@@ -256,10 +259,8 @@ proptest! {
         let ls = LeapSeconds::builtin();
         let gps_a = Time::<Gps>::from_seconds(a_s);
         let gps_b = Time::<Gps>::from_seconds(b_s);
-
         let utc_a = gps_to_utc(gps_a, ls).unwrap();
         let utc_b = gps_to_utc(gps_b, ls).unwrap();
-
         let gps_order = gps_a.cmp(&gps_b);
         let utc_order = utc_a.cmp(&utc_b);
 
@@ -341,6 +342,7 @@ proptest! {
         match result {
             ConvertResult::Exact(utc) => {
                 let back = utc_to_gps(utc, ls).unwrap();
+
                 prop_assert_eq!(back, t);
             }
             ConvertResult::AmbiguousLeapSecond(_utc) => {

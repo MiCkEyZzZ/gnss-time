@@ -389,15 +389,12 @@ fn test_epoch_civil_dates_are_correct() {
     assert_eq!(Gps::EPOCH_CIVIL.year, 1980);
     assert_eq!(Gps::EPOCH_CIVIL.month, 1);
     assert_eq!(Gps::EPOCH_CIVIL.day, 6);
-
     assert_eq!(Glonass::EPOCH_CIVIL.year, 1996);
     assert_eq!(Glonass::EPOCH_CIVIL.month, 1);
     assert_eq!(Glonass::EPOCH_CIVIL.day, 1);
-
     assert_eq!(Galileo::EPOCH_CIVIL.year, 1999);
     assert_eq!(Galileo::EPOCH_CIVIL.month, 8);
     assert_eq!(Galileo::EPOCH_CIVIL.day, 22);
-
     assert_eq!(Beidou::EPOCH_CIVIL.year, 2006);
     assert_eq!(Beidou::EPOCH_CIVIL.month, 1);
     assert_eq!(Beidou::EPOCH_CIVIL.day, 1);

@@ -29,6 +29,22 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   (`docs/LEAP_SECONDS.de.md`, `docs/LEAP_SECONDS.ru.md`), faithful mirrors of
   `docs/LEAP_SECONDS.md`: identical 19-entry table, formulas and code examples,
   native German/Russian prose.
+- Added `setup-fuzz`, `fuzz-build` and `fuzz` recipes to the `justfile`;
+  `just fuzz [secs=300]` runs all five targets locally.
+- Added `.gitattributes` to normalize line endings (LF) for text files and
+  mark binary file types.
+- Added `tombi.toml`, configuration for the Tombi TOML language server
+  (used by Zed), aligned with the previous Taplo style — 4-space indent,
+  100-column width, TOML 1.0 pinned for the MSRV 1.75 parser — plus per-file
+  schemas for `Cargo.toml` and `taplo.toml`.
+- Added `.config/nextest.toml` with a default profile: 45 s slow-timeout
+  (terminate after two consecutive periods), `fail-fast = false`, no retries.
+- Added a `next` recipe to the `justfile` (`cargo nextest run --workspace`).
+- Added `/fuzz/` and `/firmware/` ownership to `.github/CODEOWNERS`.
+- Added module-level documentation for `src/tables/mod.rs` and
+  `src/tables/leap_seconds.rs`: data layout of `(threshold_tai_nanos,
+  tai_minus_utc)` entries, the IERS Bulletin C source, and the
+  compile-time-verified table invariants (strictly ascending, +1 increments).
 
 ### Changed
 
@@ -64,6 +80,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     `+`/`-` operators reduce to the same elementary arithmetic as the
     underlying `u64` value, instead of asserting instruction-identical code
     based on equal benchmark timings alone.
+- `docs/PROJECT_STRUCTURE.md`: documented the new `fuzz/` directory
+  (`fuzz_targets/`, `corpus/`, `artifacts/`, `Cargo.toml`, `README.md`).
+- Migrated the TOML formatting setup from Taplo to Tombi: `tombi.toml`
+  added, `taplo.toml` reduced to a minimal stub, and all TOML files
+  reformatted to the same conventions (`Cargo.toml`, `deny.toml`,
+  `clippy.toml`, `.cargo/config.toml`, `rust-toolchain.toml`).
+- Normalized formatting in `src/` and `tests/` (blank-line placement around
+  test assertions and statements) with `cargo fmt`.
 
 ### Fixed
 
@@ -83,6 +107,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   now pass `--manifest-path firmware/Cargo.toml` (matching the `just size`
   recipe), and an alternative variant for running from inside `firmware/` was
   added.
+- `rustfmt.toml`: corrected the stale "Gorka project" reference in the header
+  comment to "gnss-time project".
 
 ## [0.7.0] - 2026-08-22
 

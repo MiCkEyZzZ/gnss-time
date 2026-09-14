@@ -196,11 +196,9 @@ fn test_no_heap_allocation_in_conversions() {
     let tai: Time<Tai> = gps.into_scale().unwrap();
     let gal: Time<Galileo> = gps.into_scale().unwrap();
     let bdt: Time<Beidou> = gps.into_scale().unwrap();
-
     let ls = LeapSeconds::builtin();
     let utc: Time<Utc> = gps.into_scale_with(ls).unwrap();
     let glo: Time<Glonass> = gps.into_scale_with(ls).unwrap();
-
     // Back conversions
     let _back_gps: Time<Gps> = tai.into_scale().unwrap();
     let _back2: Time<Gps> = gal.into_scale().unwrap();

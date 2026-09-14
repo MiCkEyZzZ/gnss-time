@@ -113,7 +113,6 @@ fn test_glonass_to_utc_is_constant_shift() {
 
     let utc1: Time<Utc> = glo1.into_scale().unwrap();
     let utc2: Time<Utc> = glo2.into_scale().unwrap();
-
     // The difference between UTC timestamps must equal the difference between GLO
     // timestamps
     let glo_diff = (glo2 - glo1).as_nanos();
@@ -178,7 +177,6 @@ fn test_glonass_midnight_is_utc_21h() {
     // GLO day 0 tod 0 = 1996-01-01 00:00:00 UTC(SU) = 1995-12-31 21:00:00 UTC
     let glo = Time::<Glonass>::EPOCH; // день 0, тод 0
     let utc: Time<Utc> = glo.into_scale().unwrap();
-
     // UTC: 757_371_600 s since 1972-01-01
     // 757_371_600 / 86400 = 8765 days + 21 hours
     let secs = utc.as_seconds();
@@ -190,7 +188,6 @@ fn test_glonass_midnight_is_utc_21h() {
 #[test]
 fn test_glonass_gps_roundtrip_post_2017() {
     let ls = LeapSeconds::builtin();
-
     // After 2017-01-01 (the last leap second), GPS-UTC = 18 s (stable time)
     let gps = Time::<Gps>::from_week_tow(
         2100,
@@ -209,7 +206,6 @@ fn test_glonass_gps_roundtrip_post_2017() {
 #[test]
 fn test_glonass_gps_roundtrip_before_1999() {
     let ls = LeapSeconds::builtin();
-
     // Before 1999-01-01, GPS-UTC = 13 s
     // GPS_s = 504_478_810+ — this is after the GLONASS epoch, use 550_000_000
     // (~June 1997)
@@ -242,12 +238,10 @@ fn test_glonass_gps_roundtrip_with_nanoseconds() {
 #[test]
 fn test_glonass_and_gps_at_same_utc_instant() {
     let ls = LeapSeconds::builtin();
-
     // GPS time on 2020-05-01 00:00:00 UTC:
     // unix = 1578182400, GPS_s = (1578182400 - 315964800) + 18 = 1262217618
     let gps = Time::<Gps>::from_seconds(1_262_217_618);
     let glo: Time<Glonass> = gps.into_scale_with(ls).unwrap();
-
     // 2020-05-01 03:00:00 UTC (SU) relative to the GLONASS epoch:
     // days from 01.01.1996 to 05.01.2020 = 8766 + 4 = 8770 days (verified below)
     let day_from_glo_epoch = CivilDate::new(1996, 1, 1)
@@ -263,7 +257,6 @@ fn test_glonass_and_gps_at_same_utc_instant() {
         8770,
         "GLO day should be 8770 for 2020-01-05 UTC(SU)"
     );
-
     // tod = 3 часа = 10800с (UTC+3 сдвиг)
     assert_eq!(
         glo.tod_seconds(),
@@ -283,6 +276,7 @@ fn test_day_of_week_epoch_is_monday() {
 #[test]
 fn test_day_of_week_sequence_mon_through_sun() {
     let expected = [1u8, 2, 3, 4, 5, 6, 7]; // Mon … Sun
+
     for (i, &expected_dow) in expected.iter().enumerate() {
         let t = Time::<Glonass>::from_day_tod(
             i as u32,
@@ -292,6 +286,7 @@ fn test_day_of_week_sequence_mon_through_sun() {
             },
         )
         .unwrap();
+
         assert_eq!(
             t.day_of_week(),
             expected_dow,
@@ -487,16 +482,13 @@ fn test_glonass_sub_second_nanos_zero() {
 #[test]
 fn test_glonass_across_2017_leap_second_roundtrip() {
     let ls = LeapSeconds::builtin();
-
     // GPS before the 2017-01-01 leap second (well before the boundary): GPS_s =
     // 1167264010
     let gps_before = Time::<Gps>::from_seconds(1_167_264_010);
     // GPS after (well after the boundary): GPS_s = 1167264025
     let gps_after = Time::<Gps>::from_seconds(1_167_264_025);
-
     let glo_before: Time<Glonass> = gps_before.into_scale_with(ls).unwrap();
     let glo_after: Time<Glonass> = gps_after.into_scale_with(ls).unwrap();
-
     // Check roundtrip in both directions
     let back_before: Time<Gps> = glo_before.into_scale_with(ls).unwrap();
     let back_after: Time<Gps> = glo_after.into_scale_with(ls).unwrap();

@@ -153,6 +153,7 @@ impl<'de, S: TimeScale> Visitor<'de> for TimeVisitor<S> {
             match key {
                 TimeField::Scale => {
                     let value: &str = map.next_value()?;
+
                     if value != S::NAME {
                         return Err(de::Error::custom(ScaleMismatch {
                             expected: S::NAME,
@@ -167,6 +168,7 @@ impl<'de, S: TimeScale> Visitor<'de> for TimeVisitor<S> {
         }
 
         let nanos = nanos.ok_or_else(|| de::Error::missing_field("nanos"))?;
+
         Ok(Time::from_nanos(nanos))
     }
 }
@@ -751,6 +753,7 @@ mod tests {
                 nanos: 999_999_999,
             },
         ];
+
         for p in cases {
             let json = serde_json::to_string(&p).unwrap();
             let back: DurationParts = serde_json::from_str(&json).unwrap();
@@ -814,11 +817,9 @@ mod tests {
             nanos: 0,
         };
         let gps = Time::<Gps>::from_week_tow(2345, tow).unwrap();
-
         // Both types roundtrip independently
         let gps_json = serde_json::to_string(&gps).unwrap();
         let tow_json = serde_json::to_string(&tow).unwrap();
-
         let gps_back: Time<Gps> = serde_json::from_str(&gps_json).unwrap();
         let tow_back: DurationParts = serde_json::from_str(&tow_json).unwrap();
 
@@ -836,10 +837,8 @@ mod tests {
         // Simulate a "timestamp + offset" structure
         let t = Time::<Gps>::from_seconds(1_000_000);
         let d = Duration::from_seconds(3600);
-
         let t_json = serde_json::to_string(&t).unwrap();
         let d_json = serde_json::to_string(&d).unwrap();
-
         let t_back: Time<Gps> = serde_json::from_str(&t_json).unwrap();
         let d_back: Duration = serde_json::from_str(&d_json).unwrap();
 

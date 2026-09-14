@@ -12,6 +12,8 @@
 # ================================
 /tests/ @MiCkEyZzZ
 /benches/ @MiCkEyZzZ
+/fuzz/ @MiCkEyZzZ
+/firmware/ @MiCkEyZzZ
 
 # ================================
 # Examples

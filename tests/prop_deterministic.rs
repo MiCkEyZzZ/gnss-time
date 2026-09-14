@@ -115,6 +115,7 @@ fn glonass_samples() -> Vec<Time<Glonass>> {
     // Uniform coverage: ~10 points across reachable GLONASS range
     // Avoid values that map to UTC < 1972 (only EPOCH maps to 1996 UTC)
     let step = (u64::MAX / 2) / 10;
+
     for i in 0..=10u64 {
         pts.push(Time::<Glonass>::from_nanos(step.saturating_mul(i)));
     }
@@ -134,6 +135,7 @@ fn glonass_samples() -> Vec<Time<Glonass>> {
 
     pts.sort_by_key(|t| t.as_nanos());
     pts.dedup_by_key(|t| t.as_nanos());
+
     pts
 }
 
@@ -180,7 +182,6 @@ fn prop_gps_tai_gps_roundtrip() {
             "GPS→TAI→GPS roundtrip failed for t={} ns",
             t.as_nanos()
         );
-
         assert_eq!(
             tai.as_nanos(),
             t.as_nanos() + 19_000_000_000,
@@ -212,6 +213,7 @@ fn prop_gps_galileo_gps_roundtrip() {
             Ok(v) => v,
             Err(_) => continue,
         };
+
         assert_eq!(
             *t,
             back,
@@ -253,6 +255,7 @@ fn prop_gps_beidou_gps_roundtrip() {
             Ok(v) => v,
             Err(_) => continue,
         };
+
         assert_eq!(
             *t,
             back,
@@ -302,6 +305,7 @@ fn prop_gps_utc_gps_roundtrip_outside_leap_window() {
                     Ok(v) => v,
                     Err(_) => continue,
                 };
+
                 assert_eq!(
                     *t,
                     back,
@@ -320,6 +324,7 @@ fn prop_gps_utc_gps_roundtrip_outside_leap_window() {
 
     // Sanity: the vast majority of points must be exact.
     let total = exact_count + ambiguous_count;
+
     assert!(
         total > 50,
         "too few points survived overflow filter: total={total}, errors={error_count}"
@@ -427,6 +432,7 @@ fn prop_duration_sub_is_add_negation() {
             if b != Duration::MIN {
                 let via_sub = a.checked_sub(b);
                 let via_add = a.checked_add(-b);
+
                 assert_eq!(
                     via_sub, via_add,
                     "a - b must equal a + (-b) for a={a:?}, b={b:?}"
@@ -481,6 +487,7 @@ fn prop_time_add_sub_inverse() {
                 Some(v) => v,
                 None => continue, // underflow: skip
             };
+
             assert_eq!(
                 t,
                 back,
@@ -525,6 +532,7 @@ fn prop_time_sub_add_inverse() {
                 Some(v) => v,
                 None => continue,
             };
+
             assert_eq!(
                 t,
                 back,
@@ -738,8 +746,8 @@ fn prop_gps_to_utc_is_monotone_in_stable_intervals() {
         let step = (end_s - start_s) / 20;
         let mut prev_utc: Option<Time<Utc>> = None;
         let mut prev_gps: Option<Time<Gps>> = None;
-
         let mut s = start_s;
+
         while s <= end_s {
             let gps = Time::<Gps>::from_seconds(s);
             let utc = gps_to_utc(gps, ls).unwrap();
@@ -754,10 +762,12 @@ fn prop_gps_to_utc_is_monotone_in_stable_intervals() {
                     gps.as_nanos(),
                     utc.as_nanos()
                 );
+
                 // Verify the advance is exactly `step` seconds (constant offset
                 // between leap events)
                 let utc_diff = (utc - p_utc).as_seconds();
                 let gps_diff = (gps - p_gps).as_seconds();
+
                 assert_eq!(
                     utc_diff, gps_diff,
                     "GPS and UTC must advance by the same amount in a stable interval: \
@@ -767,7 +777,9 @@ fn prop_gps_to_utc_is_monotone_in_stable_intervals() {
 
             prev_utc = Some(utc);
             prev_gps = Some(gps);
+
             s = s.saturating_add(step);
+
             if step == 0 {
                 break;
             }
@@ -812,7 +824,6 @@ fn prop_gps_utc_offset_increases_at_every_leap_second() {
     for (i, &gps_s) in after_transition.iter().enumerate() {
         let gps = Time::<Gps>::from_seconds(gps_s);
         let utc = gps_to_utc(gps, ls).unwrap();
-
         // GPS−UTC = GPS_s_from_1980 − (UTC_s_from_1972 − 252892800)
         let offset = gps_s as i64 - (utc.as_seconds() as i64 - GPS_UTC_EPOCH_OFFSET_S);
 
@@ -831,6 +842,7 @@ fn prop_gps_utc_offset_increases_at_every_leap_second() {
             i + 1,
             offset
         );
+
         prev_offset = offset;
     }
 }
