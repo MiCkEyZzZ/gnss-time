@@ -10,6 +10,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."  # fuzz/
 
 python3 tools/gen_corpus.py
-echo "corpus size: $(find corpus/fuzz_gps_utc -type f | wc -l) files (fuzz_gps_utc), $(find corpus/fuzz_utc_to_gps -type f | wc -l) files (fuzz_utc_to_gps), $(find corpus/fuzz_week_tow -type f | wc -l) files (fuzz_week_tow), $(find corpus/fuzz_day_tod -type f | wc -l) files (fuzz_day_tod), $(find corpus/fuzz_try_extend -type f | wc -l) files (fuzz_try_extend)"
+echo "corpus size: $(find corpus/fuzz_gps_utc -type f | wc -l) files (fuzz_gps_utc), $(find corpus/fuzz_utc_to_gps -type f | wc -l) files (fuzz_utc_to_gps), $(find corpus/fuzz_week_tow -type f | wc -l) files (fuzz_week_tow), $(find corpus/fuzz_day_tod -type f | wc -l) files (fuzz_day_tod), $(find corpus/fuzz_try_extend -type f | wc -l) files (fuzz_try_extend), $(find corpus/fuzz_leap_lookup -type f | wc -l) files (fuzz_leap_lookup)"
 echo
-echo "next:  ./tools/run-fuzz.sh fuzz_gps_utc   # or: fuzz_utc_to_gps, fuzz_week_tow, fuzz_day_tod, fuzz_try_extend"
+echo "next:  ./tools/run-fuzz.sh fuzz_gps_utc   # or: fuzz_utc_to_gps, fuzz_week_tow, fuzz_day_tod, fuzz_try_extend, fuzz_leap_lookup"

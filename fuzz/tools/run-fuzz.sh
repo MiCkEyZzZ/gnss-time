@@ -21,6 +21,7 @@ case "$target" in
     fuzz_week_tow)    max_len=17; dict="fuzz_week_tow.dict" ;;
     fuzz_day_tod)     max_len=17; dict="fuzz_day_tod.dict" ;;
     fuzz_try_extend)  max_len=793; dict="fuzz_try_extend.dict" ;;
+    fuzz_leap_lookup)  max_len=922; dict="fuzz_leap_lookup.dict" ;;
     *) echo "unknown target: $target" >&2; exit 1 ;;
 esac
 
