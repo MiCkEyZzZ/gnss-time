@@ -1,0 +1,70 @@
+# Dictionary for the fuzz_week_tow target.
+#
+# Format: quoted raw bytes with \xNN escapes — ONE byte per \xNN escape.
+# Tokens are little-endian u32/u64 values decoded by the harness with
+# u32::from_le_bytes / u64::from_le_bytes.
+#
+# NOTE: no trailing comments after a token line; libFuzzer's dictionary
+# parser rejects them. Comments must be on their own line.
+#
+# Mode dispatch is data[0] bit 7:
+"\x00"
+"\x80"
+
+# Domain edges (RAW mode): week u32 (bytes 1..5), tow u64 (5..13), nanos u32 (13..17).
+
+# Week 0 — GPS epoch:
+"\x00\x00\x00\x00"
+# Week 1:
+"\x01\x00\x00\x00"
+# Week 1023 (0x03FF — 10-bit rollover):
+"\xff\x03\x00\x00"
+# Week 1024:
+"\x00\x04\x00\x00"
+# Week 2047 (0x07FF — 11-bit rollover):
+"\xff\x07\x00\x00"
+# Week 30_499 — just below the overflow rim:
+"\x23\x77\x00\x00"
+# Week 30_500 — last representable week with bounded TOW:
+"\x24\x77\x00\x00"
+# Week 30_501 — overflow rim:
+"\x25\x77\x00\x00"
+# Week 65_535 (u16::MAX):
+"\xff\xff\x00\x00"
+# Week 262_143 (2^18 − 1 — MCS week counter):
+"\xff\xff\x03\x00"
+# Week 4_000_000_000 (half of u32):
+"\x00\xca\x9a\xee"
+# Week u32::MAX:
+"\xff\xff\xff\xff"
+
+# TOW seconds edges around 604_800: 0:
+"\x00\x00\x00\x00\x00\x00\x00\x00"
+# 604_799 (last valid):
+"\x7f\x3a\x09\x00\x00\x00\x00\x00"
+# 604_800 (first invalid):
+"\x80\x3a\x09\x00\x00\x00\x00\x00"
+# 604_801:
+"\x81\x3a\x09\x00\x00\x00\x00\x00"
+# u64::MAX:
+"\xff\xff\xff\xff\xff\xff\xff\xff"
+
+# Nanos edges around 1_000_000_000: 0:
+"\x00\x00\x00\x00"
+# 999_999_999 (last valid):
+"\xff\xc9\x9a\x3b"
+# 1_000_000_000 (first invalid):
+"\x00\xca\x9a\x3b"
+# 1_000_000_001:
+"\x01\xca\x9a\x3b"
+# u32::MAX:
+"\xff\xff\xff\xff"
+
+# Arithmetic constants the harness compares against.
+# 604_800_000_000_000 — WEEK_NS:
+"\x00\x00\x29\xf9\x0f\x26\x02\x00"
+# 30_501 — OVERFLOW_WEEK visibility rim:
+"\x25\x77\x00\x00"
+
+# libFuzzer found this on the 300 s run — reaches overflow rim fast.
+"\x89\xca\x6c\xf3"

@@ -18,7 +18,6 @@ Run from the fuzz/ directory:
 """
 
 import os
-import random
 import struct
 
 CPU_NS = 1_000_000_000
@@ -27,8 +26,8 @@ GPS_TAI_OFFSET_NS = 19 * CPU_NS
 # (tai_nanos_threshold, tai_minus_utc) for entries[1..=18] — the real
 # leap-second transitions of the GPS era. Mirrors src/tables/leap_seconds.rs.
 TRANSITIONS = [
-    (46_828_820_000_000_000, 20),   # 1981-07-01
-    (78_364_821_000_000_000, 21),   # 1982-07-01
+    (46_828_820_000_000_000, 20),  # 1981-07-01
+    (78_364_821_000_000_000, 21),  # 1982-07-01
     (109_900_822_000_000_000, 22),  # 1983-07-01
     (173_059_223_000_000_000, 23),  # 1985-07-01
     (252_028_824_000_000_000, 24),  # 1988-01-01
@@ -49,17 +48,17 @@ TRANSITIONS = [
 
 # Interesting jitter values (ns) around a transition's GPS instant.
 JITTERS = [
-    -20 * CPU_NS,             # far before the window
-    -18 * CPU_NS,             # two-pass approximate-TAI hazard zone
+    -20 * CPU_NS,  # far before the window
+    -18 * CPU_NS,  # two-pass approximate-TAI hazard zone
     -10 * CPU_NS,
     -2 * CPU_NS,
-    -CPU_NS - 1,             # just before the ambiguity window
-    -CPU_NS,                 # window edge
-    -1,                      # 1 ns before the exact flip
-    0,                       # the exact flip instant
-    1,                       # 1 ns after
-    CPU_NS - 1,              # inside the window, just before it closes
-    CPU_NS,                  # window closed
+    -CPU_NS - 1,  # just before the ambiguity window
+    -CPU_NS,  # window edge
+    -1,  # 1 ns before the exact flip
+    0,  # the exact flip instant
+    1,  # 1 ns after
+    CPU_NS - 1,  # inside the window, just before it closes
+    CPU_NS,  # window closed
     CPU_NS + 1,
     2 * CPU_NS,
     10 * CPU_NS,
@@ -79,11 +78,11 @@ RAW_ANCHORS = [
     900_000_000_000_000_000,  # ~2008
     1_167_264_018_000_000_000,  # 2017-01-01 GPS
     1_467_264_000_000_000_000,  # ~2026 (now)
-    2 ** 63,
-    2 ** 63 + CPU_NS * 100,
-    2 ** 64 - 1,              # u64::MAX → overflow paths
-    2 ** 64 - 1 - CPU_NS,
-    (2 ** 64 - 1) // 2,
+    2**63,
+    2**63 + CPU_NS * 100,
+    2**64 - 1,  # u64::MAX → overflow paths
+    2**64 - 1 - CPU_NS,
+    (2**64 - 1) // 2,
 ]
 
 
@@ -134,6 +133,159 @@ def main() -> None:
             count += 1
 
     print(f"generated {count} seeds in {out_dir}")
+
+    # ── fuzz_week_tow ──────────────────────────────────────────────────
+    wt_dir = os.path.join(here, "..", "corpus", "fuzz_week_tow")
+    os.makedirs(wt_dir, exist_ok=True)
+    for entry in os.listdir(wt_dir):
+        os.remove(os.path.join(wt_dir, entry))
+
+    count = 0
+
+    # RAW anchors over the u32/u64 week × tow domain (17-byte layout).
+    RAW_WEEK_TOW = [
+        (0, 0, 0),  # GPS epoch
+        (0, 604_799, 999_999_999),  # last valid tow with week 0
+        (1023, 0, 0),
+        (1024, 0, 0),
+        (2047, 0, 0),
+        (30_499, 604_799, 999_999_999),  # huge but valid
+        (30_500, 0, 0),  # week rim: valid with small tow
+        (30_500, 7, 0),  # still valid
+        (30_501, 0, 0),  # overflow by one week
+        (30_501, 1, 0),  # overflow
+        (65_535, 0, 0),
+        (4_000_000_000, 0, 0),
+        (2**32 - 1, 0, 0),  # week == u32::MAX
+        (0, 604_800, 0),  # invalid: tow seconds == 604_800
+        (0, 604_801, 0),  # invalid
+        (0, 2**64 - 1, 0),  # invalid: tow seconds == u64::MAX
+        (0, 0, 1_000_000_000),  # invalid: nanos == 1e9
+        (0, 0, 2**32 - 1),  # invalid: nanos == u32::MAX
+        (1, 604_799, 999_999_999),  # max valid tow, week 1
+    ]
+
+    def raw_wt_seed(week: int, secs: int, nanos: int) -> bytes:
+        return b"\x00" + struct.pack("<IQI", week, secs, nanos)
+
+    for week, secs, nanos in RAW_WEEK_TOW:
+        with open(os.path.join(wt_dir, f"wt_raw_{count:04d}"), "wb") as fh:
+            fh.write(raw_wt_seed(week, secs, nanos))
+        count += 1
+
+    # small perturbations around the raw anchors
+    for week, secs, nanos in RAW_WEEK_TOW:
+        for dw in (-1, 1):
+            w = week + dw
+            if w < 0 or w >= 2**32:
+                continue
+            for ds in (-1, 1):
+                s = secs + ds
+                if s < 0 or s >= 2**64:
+                    continue
+                for dn in (-1, 1):
+                    n = nanos + dn
+                    if n < 0 or n >= 2**32:
+                        continue
+                    with open(os.path.join(wt_dir, f"wt_raw_{count:04d}"), "wb") as fh:
+                        fh.write(raw_wt_seed(w, s, n))
+                    count += 1
+
+    # BOUNDARY seeds: single-axis edges are independent — week affects only
+    # Overflow, secs/nanos only InvalidInput. No cross-product needed:
+    # one seed per axis edge (others at zero) + a handful of combos.
+    WEEK_EDGES = [
+        0,
+        1,
+        1023,
+        1024,
+        2047,
+        2048,
+        10_000,
+        30_499,
+        30_500,
+        30_501,
+        30_502,
+        65_535,
+        262_143,
+        1_000_000,
+        4_000_000_000,
+        2**32 - 1,
+    ]
+    SECS_EDGES = [0, 1, 604_799, 604_800, 604_801, 2**32 - 1, 2**64 - 2, 2**64 - 1]
+    NANOS_EDGES = [
+        0,
+        1,
+        999_999_998,
+        999_999_999,
+        1_000_000_000,
+        1_000_000_001,
+        2**32 - 2,
+        2**32 - 1,
+    ]
+
+    def wt_boundary_seed(wi: int, si: int, ni: int, jw: int, js: int, jn: int) -> bytes:
+        return bytes([0x80, wi, si, ni]) + struct.pack("<iii", jw, js, jn)
+
+    def write_wt(
+        wi: int, si: int, ni: int, jw: int = 0, js: int = 0, jn: int = 0
+    ) -> None:
+        nonlocal count
+        with open(os.path.join(wt_dir, f"wt_bd_{count:04d}"), "wb") as fh:
+            fh.write(wt_boundary_seed(wi, si, ni, jw, js, jn))
+        count += 1
+
+    # One seed per week edge, tows at zero.
+    for wi in range(len(WEEK_EDGES)):
+        write_wt(wi, 0, 0)
+
+    # One seed per secs edge, week and nanos at zero.
+    for si in range(len(SECS_EDGES)):
+        write_wt(0, si, 0)
+
+    # One seed per nanos edge, week and secs at zero.
+    for ni in range(len(NANOS_EDGES)):
+        write_wt(0, 0, ni)
+
+    # Overflow rim walks: jitter walks week across 30_500 → 30_501.
+    for jw in (-4, -3, -2, -1, 1, 2, 3, 4):
+        write_wt(WEEK_EDGES.index(30_500), 0, 0, jw=jw)
+
+    # TOW-boundary jitter walks: secs across 604_799 → 604_800.
+    for js in (-4, -2, -1, 1, 2, 4):
+        write_wt(0, SECS_EDGES.index(604_799), 0, js=js)
+        write_wt(0, SECS_EDGES.index(604_800), 0, js=js)
+
+    # Nanos-boundary jitter walks: nanos across 999_999_999 → 1_000_000_000.
+    for jn in (-2, -1, 1, 2):
+        write_wt(0, 0, NANOS_EDGES.index(999_999_999), jn=jn)
+        write_wt(0, 0, NANOS_EDGES.index(1_000_000_000), jn=jn)
+
+    # Combos: intersecting valid / invalid classes.
+    write_wt(
+        WEEK_EDGES.index(30_500),
+        SECS_EDGES.index(604_799),
+        NANOS_EDGES.index(999_999_999),
+    )  # max in-range
+    write_wt(
+        WEEK_EDGES.index(30_499),
+        SECS_EDGES.index(604_799),
+        NANOS_EDGES.index(999_999_999),
+    )  # valid
+    write_wt(
+        WEEK_EDGES.index(30_501), SECS_EDGES.index(0), NANOS_EDGES.index(0)
+    )  # overflow
+    write_wt(
+        WEEK_EDGES.index(30_500), SECS_EDGES.index(1), NANOS_EDGES.index(0)
+    )  # week rim + a few seconds
+    write_wt(
+        WEEK_EDGES.index(0), SECS_EDGES.index(604_800), NANOS_EDGES.index(1_000_000_000)
+    )  # double invalid
+    write_wt(
+        WEEK_EDGES.index(1), SECS_EDGES.index(604_799), NANOS_EDGES.index(999_999_999)
+    )  # max valid tow
+
+    print(f"generated {count} seeds in {wt_dir}")
 
 
 if __name__ == "__main__":

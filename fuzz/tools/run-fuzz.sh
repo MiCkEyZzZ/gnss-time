@@ -1,25 +1,29 @@
 #!/usr/bin/env bash
-# Run the fuzz_gps_utc target the way it is meant to be run.
-#
-# -max_len: the harness consumes at most 12 bytes (RAW needs 9, BOUNDARY 12).
-#   Without this cap libFuzzer lets inputs grow to KBs, wasting memory on
-#   bytes the harness ignores.
-# -dict:    byte-tokens that drop the fuzzer straight into boundary-heavy
-#           numeric regions.
-# -rss_limit_mb: headroom for ASAN.
+# Run a fuzz target the way it is meant to be run.
 #
 # Usage:
-#   ./tools/run-fuzz.sh                       # 300 s
-#   MAX_TOTAL_TIME=600 ./tools/run-fuzz.sh
-#   ./tools/run-fuzz.sh -runs=100000
+#   ./tools/run-fuzz.sh fuzz_week_tow              # default 300 s
+#   MAX_TOTAL_TIME=600 ./tools/run-fuzz.sh fuzz_gps_utc
+#   ./tools/run-fuzz.sh fuzz_week_tow -runs=100000
 set -euo pipefail
 
 cd "$(dirname "$0")/.."  # fuzz/
 
+target="${1:?usage: run-fuzz.sh <target> [extra-fuzzer-args...]}"
+shift
+
 timeout_seconds="${MAX_TOTAL_TIME:-300}"
 
-cargo fuzz run fuzz_gps_utc -- \
+# Per-target max input length matching the harness decode layout.
+case "$target" in
+    fuzz_gps_utc)  max_len=12; dict="fuzz_gps_utc.dict" ;;
+    fuzz_week_tow) max_len=17; dict="fuzz_week_tow.dict" ;;
+    *) echo "unknown target: $target" >&2; exit 1 ;;
+esac
+
+cargo fuzz run "$target" -- \
     -max_total_time="$timeout_seconds" \
-    -max_len=12 \
-    -dict=fuzz_gps_utc.dict \
+    -max_len="$max_len" \
+    -dict="$dict" \
+    -rss_limit_mb=4096 \
     "$@"

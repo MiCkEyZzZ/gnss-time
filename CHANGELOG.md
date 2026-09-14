@@ -30,10 +30,24 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `docs/LEAP_SECONDS.md`: identical 19-entry table, formulas and code examples,
   native German/Russian prose.
 - Added `fuzz/` sub-crate (`gnss-time-fuzz`) with cargo-fuzz / libFuzzer
-  integration: `fuzz_gps_utc` target covering GPS ↔ UTC roundtrip across
-  the full `u64` domain and structured exploration of all 18 leap-second
-  ambiguity windows, plus `tools/gen_corpus.py`, `tools/gen_corpus.sh`,
-  `tools/run-fuzz.sh` helper scripts and a `fuzz_gps_utc.dict` dictionary.
+  integration (`Cargo.toml`, `README.md`, `fuzz_gps_utc.dict`,
+  `fuzz_week_tow.dict` dictionaries, `fuzz_targets/` harnesses and
+  `tools/gen_corpus.py`, `tools/gen_corpus.sh`, `tools/run-fuzz.sh` helper
+  scripts).
+  - `fuzz_gps_utc` target (dual-mode: RAW full-`u64` domain + BOUNDARY
+    structured walk around all 18 leap-second ambiguity windows) covering
+    GPS ↔ UTC roundtrip exactness (invariant I-12), UTC monotonicity and
+    TAI − UTC step bounds.
+  - `fuzz_week_tow` target (dual-mode: RAW full `week × tow` domain +
+    BOUNDARY edge walk over its own edge sets) covering
+    `Time::<Gps>::from_week_tow` error classification (`InvalidInput` vs
+    `Overflow` vs `Ok`), exact constructor arithmetic, `week()` /
+    `tow_seconds()` / `sub_second_nanos()` roundtrips and determinism. Edge
+    sets span the `604_800` TOW-seconds boundary, the `1_000_000_000`
+    sub-second boundary and the `u64` week-overflow rim (≈ `30_501`).
+  - Corpus generator emits per-axis edge seeds (no cross-product) plus
+    boundary jitter walks, keeping the seed corpus small (`fuzz_gps_utc`:
+    407, `fuzz_week_tow`: 137) and reproducible.
 - Added `setup-fuzz`, `fuzz-build` and `fuzz` recipes to the `justfile`;
   `just fuzz [secs=300]` runs all five targets locally.
 - Added `.gitattributes` to normalize line endings (LF) for text files and
