@@ -31,9 +31,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   native German/Russian prose.
 - Added `fuzz/` sub-crate (`gnss-time-fuzz`) with cargo-fuzz / libFuzzer
   integration (`Cargo.toml`, `README.md`, `fuzz_gps_utc.dict`,
-  `fuzz_week_tow.dict`, `fuzz_day_tod.dict`, `fuzz_utc_to_gps.dict`
-  dictionaries, `fuzz_targets/` harnesses and `tools/gen_corpus.py`,
-  `tools/gen_corpus.sh`, `tools/run-fuzz.sh` helper scripts).
+  `fuzz_week_tow.dict`, `fuzz_day_tod.dict`, `fuzz_utc_to_gps.dict`,
+  `fuzz_try_extend.dict` dictionaries, `fuzz_targets/` harnesses and
+  `tools/gen_corpus.py`, `tools/gen_corpus.sh`, `tools/run-fuzz.sh` helper
+  scripts).
   - `fuzz_gps_utc` target (dual-mode: RAW full-`u64` domain + BOUNDARY
     structured walk around all 18 leap-second ambiguity windows) covering
     GPS ↔ UTC roundtrip exactness (invariant I-12), UTC monotonicity and
@@ -66,6 +67,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     (UTC since 1972 ≤ 252_892_800_000_000_000 ns). BOUNDARY instants are
     `tai_threshold − tai_minus_utc × 1 s` per transition, with the
     documented ±20 s jitter window.
+  - `fuzz_try_extend` target (dual-mode: RAW full 12-byte
+    `(tai_nanos: u64, tai_minus_utc: i32)` entries + BOUNDARY structured
+    2-byte `(tai-delta, offset-selector)` walk) covering the
+    `RuntimeLeapSeconds::try_extend` and `LeapSeconds::try_from_slice`
+    error classification against an independent `i64`-based reference model
+    that never overflows: `Ok` / `BufferFull` / `NotStrictlyAscending` /
+    `NonUnitIncrement` / `OffsetOverflow`. The harness pins the input-size
+    bound at 793 bytes (1 flags byte + 66 × 12-byte entries) so the
+    `RUNTIME_CAPACITY` of 64 plus the builtin 19-entry start state is always
+    reachable, and exercises both start states (empty table and the builtin
+    19-entry table) through a flags byte (`0x00` / `0x80`).
   - Tooling hardening shared by all targets: compile-time assertions pin
     overflow rims to the `u64` storage bound (no self-referential asserts);
     error classification uses a dedicated `ExpectedKind` enum instead of
@@ -75,12 +87,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - Corpus generator emits per-axis edge seeds (no cross-product) plus
     boundary jitter walks, keeping the seed corpus small (`fuzz_gps_utc`:
     407, `fuzz_week_tow`: 137, `fuzz_day_tod`: 134,
-    `fuzz_utc_to_gps`: 421) and reproducible.
+    `fuzz_utc_to_gps`: 421, `fuzz_try_extend`: 19) and reproducible.
   - `tools/run-fuzz.sh` dispatches per-target `-max_len` and `-dict`, falling
     through to `cargo fuzz run`; `tools/gen_corpus.sh` regenerates and
-    reports all four corpora.
+    reports all five corpora.
 - Added `setup-fuzz`, `fuzz-build` and `fuzz` recipes to the `justfile`;
   `just fuzz [secs=300]` runs all five targets locally.
+- Added the `LeapExtendError::OffsetOverflow` variant (non-exhaustive enum)
+  returned by `RuntimeLeapSeconds::try_extend` and `LeapSeconds::try_from_slice`
+  when the last accepted entry's `tai_minus_utc` is `i32::MAX`, so no valid
+  +1 successor can exist. The previous behavior overflowed `i32` and either
+  panicked (debug) or silently accepted an `i32::MIN` successor (release).
 - Added `.gitattributes` to normalize line endings (LF) for text files and
   mark binary file types.
 - Added `tombi.toml`, configuration for the Tombi TOML language server
@@ -159,6 +176,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   added.
 - `rustfmt.toml`: corrected the stale "Gorka project" reference in the header
   comment to "gnss-time project".
+- `src/leap.rs`: fixed `Display` for the new `LeapExtendError::OffsetOverflow`
+  variant (previously an empty string with nothing printed on the line).
+- `src/leap.rs`: added regression tests
+  `test_try_extend_offset_overflow_does_not_panic` and
+  `test_try_from_slice_offset_overflow_does_not_panic` covering the
+  `i32::MAX` successor-overflow path (previously panicked in debug builds and
+  accepted an `i32::MIN` successor in release builds).
 
 ## [0.7.0] - 2026-08-22
 
