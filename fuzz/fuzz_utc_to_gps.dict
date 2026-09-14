@@ -1,0 +1,60 @@
+# Dictionary for the fuzz_utc_to_gps target.
+#
+# Format: quoted raw bytes with \xNN escapes — ONE byte per \xNN escape.
+# Tokens are little-endian u64 values decoded by the harness with
+# u64::from_le_bytes / i64::from_le_bytes.
+#
+# NOTE: no trailing comments after a token line; libFuzzer's dictionary
+# parser rejects them. Comments must be on their own line.
+#
+# Mode dispatch is data[0] bit 7:
+"\x00"
+"\x80"
+
+# Domain edges (RAW mode, bytes 1..9 = u64 UTC nanoseconds since 1972-01-01).
+# UTC epoch (u64::MIN):
+"\x00\x00\x00\x00\x00\x00\x00\x00"
+# 1 ns:
+"\x01\x00\x00\x00\x00\x00\x00\x00"
+# 1_000_000_000 — 1 s:
+"\x00\xca\x9a\x3b\x00\x00\x00\x00"
+
+# 252_892_800_000_000_000 — GPS epoch as UTC (1980-01-06). This is the
+# underflow boundary of utc_to_gps: below it the result does not fit in u64.
+utc_to_gps_boundary="\x00\x00\x41\x66\xa9\x74\x82\x03"
+# boundary - 1 ns (legal overflow path):
+boundary_m1="\xff\xff\x40\x66\xa9\x74\x82\x03"
+# boundary + 1 ns:
+boundary_p1="\x01\x00\x41\x66\xa9\x74\x82\x03"
+# boundary - 1 s:
+boundary_m1s="\x00\x36\xa6\x2a\xa9\x74\x82\x03"
+# boundary + 1 s:
+boundary_p1s="\x00\xca\xdb\xa1\xa9\x74\x82\x03"
+
+# Leap-second flip instants in UTC nanos (BOUNDARY mode). Each token is the
+# UTC instant at which the binary search flips for that transition
+# (tai_threshold - tai_minus_utc x 1 s); the harness folds a +/-20 s jitter
+# around it. In UTC domain.
+# 1981-07-01 flip (46_828_800_000_000_000):
+flip_1981="\x00\x00\x42\xa5\x8b\x5e\xa6\x00"
+# 1982-07-01 flip (78_364_800_000_000_000):
+flip_1982="\x00\x00\xe5\xd2\x5e\x68\x16\x01"
+# 1983-07-01 flip (109_900_800_000_000_000):
+flip_1983="\x00\x00\x88\x00\x32\x72\x86\x01"
+# 1985-07-01 flip (173_059_200_000_000_000):
+flip_1985="\x00\x00\x1d\xed\x6c\xd4\x66\x02"
+# 1988-01-01 flip (252_028_800_000_000_000):
+flip_1988="\x00\x00\x2b\xb9\xdb\x62\x7f\x03"
+# 2017-01-01 flip (1_167_264_000_000_000_000):
+flip_2017="\x00\x00\x1a\x6f\x6c\xf4\x32\x10"
+
+# Practical time-scale anchors (RAW mode).
+# 2006-01-01 UTC anchor (1_136_073_600_000_000_000):
+anchor_2006="\x00\x00\x80\xa8\xac\xe4\xe3\x0f"
+
+# u64::MAX — high-end / overflow paths:
+"\xff\xff\xff\xff\xff\xff\xff\xff"
+# u64::MAX - 1e9:
+"\xff\xff\xff\xff\xca\x9a\x3b\x00"
+# u64::MAX/2:
+"\xff\xff\xff\x7f\xff\xff\xff\x7f"

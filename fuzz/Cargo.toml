@@ -31,6 +31,13 @@ name = "fuzz_day_tod"
 path = "fuzz_targets/fuzz_day_tod.rs"
 test = false
 
+[[bin]]
+bench = false
+doc = false
+name = "fuzz_utc_to_gps"
+path = "fuzz_targets/fuzz_utc_to_gps.rs"
+test = false
+
 [dependencies]
 libfuzzer-sys = "0.4"
 

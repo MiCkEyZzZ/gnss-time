@@ -31,9 +31,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   native German/Russian prose.
 - Added `fuzz/` sub-crate (`gnss-time-fuzz`) with cargo-fuzz / libFuzzer
   integration (`Cargo.toml`, `README.md`, `fuzz_gps_utc.dict`,
-  `fuzz_week_tow.dict`, `fuzz_day_tod.dict` dictionaries, `fuzz_targets/`
-  harnesses and `tools/gen_corpus.py`, `tools/gen_corpus.sh`,
-  `tools/run-fuzz.sh` helper scripts).
+  `fuzz_week_tow.dict`, `fuzz_day_tod.dict`, `fuzz_utc_to_gps.dict`
+  dictionaries, `fuzz_targets/` harnesses and `tools/gen_corpus.py`,
+  `tools/gen_corpus.sh`, `tools/run-fuzz.sh` helper scripts).
   - `fuzz_gps_utc` target (dual-mode: RAW full-`u64` domain + BOUNDARY
     structured walk around all 18 leap-second ambiguity windows) covering
     GPS ↔ UTC roundtrip exactness (invariant I-12), UTC monotonicity and
@@ -56,6 +56,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     rim (≈ `213_503`). The compile-time assertion pins the overflow rim to
     `DAY_NS` via `u128` arithmetic so a typo in the constant breaks the
     build.
+  - `fuzz_utc_to_gps` target (dual-mode: RAW full-`u64` UTC-nanosecond
+    domain + BOUNDARY structured walk around all 18 leap-second ambiguity
+    windows, expressed in the UTC domain) mirroring `fuzz_gps_utc` but
+    driven by `Time::<Utc>::from_nanos`. Contains the full
+    `utc → gps → utc` roundtrip exactness (invariant I-12), UTC
+    monotonicity, TAI − UTC step bounds, and the underflow invariant that
+    `utc_to_gps` may fail (`Overflow`) only below the GPS-epoch boundary
+    (UTC since 1972 ≤ 252_892_800_000_000_000 ns). BOUNDARY instants are
+    `tai_threshold − tai_minus_utc × 1 s` per transition, with the
+    documented ±20 s jitter window.
   - Tooling hardening shared by all targets: compile-time assertions pin
     overflow rims to the `u64` storage bound (no self-referential asserts);
     error classification uses a dedicated `ExpectedKind` enum instead of
@@ -64,10 +74,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     are pinned by unit tests, the harness range-checks only).
   - Corpus generator emits per-axis edge seeds (no cross-product) plus
     boundary jitter walks, keeping the seed corpus small (`fuzz_gps_utc`:
-    407, `fuzz_week_tow`: 137, `fuzz_day_tod`: 134) and reproducible.
+    407, `fuzz_week_tow`: 137, `fuzz_day_tod`: 134,
+    `fuzz_utc_to_gps`: 421) and reproducible.
   - `tools/run-fuzz.sh` dispatches per-target `-max_len` and `-dict`, falling
     through to `cargo fuzz run`; `tools/gen_corpus.sh` regenerates and
-    reports all three corpora.
+    reports all four corpora.
 - Added `setup-fuzz`, `fuzz-build` and `fuzz` recipes to the `justfile`;
   `just fuzz [secs=300]` runs all five targets locally.
 - Added `.gitattributes` to normalize line endings (LF) for text files and

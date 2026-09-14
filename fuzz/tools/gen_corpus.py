@@ -443,6 +443,72 @@ def main() -> None:
 
     print(f"generated {count} seeds in {dd_dir}")
 
+    # ── fuzz_utc_to_gps ───────────────────────────────────────────────────────
+    ug_dir = os.path.join(here, "..", "corpus", "fuzz_utc_to_gps")
+    os.makedirs(ug_dir, exist_ok=True)
+    for entry in os.listdir(ug_dir):
+        os.remove(os.path.join(ug_dir, entry))
+
+    count = 0
+
+    # UTC epoch (1972-01-01), GPS epoch boundary (underflow edge), flip
+    # instants and high-end anchors over the full u64 domain.
+    UTC_TO_GPS_EPOCH_NS = 252_892_800_000_000_000  # GPS epoch as UTC
+    RAW_UTC = [
+        0,
+        1,
+        CPU_NS,
+        UTC_TO_GPS_EPOCH_NS - 1,  # 1 ns below the GPS epoch → underflow
+        UTC_TO_GPS_EPOCH_NS,  # exact GPS epoch boundary
+        UTC_TO_GPS_EPOCH_NS + 1,
+        UTC_TO_GPS_EPOCH_NS + CPU_NS,
+        46_828_800_000_000_000,  # 1981-07-01 UTC flip instant
+        1_167_264_000_000_000_000,  # 2017-01-01 UTC flip instant
+        1_467_264_000_000_000_000,  # ~2026 (now)
+        2**63,
+        2**63 + CPU_NS * 100,
+        2**64 - 1,  # u64::MAX — high-end / overflow paths
+        2**64 - 1 - CPU_NS,
+        (2**64 - 1) // 2,
+    ]
+
+    def raw_ug_seed(nanos: int) -> bytes:
+        return b"\x00" + struct.pack("<Q", nanos)
+
+    for nanos in RAW_UTC:
+        with open(os.path.join(ug_dir, f"ug_raw_{count:04d}"), "wb") as fh:
+            fh.write(raw_ug_seed(nanos))
+        count += 1
+
+    # small perturbations of the anchors so mutations have neighbours to grow
+    for nanos in RAW_UTC:
+        for delta in (-1, 1, -2, 2, -17, 17):
+            perturbed = nanos + delta
+            if perturbed < 0 or perturbed >= 2**64:
+                continue
+            with open(os.path.join(ug_dir, f"ug_raw_{count:04d}"), "wb") as fh:
+                fh.write(raw_ug_seed(perturbed))
+            count += 1
+
+    # BOUNDARY seeds: UTC flip instant of every transition, jittered so the
+    # 1 s ambiguity window is provably reached on every run.
+    def boundary_ug_seed(idx: int, jitter_ns: int) -> bytes:
+        # decoded idx = 1 + (byte1 % 18), so store byte1 = idx - 1
+        byte1 = idx - 1
+        return bytes([0x80, byte1]) + struct.pack("<q", jitter_ns) + b"\x00\x00"
+
+    for idx, (tai_ns, off) in enumerate(TRANSITIONS, start=1):
+        utc_flip = tai_ns - off * CPU_NS
+        for jitter_ns in JITTERS:
+            nanos = utc_flip + jitter_ns
+            if nanos < 0:
+                continue
+            with open(os.path.join(ug_dir, f"ug_bd_{count:04d}"), "wb") as fh:
+                fh.write(boundary_ug_seed(idx, jitter_ns))
+            count += 1
+
+    print(f"generated {count} seeds in {ug_dir}")
+
 
 if __name__ == "__main__":
     main()
