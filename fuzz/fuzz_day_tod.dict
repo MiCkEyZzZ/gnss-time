@@ -1,0 +1,65 @@
+# Dictionary for the fuzz_day_tod target.
+#
+# Format: quoted raw bytes with \xNN escapes — ONE byte per \xNN escape.
+# Tokens are little-endian u32/u64 values decoded by the harness with
+# u32::from_le_bytes / u64::from_le_bytes.
+#
+# NOTE: no trailing comments after a token line; libFuzzer's dictionary
+# parser rejects them. Comments must be on their own line.
+#
+# Mode dispatch is data[0] bit 7:
+"\x00"
+"\x80"
+
+# Domain edges (RAW mode): day u32 (bytes 1..5), tod u64 (5..13), nanos u32 (13..17).
+
+# Day 0 — GLONASS epoch:
+"\x00\x00\x00\x00"
+# Day 1:
+"\x01\x00\x00\x00"
+# Day 1_460 — last day of the first 4-year interval:
+"\xb4\x05\x00\x00"
+# Day 1_461 — first day of the second 4-year interval:
+"\xb5\x05\x00\x00"
+# Day 209_715 (2^18 − 1):
+"\x33\x33\x03\x00"
+# Day 213_502 — just below the overflow rim:
+"\xfe\x41\x03\x00"
+# Day 213_503 — last representable day with bounded TOD:
+"\xff\x41\x03\x00"
+# Day 213_504 — overflow rim:
+"\x00\x42\x03\x00"
+# Day 65_535 (u16::MAX):
+"\xff\xff\x00\x00"
+# Day 262_143 (2^18 − 1 — historic counter width):
+"\xff\xff\x03\x00"
+# Day 1_000_000:
+"\x40\x42\x0f\x00"
+# Day u32::MAX:
+"\xff\xff\xff\xff"
+
+# TOD seconds edges around 86_400: 0:
+"\x00\x00\x00\x00\x00\x00\x00\x00"
+# 86_399 (last valid):
+"\x7f\x51\x01\x00\x00\x00\x00\x00"
+# 86_400 (first invalid):
+"\x80\x51\x01\x00\x00\x00\x00\x00"
+# 86_401:
+"\x81\x51\x01\x00\x00\x00\x00\x00"
+# u64::MAX:
+"\xff\xff\xff\xff\xff\xff\xff\xff"
+
+# Nanos edges around 1_000_000_000: 0:
+"\x00\x00\x00\x00"
+# 999_999_999 (last valid):
+"\xff\xc9\x9a\x3b"
+# 1_000_000_000 (first invalid):
+"\x00\xca\x9a\x3b"
+# 1_000_000_001:
+"\x01\xca\x9a\x3b"
+# u32::MAX:
+"\xff\xff\xff\xff"
+
+# Arithmetic constants the harness compares against.
+# 86_400_000_000_000 — DAY_NS:
+"\x00\x00\x4f\x91\x94\x4e\x00\x00"
