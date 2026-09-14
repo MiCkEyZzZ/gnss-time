@@ -32,9 +32,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Added `fuzz/` sub-crate (`gnss-time-fuzz`) with cargo-fuzz / libFuzzer
   integration (`Cargo.toml`, `README.md`, `fuzz_gps_utc.dict`,
   `fuzz_week_tow.dict`, `fuzz_day_tod.dict`, `fuzz_utc_to_gps.dict`,
-  `fuzz_try_extend.dict` dictionaries, `fuzz_targets/` harnesses and
-  `tools/gen_corpus.py`, `tools/gen_corpus.sh`, `tools/run-fuzz.sh` helper
-  scripts).
+  `fuzz_try_extend.dict`, `fuzz_leap_lookup.dict` dictionaries,
+  `fuzz_targets/` harnesses and `tools/gen_corpus.py`,
+  `tools/gen_corpus.sh`, `tools/run-fuzz.sh` helper scripts).
   - `fuzz_gps_utc` target (dual-mode: RAW full-`u64` domain + BOUNDARY
     structured walk around all 18 leap-second ambiguity windows) covering
     GPS ↔ UTC roundtrip exactness (invariant I-12), UTC monotonicity and
@@ -78,6 +78,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     `RUNTIME_CAPACITY` of 64 plus the builtin 19-entry start state is always
     reachable, and exercises both start states (empty table and the builtin
     19-entry table) through a flags byte (`0x00` / `0x80`).
+  - `fuzz_leap_lookup` target (dual-mode: RAW full-`u64` TAI lookups +
+    BOUNDARY instant walk anchored to the built/empty table) covering
+    `RuntimeLeapSeconds::tai_minus_utc_at` and the static
+    `LeapSeconds::builtin()` provider: `tai_minus_utc_at` monotonicity
+    (non-decreasing in TAI), dynamic `min..=max` offset range derived from
+    the actual `entries()` of the table under test (never hardcoded
+    `19..=37`), and the documented 19 s fallback for an empty runtime table.
+    The build phase hand-assembles the runtime table (`0x00` empty /
+    `0x80` builtin start, `0x40` RAW 12-byte entries / `0x20` BOUNDARY
+    2-byte walk, `0x10` additionally checks the static provider) and the
+    input-size bound is pinned at 922 bytes (1 flags + 1 count + 66 × 12-byte
+    entries + 16 × 8-byte instants) so both the full `RUNTIME_CAPACITY` and
+    every builtin threshold stay reachable.
   - Tooling hardening shared by all targets: compile-time assertions pin
     overflow rims to the `u64` storage bound (no self-referential asserts);
     error classification uses a dedicated `ExpectedKind` enum instead of
@@ -87,12 +100,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - Corpus generator emits per-axis edge seeds (no cross-product) plus
     boundary jitter walks, keeping the seed corpus small (`fuzz_gps_utc`:
     407, `fuzz_week_tow`: 137, `fuzz_day_tod`: 134,
-    `fuzz_utc_to_gps`: 421, `fuzz_try_extend`: 19) and reproducible.
+    `fuzz_utc_to_gps`: 421, `fuzz_try_extend`: 19, `fuzz_leap_lookup`: 166)
+    and reproducible.
   - `tools/run-fuzz.sh` dispatches per-target `-max_len` and `-dict`, falling
     through to `cargo fuzz run`; `tools/gen_corpus.sh` regenerates and
-    reports all five corpora.
+    reports all six corpora.
 - Added `setup-fuzz`, `fuzz-build` and `fuzz` recipes to the `justfile`;
-  `just fuzz [secs=300]` runs all five targets locally.
+  `just fuzz [secs=300]` runs all six targets locally.
 - Added the `LeapExtendError::OffsetOverflow` variant (non-exhaustive enum)
   returned by `RuntimeLeapSeconds::try_extend` and `LeapSeconds::try_from_slice`
   when the last accepted entry's `tai_minus_utc` is `i32::MAX`, so no valid

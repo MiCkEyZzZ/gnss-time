@@ -589,6 +589,84 @@ def main() -> None:
 
     print(f"generated {count} seeds in {te_dir}")
 
+    # ── fuzz_leap_lookup ────────────────────────────────────────────────────
+    # Format: byte0 = flags (0x80 builtin start, 0x40 RAW build, 0x20 BOUNDARY
+    # build, 0x10 also static provider, 0x08 BOUNDARY instants), byte1 = build
+    # entry count, then RAW (12-byte) / BOUNDARY (2-byte) entries, then lookup
+    # instants (RAW 8-byte u64 TAI / BOUNDARY 2-byte selector+jitter).
+    ll_dir = os.path.join(here, "..", "corpus", "fuzz_leap_lookup")
+    os.makedirs(ll_dir, exist_ok=True)
+    for entry in os.listdir(ll_dir):
+        os.remove(os.path.join(ll_dir, entry))
+
+    count = 0
+
+    def write_ll(name: str, flags: int, build: bytes, instants: list) -> None:
+        nonlocal count
+        data = (
+            bytes([flags, len(build) // (12 if flags & 0x40 else 2)])
+            if (flags & 0x40 or flags & 0x20)
+            else bytes([flags, 0])
+        )
+        data += build
+        for inst in instants:
+            data += inst
+        with open(os.path.join(ll_dir, f"ll_{name}_{count:04d}"), "wb") as fh:
+            fh.write(data)
+        count += 1
+
+    def raw_inst(tai: int) -> bytes:
+        return struct.pack("<Q", tai)
+
+    # Builtin table thresholds (entries[0] is the 19 s base at 0).
+    BUILTIN = [(0, 19)] + TRANSITIONS
+
+    def ll_boundary_inst(selector: int, jitter: int) -> bytes:
+        # selector 0x00..0x7F scaled to table length; 0xFF = raw anchor.
+        return bytes([selector & 0xFF, jitter & 0xFF])
+
+    # RAW instants straddling every builtin threshold (exact, +-1, +-CPU_NS).
+    for tai_ns, off in BUILTIN:
+        for d in (-CPU_NS, -1, 0, 1, CPU_NS):
+            t = tai_ns + d
+            if t < 0 or t >= 2**64:
+                continue
+            write_ll("raw_thr", 0x80, b"", [raw_inst(t)])
+    # RAW extremes and the pre-first fallback.
+    for t in (0, 1, CPU_NS - 1, 2**63, 2**63 + CPU_NS, 2**64 - 1 - CPU_NS, 2**64 - 1):
+        write_ll("raw_x", 0x80, b"", [raw_inst(t)])
+    # BOUNDARY instants: selector scaled to the 19-entry builtin, jitter +-1,0.
+    for idx in range(0, 19):
+        sel = idx * 256 // 19
+        for jitter in (-1, 0, 1):
+            write_ll("bnd_thr", 0x88, b"", [ll_boundary_inst(sel, jitter)])
+    # BOUNDARY raw anchors.
+    write_ll(
+        "bnd_anchor", 0x88, b"", [ll_boundary_inst(0xFF, 1), ll_boundary_inst(0xFF, 0)]
+    )
+    # Static provider alongside runtime builtin (same instants both paths).
+    for t in (46_828_820_000_000_000 + 1, 1_167_264_037_000_000_000 - 1):
+        write_ll("static", 0x90, b"", [raw_inst(t)])
+    # Empty table: instants must all report the 19 s fallback.
+    for t in (0, 2**32, 2**64 - 1):
+        write_ll("empty", 0x00, b"", [raw_inst(t)])
+    # RAW build from empty: valid unit chain then lookup around last threshold.
+    chain = b"".join(struct.pack("<Qi", t * CPU_NS, 19 + t - 1) for t in range(1, 9))
+    write_ll("raw_build", 0x40, chain, [raw_inst(8 * CPU_NS + 1), raw_inst(9 * CPU_NS)])
+    # RAW build from builtin: extend 38 s (valid) then adjacent lookups.
+    ext = struct.pack("<Qi", 1_167_264_038_000_000_000, 38)
+    write_ll(
+        "raw_ext38",
+        0xC0,
+        ext,
+        [raw_inst(1_167_264_037_000_000_000 - 1), raw_inst(1_167_264_038_000_000_000)],
+    )
+    # BOUNDARY build: ascending chain from empty then boundary instants.
+    bnd_build = bytes([1, 0]) * 6
+    write_ll("bnd_build", 0x20, bnd_build, [raw_inst(6 * CPU_NS), raw_inst(7 * CPU_NS)])
+
+    print(f"generated {count} seeds in {ll_dir}")
+
 
 if __name__ == "__main__":
     main()

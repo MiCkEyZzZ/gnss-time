@@ -212,7 +212,7 @@ fuzz-build:
 # Usage: just fuzz [secs=300]
 
 fuzz secs='300':
-    @for t in fuzz_week_tow fuzz_day_tod fuzz_gps_utc fuzz_utc_to_gps fuzz_try_extend; do cargo fuzz run $$t -- -max_total_time={{ secs }}; done
+    @for t in fuzz_week_tow fuzz_day_tod fuzz_gps_utc fuzz_utc_to_gps fuzz_try_extend fuzz_leap_lookup; do cargo fuzz run $$t -- -max_total_time={{ secs }}; done
 
 # =============================================================================
 # Advanced validation
