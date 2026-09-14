@@ -1,4 +1,4 @@
-# rustfmt.toml — formatting configuration for the Gorka project.
+# rustfmt.toml — formatting configuration for the gnss-time project.
 # Note: some options (format_macro_bodies, format_macro_matchers, unstable_features)
 # require nightly rustfmt.
 

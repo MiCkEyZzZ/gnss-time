@@ -11,29 +11,29 @@ warn-on-all-wildcard-imports = false
 # Forbidden methods
 # Unsafe functions from the `time` crate (RUSTSEC-2020-0071)
 [[disallowed-methods]]
-path         = "time::now"
+path = "time::now"
 allow-invalid = true
-reason       = "time::now небезопасен (RUSTSEC-2020-0071) — используйте std::time::Instant."
+reason = "time::now небезопасен (RUSTSEC-2020-0071) — используйте std::time::Instant."
 
 [[disallowed-methods]]
-path         = "time::at"
+path = "time::at"
 allow-invalid = true
-reason       = "time::at небезопасен (RUSTSEC-2020-0071) — используйте std::time::SystemTime."
+reason = "time::at небезопасен (RUSTSEC-2020-0071) — используйте std::time::SystemTime."
 
 [[disallowed-methods]]
-path         = "time::at_utc"
+path = "time::at_utc"
 allow-invalid = true
-reason       = "time::at_utc небезопасен (RUSTSEC-2020-0071)."
+reason = "time::at_utc небезопасен (RUSTSEC-2020-0071)."
 
 # transmute breaks the type system
 [[disallowed-methods]]
-path   = "std::mem::transmute"
+path = "std::mem::transmute"
 reason = "transmute опасен — используйте безопасные конверсии (From/Into/bytemuck)."
 
 # Forbidden types
 # Do not use std::sync::Mutex for IQ data in hot paths
 [[disallowed-types]]
-path   = "std::sync::Mutex"
+path = "std::sync::Mutex"
 reason = "В hot-path (IQ pipeline) используйте parking_lot::Mutex или crossbeam."
 
 # Allowed exceptions

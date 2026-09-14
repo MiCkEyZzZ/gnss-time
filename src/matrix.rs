@@ -394,6 +394,7 @@ mod tests {
             (ScaleId::Galileo, ScaleId::Beidou),
             (ScaleId::Glonass, ScaleId::Utc),
         ];
+
         for (from, to) in fixed_pairs {
             assert!(from.is_fixed(to), "{from:?} -> {to:?} should be fixed");
             assert!(to.is_fixed(from), "{to:?} -> {from:?} should be fixed");
@@ -412,6 +413,7 @@ mod tests {
     #[test]
     fn test_matrix_counts_are_correct() {
         let m = ConversionMatrix::new();
+
         // 6×6 matrix → 6 diagonal elements → 30 off-diagonal cells
         //
         // Fixed/Identity/EpochShift paths are symmetric pairs:
@@ -431,6 +433,7 @@ mod tests {
             for &to in &ScaleId::ALL {
                 if from != to {
                     let kind = from.conversion_kind(to);
+
                     assert_ne!(
                         kind,
                         ConversionKind::SameScale,
@@ -449,6 +452,7 @@ mod tests {
                 if from != to {
                     let fwd_fixed = from.is_fixed(to);
                     let rev_fixed = to.is_fixed(from);
+
                     assert_eq!(
                         fwd_fixed, rev_fixed,
                         "{from:?} <-> {to:?}: fixed classification must be symmetric",

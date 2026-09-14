@@ -182,6 +182,9 @@ test-all:
 test-no-std: setup-embedded
     cargo check --lib --no-default-features --target thumbv7em-none-eabihf --locked
 
+next:
+    cargo nextest run --workspace
+
 # =============================================================================
 # Benchmarks
 # =============================================================================
@@ -191,6 +194,25 @@ bench:
 
 bench-smoke:
     cargo bench -p benches --locked -- --test
+
+# =============================================================================
+# Fuzzing
+# =============================================================================
+
+setup-fuzz:
+    cargo install cargo-fuzz --locked
+
+# Build all fuzz targets (requires nightly, see rust-toolchain.toml).
+
+fuzz-build:
+    cargo fuzz build
+
+# Run all fuzz targets (long local campaign; default 5 minutes per target).
+#
+# Usage: just fuzz [secs=300]
+
+fuzz secs='300':
+    @for t in week_tow day_tod gps_utc utc_to_gps leap_lookup; do cargo fuzz run $$t -- -max_total_time={{ secs }}; done
 
 # =============================================================================
 # Advanced validation

@@ -14,8 +14,10 @@ use gnss_time::{
 struct TelemetryPacket {
     /// GPS reception timestamp
     timestamp: Time<Gps>,
+
     /// Signal offset from reference
     offset: Duration,
+
     /// Number of visible satellites
     sv_count: u8,
 }
@@ -226,7 +228,6 @@ fn test_postcard_gps_and_utc_same_nanos_different_types() {
     let nanos: u64 = 1_000_000_000_000;
     let gps = Time::<Gps>::from_nanos(nanos);
     let utc = Time::<Utc>::from_nanos(nanos);
-
     let gps_bytes = postcard::to_allocvec(&gps).unwrap();
     let utc_bytes = postcard::to_allocvec(&utc).unwrap();
 
@@ -376,11 +377,9 @@ fn test_heapless_buffer_size_for_duration_parts() {
 #[test]
 fn test_json_and_postcard_produce_same_timestamp() {
     let original = Time::<Gps>::from_nanos(1_356_566_418_123_456_789);
-
     // Serialize to JSON, deserialize back
     let json = serde_json::to_string(&original).unwrap();
     let from_json: Time<Gps> = serde_json::from_str(&json).unwrap();
-
     // Serialize to postcard, deserialize back
     let postcard_bytes = postcard::to_allocvec(&original).unwrap();
     let from_postcard: Time<Gps> = postcard::from_bytes(&postcard_bytes).unwrap();
@@ -431,7 +430,6 @@ fn test_gps_utc_convert_then_postcard_roundtrip() {
 
     // Convert GPS → UTC
     let utc = gps_original.to_utc_with(&ls).unwrap();
-
     // Serialize UTC to postcard
     let bytes = postcard::to_allocvec(&utc).unwrap();
     let utc_back: Time<Utc> = postcard::from_bytes(&bytes).unwrap();
@@ -449,7 +447,6 @@ fn test_unix_time_postcard_roundtrip() {
     // Typical 2024 Unix timestamp
     let unix_s: i64 = 1_704_067_200;
     let utc = Time::<Utc>::from_unix_seconds(unix_s).unwrap();
-
     let bytes = postcard::to_allocvec(&utc).unwrap();
     let back: Time<Utc> = postcard::from_bytes(&bytes).unwrap();
 
@@ -476,7 +473,6 @@ fn test_telemetry_packet_postcard_roundtrip() {
     let back: TelemetryPacket = postcard::from_bytes(&bytes).unwrap();
 
     assert_eq!(packet, back);
-
     // The packet fits in 32 bytes (typical embedded DMA buffer)
     assert!(
         bytes.len() <= 32,
@@ -492,7 +488,6 @@ fn test_telemetry_packet_json_roundtrip() {
         offset: Duration::from_nanos(500),
         sv_count: 12,
     };
-
     let json = serde_json::to_string(&packet).unwrap();
     let back: TelemetryPacket = serde_json::from_str(&json).unwrap();
 

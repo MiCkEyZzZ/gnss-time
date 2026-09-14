@@ -1,3 +1,23 @@
+//! # Leap second table
+//!
+//! The TAI–UTC leap second table that backs UTC conversion and the
+//! GPS/GLONASS scale offsets (source: IERS Bulletin C).
+//!
+//! See the "Last verified" note below for the current TAI−UTC offset
+//! (37 s, unchanged since 2017-01-01).
+//!
+//! ## Data layout
+//!
+//! Each entry encodes `(threshold_tai_nanos, tai_minus_utc)`: the moment,
+//! in TAI nanoseconds since the GPS epoch, after which the new offset
+//! applies.
+//!
+//! ## Invariants
+//!
+//! The table is strictly ascending in `tai_nanos`, and `tai_minus_utc`
+//! grows by exactly 1 per entry. Both properties are enforced by the
+//! compile-time assertions at the bottom of this module.
+
 use crate::LeapEntry;
 
 // Source: IERS Bulletin C
@@ -138,6 +158,7 @@ const _ASSERT_TABLE_INVARIANTS: () = assert_table_invariants(&BUILTIN_TABLE);
 /// Compile-time assertion: last known entry is 2017-01-01, TAI−UTC = 37.
 const _ASSERT_LAST_ENTRY: () = {
     let last = BUILTIN_TABLE[BUILTIN_TABLE.len() - 1];
+
     assert!(
         last.tai_nanos == 1_167_264_037_000_000_000,
         "BUILTIN_TABLE: last entry threshold mismatch"

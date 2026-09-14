@@ -1,0 +1,40 @@
+## Tombi (Zed TOML language server) configuration for gnss-time.
+## Formatting rules are aligned with taplo.toml so on-save output in Zed
+## matches `just fmt`.
+
+toml-version = "v1.0.0"
+
+[format]
+[format.rules]
+indent-width = 4
+line-width = 100
+string-quote-style = "preserve"
+trailing-comment-space-width = 1
+
+# By default, tombi assumes TOML 1.1's features, particularly the ability to write inline
+# tables over multiple lines. This breaks Cargo in Rust versions older than 1.93.
+# MSRV is 1.75, so we pin the parser/formatter to TOML 1.0.
+#
+# See also: https://github.com/zed-industries/zed/issues/58311
+[[schemas]]
+toml-version = "v1.0.0"
+path = "tombi://www.schemastore.org/cargo.json"
+include = ["Cargo.toml"]
+
+# The schemastore taplo.json schema does not list some valid Taplo options
+# (e.g. `reorder_inline_tables`), which trips tombi's strict mode. Keep the
+# schema for hints/completions but do not hard-error on unknown keys.
+[[schemas]]
+toml-version = "v1.0.0"
+path = "tombi://www.schemastore.org/taplo.json"
+include = ["taplo.toml"]
+strict = false
+
+[schemas.format.rules]
+array-values-order.enabled = false
+table-keys-order.enabled = false
+
+# Cargo.toml legitimately defines [package.metadata.docs.rs] after [package]
+# and [features]/[dependencies]; this is not an error, so silence the lint.
+[lint.rules]
+"tables-out-of-order" = "off"
