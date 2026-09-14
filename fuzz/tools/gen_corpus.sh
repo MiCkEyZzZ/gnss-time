@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Regenerate the seed corpus for fuzz_gps_utc.
+# Regenerate the seed corpus for all fuzz targets.
 #
-# The input format is versioned: whenever fuzz_gps_utc.rs changes its decode
-# scheme, stale corpus entries silently do nothing. This script wipes the
-# corpus and writes fresh RAW + BOUNDARY seeds on every run, so the fuzzer
-# always starts from a domain that provably reaches every leap-second window.
+# The input format is versioned: whenever a target changes its decode scheme,
+# stale corpus entries silently do nothing. This script wipes the corpus and
+# writes fresh RAW + BOUNDARY seeds on every run, so the fuzzer always starts
+# from a domain that provably reaches every target's edge set.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."  # fuzz/
 
 python3 tools/gen_corpus.py
-echo "corpus size: $(find corpus/fuzz_gps_utc -type f | wc -l) files"
+echo "corpus size: $(find corpus/fuzz_gps_utc -type f | wc -l) files (fuzz_gps_utc), $(find corpus/fuzz_week_tow -type f | wc -l) files (fuzz_week_tow)"
 echo
-echo "next:  cargo fuzz run fuzz_gps_utc -- -max_total_time=300 -max_len=12 -dict=fuzz_gps_utc.dict"
+echo "next:  ./tools/run-fuzz.sh fuzz_gps_utc   # or: ./tools/run-fuzz.sh fuzz_week_tow"

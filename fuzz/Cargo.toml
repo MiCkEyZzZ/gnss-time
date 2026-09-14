@@ -1,27 +1,34 @@
-[workspace]
-members = ["."]
-
 [package]
 name = "gnss-time-fuzz"
 version = "0.0.0"
-publish = false
 edition = "2021"
+publish = false
 
 [package.metadata]
 cargo-fuzz = true
+
+[workspace]
+members = ["."]
+
+[[bin]]
+bench = false
+doc = false
+name = "fuzz_gps_utc"
+path = "fuzz_targets/fuzz_gps_utc.rs"
+test = false
+
+[[bin]]
+bench = false
+doc = false
+name = "fuzz_week_tow"
+path = "fuzz_targets/fuzz_week_tow.rs"
+test = false
 
 [dependencies]
 libfuzzer-sys = "0.4"
 
 [dependencies.gnss-time]
 path = ".."
-
-[[bin]]
-name = "fuzz_gps_utc"
-path = "fuzz_targets/fuzz_gps_utc.rs"
-test = false
-doc = false
-bench = false
 
 # Release profile: keep debug info for better crash reports
 [profile.release]
