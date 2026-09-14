@@ -1,0 +1,45 @@
+# Dictionary for the fuzz_try_extend target.
+#
+# Format: quoted raw bytes with \xNN escapes (standard libFuzzer).
+# Mode byte tokens (data[0]):
+#   bit 7 = builtin start, bit 6 = boundary (2B) / raw (12B)
+# empty + raw
+"\x00"
+# empty + boundary
+"\x40"
+# builtin + raw
+"\x80"
+# builtin + boundary
+"\xc0"
+
+# i32::MAX (2147483647) — overflow trigger for tai_minus_utc + 1
+"\xff\xff\xff\x7f"
+# i32::MIN (-2147483648) — accepted after MAX via wraparound in release
+"\x00\x00\x00\x80"
+# 37 — current TAI−UTC
+"\x25\x00\x00\x00"
+# 38 — first valid increment after builtin
+"\x26\x00\x00\x00"
+# 19 — GPS epoch base
+"\x13\x00\x00\x00"
+# 0
+"\x00\x00\x00\x00"
+# 1
+"\x01\x00\x00\x00"
+# tai_nanos with low 32 bits set (0x0000_0000_FFFF_FFFF)
+"\xff\xff\xff\xff\x00\x00\x00\x00"
+# u64::MAX — tai_nanos extreme anchor
+"\xff\xff\xff\xff\xff\xff\xff\xff"
+
+# Builtin table last tai_nanos: 1_167_264_037_000_000_000
+# This value makes the boundary offset=38 +38≤gap valid.
+"\x00\x32\x79\x0c\x75\xf4\x32\x10"
+
+# BOUNDARY anchor bytes: byte a = 1 (tai increment +1, ensures strictly ascending)
+"\x01"
+# BOUNDARY anchor bytes: byte b = 0 (offset selector 0 = valid +1)
+"\x00"
+# BOUNDARY: sel = 3 → offset = i32::MAX
+"\x03"
+# BOUNDARY: sel = 1 → offset = last_off (fails NonUnitIncrement)
+"\x01"

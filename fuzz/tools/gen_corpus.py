@@ -509,6 +509,86 @@ def main() -> None:
 
     print(f"generated {count} seeds in {ug_dir}")
 
+    # ── fuzz_try_extend ──────────────────────────────────────────────────────
+    te_dir = os.path.join(here, "..", "corpus", "fuzz_try_extend")
+    os.makedirs(te_dir, exist_ok=True)
+    for entry in os.listdir(te_dir):
+        os.remove(os.path.join(te_dir, entry))
+
+    count = 0
+
+    CPU = 1_000_000_000
+    I32_MAX = 2**31 - 1
+    I32_MIN = -(2**31)
+
+    def write_te(name: str, data: bytes) -> None:
+        nonlocal count
+        with open(os.path.join(te_dir, f"te_{name}_{count:04d}"), "wb") as fh:
+            fh.write(data)
+        count += 1
+
+    # ── RAW: full 12-byte entries ─────────────────────────────────────────────
+    def te_raw_seed(flags: int, entries: list) -> bytes:
+        out = bytes([flags])
+        for tai, off in entries:
+            out += struct.pack("<Qi", tai, off)
+        return out
+
+    # Start empty: 65 valid entries → the 65th is BufferFull (1..64 Ok).
+    chain = [(t * CPU, 19 + t - 1) for t in range(1, 66)]  # off 19..83
+    write_te("raw_empty_full", te_raw_seed(0x00, chain))
+
+    # Start builtin (19 entries): 45 valid entries extend to 64, 46th is full.
+    chain = [(1_167_300_000_000_000_000 + t * CPU, 37 + t) for t in range(1, 47)]
+    write_te("raw_builtin_full", te_raw_seed(0x80, chain))
+
+    # Known wraparound defect: empty + MAX offset then MIN offset is *accepted*
+    # in release, while the i64 model says NonUnitIncrement.
+    write_te("raw_wrap_max_min", te_raw_seed(0x00, [(100, I32_MAX), (200, I32_MIN)]))
+    # Same, but with the exact boundary in between: still a defect (MAX+1).
+    write_te("raw_wrap_max_max", te_raw_seed(0x00, [(100, I32_MAX), (200, I32_MAX)]))
+
+    # Validation orders from an empty table (first entry arbitrary).
+    write_te("raw_first_any", te_raw_seed(0x00, [(0, I32_MIN)]))
+    write_te("raw_first_any2", te_raw_seed(0x00, [(0, I32_MAX)]))
+    # Descending / equal threshold rejection on the *second* entry.
+    write_te("raw_not_asc", te_raw_seed(0x00, [(100, 1), (100, 2)]))
+    write_te("raw_not_asc2", te_raw_seed(0x00, [(100, 1), (99, 2)]))
+    write_te("raw_non_unit", te_raw_seed(0x00, [(100, 1), (200, 3)]))
+    write_te("raw_non_unit2", te_raw_seed(0x00, [(100, 1), (200, 1)]))
+    # BufferFull has priority over order tests at len == RUNTIME_CAPACITY.
+    chain = [(t * CPU, 19 + t - 1) for t in range(1, 65)]
+    chain += [(64 * CPU, 0)]  # 65th entry at capacity, even invalid → BufferFull
+    write_te("raw_full_priority", te_raw_seed(0x00, chain))
+
+    # ── BOUNDARY: 2-byte walk entries ─────────────────────────────────────────
+    def te_boundary_seed(flags: int, pairs: list) -> bytes:
+        out = bytes([flags])
+        for a, b in pairs:
+            out += bytes([a, b])
+        return out
+
+    # a = tai delta byte (i8), b = offset selector (7 = 19 base default).
+    # Empty: valid chain (63× a=1,b=0) then BufferFull on 64th/65th.
+    write_te("bnd_empty_full", te_boundary_seed(0x40, [(1, 0)] * 66))
+    # Builtin: 45 valid then 46th full.
+    write_te("bnd_builtin_full", te_boundary_seed(0xC0, [(1, 0)] * 48))
+    # Walk the NotStrictlyAscending edge: a=0 (tai == last).
+    write_te("bnd_equal", te_boundary_seed(0x40, [(1, 0), (0, 0)]))
+    # a negative: tai < last.
+    write_te("bnd_lt", te_boundary_seed(0x40, [(1, 0), (0xFF, 0)]))
+    # NonUnitIncrement walks: sel 1 (last), 2 (last+2), 5 (0).
+    write_te("bnd_non_unit", te_boundary_seed(0x40, [(1, 1), (1, 2), (1, 5)]))
+    # MAX/Min walk: sel 3 then sel 4 via boundary (exercises wrap path
+    # deterministically per run).
+    write_te("bnd_wrap", te_boundary_seed(0x40, [(1, 3), (1, 4)]))
+    # Offsets from the builtin start: sel 6 = 37 → NonUnitIncrement.
+    write_te("bnd_builtin_off", te_boundary_seed(0xC0, [(1, 6)]))
+    # Tai far future then ramping chain.
+    write_te("bnd_ramp", te_boundary_seed(0x40, [(1, 0)] * 5 + [(9, 0)] * 5))
+
+    print(f"generated {count} seeds in {te_dir}")
+
 
 if __name__ == "__main__":
     main()

@@ -141,6 +141,10 @@ pub enum LeapExtendError {
     /// so it is rejected instead of silently falling back to an arbitrary
     /// offset.
     EmptyTable,
+
+    /// The previous entry's `tai_minus_utc` is `i32::MAX`, so no valid
+    /// successor exists — every leap-second entry must increment by exactly 1.
+    OffsetOverflow,
 }
 
 /// One leap-second table entry.
@@ -345,7 +349,12 @@ impl LeapSeconds {
                 return Err(LeapExtendError::NotStrictlyAscending);
             }
 
-            if entry.tai_minus_utc != prev.tai_minus_utc + 1 {
+            let expected = prev
+                .tai_minus_utc
+                .checked_add(1)
+                .ok_or(LeapExtendError::OffsetOverflow)?;
+
+            if entry.tai_minus_utc != expected {
                 return Err(LeapExtendError::NonUnitIncrement);
             }
 
@@ -559,15 +568,16 @@ impl RuntimeLeapSeconds {
         if self.len > 0 {
             let last = &self.buf[self.len - 1];
 
-            // Enforce strict monotonicity in time.
-            // Equal or smaller timestamps would break ordering assumptions.
             if entry.tai_nanos <= last.tai_nanos {
                 return Err(LeapExtendError::NotStrictlyAscending);
             }
 
-            // Enforce +1 step in TAI−UTC offset.
-            // Anything else would violate leap second semantics.
-            if entry.tai_minus_utc != last.tai_minus_utc + 1 {
+            let expected = last
+                .tai_minus_utc
+                .checked_add(1)
+                .ok_or(LeapExtendError::OffsetOverflow)?;
+
+            if entry.tai_minus_utc != expected {
                 return Err(LeapExtendError::NonUnitIncrement);
             }
         }
@@ -1024,6 +1034,9 @@ impl core::fmt::Display for LeapExtendError {
             }
             LeapExtendError::EmptyTable => {
                 f.write_str("leap-second table must contain at least one entry")
+            }
+            LeapExtendError::OffsetOverflow => {
+                f.write_str("no valid successor: the last entry tai_minus_utc is i32::MAX")
             }
         }
     }
@@ -1670,5 +1683,26 @@ mod tests {
         let back = utc_to_gps(utc, &Always37).unwrap();
 
         assert_eq!(gps, back);
+    }
+
+    #[test]
+    fn test_try_extend_offset_overflow_does_not_panic() {
+        let mut rt = RuntimeLeapSeconds::new();
+
+        rt.try_extend(LeapEntry::new(1, i32::MAX)).unwrap();
+
+        let err = rt.try_extend(LeapEntry::new(2, i32::MIN)).unwrap_err();
+
+        assert_eq!(err, LeapExtendError::OffsetOverflow);
+    }
+
+    #[test]
+    fn test_try_from_slice_offset_overflow_does_not_panic() {
+        static BAD: [LeapEntry; 2] = [LeapEntry::new(0, i32::MAX), LeapEntry::new(1, i32::MIN)];
+
+        assert!(matches!(
+            LeapSeconds::try_from_slice(&BAD),
+            Err(LeapExtendError::OffsetOverflow)
+        ));
     }
 }

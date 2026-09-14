@@ -38,6 +38,13 @@ name = "fuzz_utc_to_gps"
 path = "fuzz_targets/fuzz_utc_to_gps.rs"
 test = false
 
+[[bin]]
+bench = false
+doc = false
+name = "fuzz_try_extend"
+path = "fuzz_targets/fuzz_try_extend.rs"
+test = false
+
 [dependencies]
 libfuzzer-sys = "0.4"
 
