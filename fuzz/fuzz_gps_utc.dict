@@ -1,0 +1,75 @@
+# Dictionary for the fuzz_gps_utc target.
+#
+# Format: quoted raw bytes with \xNN escapes — ONE byte per \xNN escape.
+# Tokens are little-endian u64 values decoded by the harness with
+# u64::from_le_bytes / i64::from_le_bytes.
+#
+# NOTE: no trailing comments after a token line; libFuzzer's dictionary
+# parser rejects them. Comments must be on their own line.
+#
+# Mode dispatch is data[0] bit 7:
+"\x00"
+"\x80"
+
+# Domain edges (RAW mode, bytes 1..9 = u64 GPS nanoseconds).
+# GPS epoch (u64::MIN):
+"\x00\x00\x00\x00\x00\x00\x00\x00"
+# u64::MAX:
+"\xff\xff\xff\xff\xff\xff\xff\xff"
+# 252_892_800_000_000_000 — UTC epoch as GPS-from-1972:
+"\x00\x00\x41\x66\xa9\x74\x82\x03"
+
+# Leap-second flip instants in GPS nanos (BOUNDARY mode). Each token is the
+# GPS instant at which the binary search flips for that transition
+# (threshold_tai - 19 s); the harness folds a +/-20 s jitter around it.
+# 1981-07-01 flip (46_828_801_000_000_000):
+"\x00\xca\xdc\xe0\x8b\x5e\xa6\x00"
+# 1982-07-01 flip (78_364_802_000_000_000):
+"\x00\x94\x1a\x4a\x5f\x68\x16\x01"
+# 1983-07-01 flip (109_900_803_000_000_000):
+"\x00\x5e\x58\xb3\x32\x72\x86\x01"
+# 1985-07-01 flip (173_059_204_000_000_000):
+"\x00\x28\x88\xdb\x6d\xd4\x66\x02"
+# 1988-01-01 flip (252_028_805_000_000_000):
+"\x00\xf2\x30\xe3\xdc\x62\x7f\x03"
+# 1990-01-01 flip (315_187_206_000_000_000):
+"\x00\xbc\x60\x0b\x18\xc5\x5f\x04"
+# 1991-01-01 flip (346_723_207_000_000_000):
+"\x00\x86\x9e\x74\xeb\xce\xcf\x04"
+# 1992-07-01 flip (393_984_008_000_000_000):
+"\x00\x50\x06\x2c\x5e\xb6\x77\x05"
+# 1993-07-01 flip (425_520_009_000_000_000):
+"\x00\x1a\x44\x95\x31\xc0\xe7\x05"
+# 1994-07-01 flip (457_056_010_000_000_000):
+"\x00\xe4\x81\xfe\x04\xca\x57\x06"
+# 1996-01-01 flip (504_489_611_000_000_000):
+"\x00\xae\x87\xd8\xa0\x4e\x00\x07"
+# 1997-07-01 flip (551_750_412_000_000_000):
+"\x00\x78\xef\x8f\x13\x36\xa8\x07"
+# 1999-01-01 flip (599_184_013_000_000_000):
+"\x00\x42\xf5\x69\xaf\xba\x50\x08"
+# 2006-01-01 flip (820_108_814_000_000_000):
+"\x00\x0c\xa3\x07\x9f\x9c\x61\x0b"
+# 2009-01-01 flip (914_803_215_000_000_000):
+"\x00\xd6\x75\x5d\xad\x08\xb2\x0c"
+# 2012-07-01 flip (1_025_136_016_000_000_000):
+"\x00\xa0\x23\x70\xc6\x03\x3a\x0e"
+# 2015-07-01 flip (1_119_744_017_000_000_000):
+"\x00\x6a\xa7\x34\x40\x21\x8a\x0f"
+# 2017-01-01 flip (1_167_264_018_000_000_000):
+"\x00\x34\xfc\x9f\x70\xf4\x32\x10"
+
+# Values libFuzzer reported as hot in CMP tracing on a prior run
+# (109_900_804_000_000_000 / 173_059_208_000_000_000, adjacent to flips 3 and 4).
+"\x00\x28\xf3\xee\x32\x72\x86\x01"
+"\x00\x50\xf3\xc9\x6e\xd4\x66\x02"
+
+# Arithmetic constants the harness compares against.
+# 1_000_000_000 — 1 s:
+"\x00\xca\x9a\x3b\x00\x00\x00\x00"
+# 19_000_000_000 — GPS->TAI offset:
+"\x00\xfe\x7c\x6c\x04\x00\x00\x00"
+# 20_000_000_000 — jitter window half-width:
+"\x00\xc8\x17\xa8\x04\x00\x00\x00"
+# 40_000_000_000 — 2 x jitter half-width (modulus):
+"\x00\x90\x2f\x50\x09\x00\x00\x00"

@@ -29,6 +29,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   (`docs/LEAP_SECONDS.de.md`, `docs/LEAP_SECONDS.ru.md`), faithful mirrors of
   `docs/LEAP_SECONDS.md`: identical 19-entry table, formulas and code examples,
   native German/Russian prose.
+- Added `fuzz/` sub-crate (`gnss-time-fuzz`) with cargo-fuzz / libFuzzer
+  integration: `fuzz_gps_utc` target covering GPS ↔ UTC roundtrip across
+  the full `u64` domain and structured exploration of all 18 leap-second
+  ambiguity windows, plus `tools/gen_corpus.py`, `tools/gen_corpus.sh`,
+  `tools/run-fuzz.sh` helper scripts and a `fuzz_gps_utc.dict` dictionary.
 - Added `setup-fuzz`, `fuzz-build` and `fuzz` recipes to the `justfile`;
   `just fuzz [secs=300]` runs all five targets locally.
 - Added `.gitattributes` to normalize line endings (LF) for text files and
