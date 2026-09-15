@@ -143,7 +143,7 @@ Provided methods:
 Enable it:
 
 ```toml
-gnss-time = { version = "0.7", features = ["serde"] }
+gnss-time = { version = "0.8", features = ["serde"] }
 ```
 
 ### Formats

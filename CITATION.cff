@@ -11,8 +11,8 @@ authors:
     alias: "Mickeyzzz"
 type: software
 license: "MIT OR Apache-2.0"
-version: "0.7.0"
-date-released: "2026-08-22"
+version: "0.8.0"
+date-released: "2026-09-15"
 repository-code: "https://github.com/MiCkEyZzZ/gnss-time"
 url: "https://crates.io/crates/gnss-time"
 keywords:
