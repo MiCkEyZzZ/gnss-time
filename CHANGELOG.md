@@ -103,6 +103,24 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     `bool`-accumulator version) — and removed the now-unused
     `#[derive(Debug, Clone, Copy, PartialEq)]` on `ExpectedKind` (`{expected:?}`
     only existed inside the removed assert).
+  - Hardened `fuzz_gps_utc`: the `Overflow` arm of `gps_to_utc` explains that
+    overflow is legal across the top ~2927 days of the `u64` space (the
+    UTC→GPS epoch offset is 252 892 800 s; guarding it precisely would need
+    a private library constant, so any `Overflow` is treated as legal); the
+    `into_scale_with_checked`
+    result is pinned against the free-function `gps_to_utc` (bit-for-bit on
+    `ConvertResult::Exact`, 1 s tolerance inside the ambiguity window); the
+    duplicate `Time::<Gps>::from_nanos` construction was replaced with the
+    already-bound `gps`; and the doc dropped the hardcoded `entries[1..=18]`
+    in favour of `entries[1..]` (skipping the epoch base entry), so a 20th
+    leap second won't rot the comment.
+  - Cleaned up `fuzz_leap_lookup`: renamed `assert_table` to
+    `validated_entries` (it validates internal consistency and returns the
+    entry slice — it doesn't "assert a table"); made the `MAX_INSTANTS` doc
+    concrete (16 covers every builtin threshold with margin and keeps the pair
+    buffer on the stack); and factored the duplicated signed-`i8`-delta
+    clamping out of `boundary_tai`/`boundary_instant` into one `apply_i8_delta`
+    helper.
   - Corpus generator emits per-axis edge seeds (no cross-product) plus
     boundary jitter walks, keeping the seed corpus small (`fuzz_gps_utc`:
     407, `fuzz_week_tow`: 137, `fuzz_day_tod`: 134,

@@ -9,8 +9,9 @@
 //!   no unexpected error on any `u64`" and invariant I-12 over the whole range,
 //!   including the extreme high end near `u64::MAX`.
 //! - **BOUNDARY** (`data[0] & 0x80 != 0`, `len >= 12`): `data[1]` selects a
-//!   real leap-second transition from the builtin table (`entries[1..=18]`),
-//!   bytes 2..10 hold an `i64` jitter folded into a ±20 s window around the
+//!   real leap-second transition from the builtin table (`entries[1..]`,
+//!   skipping `entries[0]`, the base value pinned at the GPS epoch), bytes
+//!   2..10 hold an `i64` jitter folded into a ±20 s window around the
 //!   transition's GPS instant. This guarantees that **every** leap-second
 //!   ambiguity window is exercised on every run — blind mutation of a raw `u64`
 //!   space (~1.8e19) can never reach a 2 s window reliably. Mutating the jitter
@@ -77,7 +78,12 @@ fn check_roundtrip_and_invariants(nanos: u64) {
     // ── GPS → UTC → GPS roundtrip (I-12, conditionally exact) ───────────────
     let utc = match gps_to_utc(gps, ls) {
         Ok(u) => u,
-        // Legal only at the extreme high end (UTC would not fit into u64).
+        // Legal only at the extreme high end. The overflow boundary is
+        // gps > u64::MAX - 2927 days (UTC_TO_GPS_EPOCH_NS, since UTC counts
+        // from 1972 and GPS from 1980) plus the few seconds of tai - utc, so
+        // almost the whole top ~2927 days of the u64 space legitimately
+        // overflows. Guarding it precisely would need a private library
+        // constant, so treat any Overflow as legal.
         Err(GnssTimeError::Overflow) => return,
         Err(e) => panic!("gps_to_utc unexpected error at gps={nanos}: {e:?}"),
     };
@@ -86,6 +92,18 @@ fn check_roundtrip_and_invariants(nanos: u64) {
     let checked: ConvertResult<Time<Utc>> = gps
         .into_scale_with_checked(ls)
         .expect("into_scale_with_checked failed where gps_to_utc succeeded");
+
+    // The free function and the trait method are two paths to the same
+    // conversion; pin them to each other when the result is exact. Inside
+    // the ambiguity window a 1 s representation difference is legal, so only
+    // the Exact case must agree bit-for-bit.
+    if let ConvertResult::Exact(exact) = &checked {
+        assert_eq!(
+            utc.as_nanos(),
+            exact.as_nanos(),
+            "gps_to_utc and into_scale_with_checked disagree at gps={nanos}"
+        );
+    }
 
     let drift_bound = match checked {
         ConvertResult::Exact(_) => 0,
@@ -106,6 +124,7 @@ fn check_roundtrip_and_invariants(nanos: u64) {
     };
 
     let drift = gps_back.as_nanos().abs_diff(nanos);
+
     assert!(
         drift <= drift_bound,
         "I-12 violated: gps={nanos}, utc={}, check={checked:?}, drift={drift}, bound={drift_bound}",
@@ -120,6 +139,7 @@ fn check_roundtrip_and_invariants(nanos: u64) {
         Ok(u) => u,
         Err(_) => return, // overflow at the extreme high end
     };
+
     assert!(
         utc_next.as_nanos() >= utc.as_nanos(),
         "GPS→UTC ran backwards: gps={nanos} (utc={}) -> gps={next_nanos} (utc={})",
@@ -128,7 +148,7 @@ fn check_roundtrip_and_invariants(nanos: u64) {
     );
 
     // ── TAI − UTC step over 1 s of TAI: monotone, jump ≤ 1 s ────────────────
-    let tai = match Time::<Gps>::from_nanos(nanos).to_tai() {
+    let tai = match gps.to_tai() {
         Ok(t) => t,
         Err(_) => return, // overflow at the extreme high end
     };
@@ -138,6 +158,7 @@ fn check_roundtrip_and_invariants(nanos: u64) {
     };
     let now = ls.tai_minus_utc_at(tai);
     let nxt = ls.tai_minus_utc_at(next_tai);
+
     assert!(nxt >= now, "TAI−UTC decreased: gps={nanos}, {now} → {nxt}");
     assert!(
         nxt - now <= 1,
@@ -168,6 +189,7 @@ fuzz_target!(|data: &[u8]| {
     if data.len() < 12 {
         return;
     }
+
     let ls = LeapSeconds::builtin();
     let entries = ls.entries();
     // entries[0] is the base value at the GPS epoch, not a real transition.
@@ -182,6 +204,7 @@ fuzz_target!(|data: &[u8]| {
     let jitter = jitter % (2 * JITTER_RANGE_NS) - JITTER_RANGE_NS;
 
     let total = gps_flip_ns(threshold_tai) + i128::from(jitter);
+
     let Ok(nanos) = u64::try_from(total) else {
         return; // gps_flip is positive for every real transition; only
                 // extreme negative jitter could underflow — drop and retry.
