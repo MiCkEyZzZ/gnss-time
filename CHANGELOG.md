@@ -128,6 +128,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     `BufferFull`); added `last_update()` consistency check to
     `assert_invariants`; and replaced the dangling quote with an explanation
     of why the model uses `i64` arithmetic.
+  - Cleaned up `fuzz_utc_to_gps`: dropped the hardcoded `entries[1..=18]`
+    (doc) and `// 1..=18` (code) in favour of `entries[1..]` (skipping the
+    epoch base entry, same fix as `fuzz_gps_utc`); replaced the roundtrip
+    `Time::<Gps>::from_nanos(gps.as_nanos()).to_tai()` with `gps.to_tai()`
+    and renamed the `u64` variable `next_gps` → `next_gps_nanos` to avoid
+    ambiguity with the `Time<Gps>` value; added the missing
+    `(see docs/INVARIANTS.md)` link on the invariant heading; pinned the
+    free-function `utc_to_gps` against `into_scale_with_checked` on the
+    `Exact` branch (1 s tolerance inside the ambiguity window); and
+    simplified the opening line.
   - Corpus generator emits per-axis edge seeds (no cross-product) plus
     boundary jitter walks, keeping the seed corpus small (`fuzz_gps_utc`:
     407, `fuzz_week_tow`: 137, `fuzz_day_tod`: 134,
