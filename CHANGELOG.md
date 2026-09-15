@@ -103,6 +103,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     `bool`-accumulator version) — and removed the now-unused
     `#[derive(Debug, Clone, Copy, PartialEq)]` on `ExpectedKind` (`{expected:?}`
     only existed inside the removed assert).
+  - Hardened `fuzz_gps_utc`: the `Overflow` arm of `gps_to_utc` now guards the
+    extreme high end (`nanos > u64::MAX − 60 s`; `utc = gps + (tai − utc)`, and
+    `tai − utc` never exceeds 60 s), so an overflow deeper into the domain is a
+    genuine bug instead of a silent `return`; the `into_scale_with_checked`
+    result is pinned against the free-function `gps_to_utc` (bit-for-bit on
+    `ConvertResult::Exact`, 1 s tolerance inside the ambiguity window); the
+    duplicate `Time::<Gps>::from_nanos` construction was replaced with the
+    already-bound `gps`; and the doc dropped the hardcoded `entries[1..=18]`
+    in favour of `entries[1..]` (skipping the epoch base entry), so a 20th
+    leap second won't rot the comment.
   - Corpus generator emits per-axis edge seeds (no cross-product) plus
     boundary jitter walks, keeping the seed corpus small (`fuzz_gps_utc`:
     407, `fuzz_week_tow`: 137, `fuzz_day_tod`: 134,
