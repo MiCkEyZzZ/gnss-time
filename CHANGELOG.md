@@ -121,6 +121,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     buffer on the stack); and factored the duplicated signed-`i8`-delta
     clamping out of `boundary_tai`/`boundary_instant` into one `apply_i8_delta`
     helper.
+  - Cleaned up `fuzz_try_extend`: replaced the stale invariant 1 text that
+    described the `i32::MAX` wraparound as a live defect — it is now reported
+    as `LeapExtendError::OffsetOverflow` after `checked_add(1)`; clarified
+    the `BufferFull` trigger point (calls 1..=64 return `Ok`, call 65 returns
+    `BufferFull`); added `last_update()` consistency check to
+    `assert_invariants`; and replaced the dangling quote with an explanation
+    of why the model uses `i64` arithmetic.
   - Corpus generator emits per-axis edge seeds (no cross-product) plus
     boundary jitter walks, keeping the seed corpus small (`fuzz_gps_utc`:
     407, `fuzz_week_tow`: 137, `fuzz_day_tod`: 134,

@@ -19,13 +19,13 @@
 //!   `i32` `tai_minus_utc`), full domain.
 //!
 //! Invariants (mirroring the documented contract):
-//! 1. No panic on any input sequence (beyond the *known* i32-wraparound defect
-//!    in `try_extend`: `last.tai_minus_utc + 1` wraps or panics when the last
-//!    offset is `i32::MAX`, which is reachable from an empty table in a single
-//!    first entry — the harness models it with i64 and reports the mismatch /
-//!    abort as a crash).
-//! 2. `BufferFull` is returned **exactly** when `len == RUNTIME_CAPACITY` (65th
-//!    `Ok` succeeds the 64th), never earlier or later.
+//! 1. No panic on any input sequence. The `i32::MAX` offset wraparound that
+//!    this target originally found is now reported as
+//!    [`LeapExtendError::OffsetOverflow`]; the model below encodes the same
+//!    rule with `i64` arithmetic so any regression surfaces as a mismatch.
+//! 2. `BufferFull` is returned **exactly** when `len == RUNTIME_CAPACITY`:
+//!    calls 1..=64 return `Ok`, call 65 returns `BufferFull`, never earlier or
+//!    later.
 //! 3. `NotStrictlyAscending` is returned iff `entry.tai_nanos <= last`.
 //! 4. `NonUnitIncrement` is returned iff `entry.tai_minus_utc != last + 1`.
 //! 5. On success the table stays strictly ascending with unit increments;
@@ -112,10 +112,10 @@ impl Model {
             // report OffsetOverflow when the real last offset is i32::MAX:
             // no valid successor exists to satisfy the +1 unit increment.
             let need = i64::from(self.last_off) + 1;
+
             if need > i64::from(i32::MAX) {
                 return ExpectedKind::OffsetOverflow;
             }
-
             if i64::from(entry.tai_minus_utc) != need {
                 return ExpectedKind::NonUnitIncrement;
             }
@@ -159,6 +159,7 @@ fn boundary_tai(
     a: u8,
 ) -> u64 {
     let dj = a as i8;
+
     if dj >= 0 {
         last_tai.saturating_add(dj as u64)
     } else {
@@ -175,6 +176,7 @@ fn boundary_offset(
     b: u8,
 ) -> i32 {
     let sel = b & 0x07;
+
     let candidate: i64 = match sel {
         0 => i64::from(last_off) + 1, // valid +1 increment
         1 => i64::from(last_off),     // fails NonUnitIncrement
@@ -185,6 +187,7 @@ fn boundary_offset(
         6 => i64::from(BUILTIN_LAST_OFFSET),
         _ => 19,
     };
+
     candidate.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
 }
 
@@ -194,7 +197,9 @@ fn assert_invariants(
     model: &Model,
 ) {
     assert_eq!(rt.len(), model.len, "len diverged from model");
+
     let entries = rt.entries();
+
     assert_eq!(entries.len(), model.len, "entries().len() diverged");
 
     // Strictly ascending thresholds, unit `tai_minus_utc` increments (i64 math
@@ -217,6 +222,7 @@ fn assert_invariants(
 
     if model.len > 0 {
         let last = &entries[model.len - 1];
+
         assert_eq!(last.tai_nanos, model.last_tai, "last threshold diverged");
         assert_eq!(last.tai_minus_utc, model.last_off, "last offset diverged");
         assert_eq!(
@@ -226,10 +232,18 @@ fn assert_invariants(
         );
     }
 
+    // last_update() is defined only for tables with more than one entry.
+    assert_eq!(
+        rt.last_update().map(|t| t.as_nanos()),
+        (model.len > 1).then_some(model.last_tai),
+        "last_update diverged"
+    );
+
     // Binary search consistency around the last threshold.
     if model.len > 1 {
         let last_tai = model.last_tai;
         let prev_off = entries[model.len - 2].tai_minus_utc;
+
         if last_tai > 0 {
             assert_eq!(
                 rt.tai_minus_utc_at(Time::<Tai>::from_nanos(last_tai - 1)),
@@ -260,8 +274,8 @@ fuzz_target!(|data: &[u8]| {
     } else {
         RuntimeLeapSeconds::new()
     };
-    let mut model = Model::from_entries(rt.entries());
 
+    let mut model = Model::from_entries(rt.entries());
     let step = if boundary { 2 } else { RAW_ENTRY_BYTES };
     let count = usize::min((data.len() - 1) / step, MAX_ENTRIES);
 
@@ -295,7 +309,9 @@ fuzz_target!(|data: &[u8]| {
         let expected = model.expect(entry);
         let actual = actual_kind(rt.try_extend(entry));
 
-        // The model and implementation share "same checks, different width".
+        // The model and implementation enforce the same rules at different
+        // widths: the model uses i64 to side-step the i32 wraparound that the
+        // implementation must handle explicitly.
         assert_eq!(
             actual, expected,
             "try_extend classification mismatch (i={i}, entry=({}, {}), \
