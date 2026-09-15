@@ -40,6 +40,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `epoch.rs`), and the property-test names were corrected to
   `prop_gps_utc_gps_roundtrip_exact`, `prop_ambiguous_only_near_boundaries`
   and `prop_gps_near_leap_converts_consistently`.
+- Rewrote the German `docs/INVARIANTS.de.md` to mirror the unified English
+  invariants guide (Issue #TIME-29): identical structure, table of contents,
+  and cross-reference table in native German prose, with document-level hooks
+  to the German architecture guide (`docs/ARCHITECTURE.de.md#grenzen`,
+  `#serde-unterstützung-feature--serde`) and all internal anchors validated
+  against GitHub's heading-slug algorithm.
 
 ## [0.8.0] - 2026-09-15
 
