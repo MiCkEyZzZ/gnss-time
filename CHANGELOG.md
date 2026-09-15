@@ -138,6 +138,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     free-function `utc_to_gps` against `into_scale_with_checked` on the
     `Exact` branch (1 s tolerance inside the ambiguity window); and
     simplified the opening line.
+  - Cleaned up `fuzz_week_tow`: dropped the dead `let matches` / trailing
+    `assert!(matches, ...)` — every classification arm already returns `true`
+    or panics, so the assert could never fire (same leftover from the
+    `bool`-accumulator version as `fuzz_day_tod`); and removed the now-unused
+    derives on `ExpectedKind`.
   - Corpus generator emits per-axis edge seeds (no cross-product) plus
     boundary jitter walks, keeping the seed corpus small (`fuzz_gps_utc`:
     407, `fuzz_week_tow`: 137, `fuzz_day_tod`: 134,
