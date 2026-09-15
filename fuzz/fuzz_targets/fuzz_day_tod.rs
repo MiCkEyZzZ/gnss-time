@@ -173,7 +173,7 @@ fn check_constructor(
     };
 
     let res = Time::<Glonass>::from_day_tod(day, tod);
-    let matches = match (&res, &expected) {
+    match (&res, &expected) {
         (Ok(t), ExpectedKind::Ok) => {
             assert_eq!(
                 t.as_nanos(),
@@ -208,10 +208,9 @@ fn check_constructor(
                 "is_weekend() mismatch at day={day}: {}, dow={dow}",
                 t.is_weekend()
             );
-            true
         }
-        (Err(GnssTimeError::InvalidInput(_)), ExpectedKind::Invalid) => true,
-        (Err(GnssTimeError::Overflow), ExpectedKind::Overflow) => true,
+        (Err(GnssTimeError::InvalidInput(_)), ExpectedKind::Invalid) => {}
+        (Err(GnssTimeError::Overflow), ExpectedKind::Overflow) => {}
         (Err(e), ExpectedKind::Invalid) => panic!(
             "expected InvalidInput but got another error at day={day}, secs={secs}, nanos={nanos}: {e:?}"
         ),
@@ -228,10 +227,6 @@ fn check_constructor(
             "constructor accepted overflowing input at day={day}, secs={secs}, nanos={nanos}"
         ),
     };
-    assert!(
-        matches,
-        "misclassified at day={day}, secs={secs}, nanos={nanos}: {res:?} (expected {expected:?})"
-    );
 
     // Determinism: decoding the same triple twice yields identical results.
     let again = Time::<Glonass>::from_day_tod(day, tod);
@@ -252,7 +247,6 @@ fn check_constructor(
 
 /// The constructor's documented outcome for a given `(day, secs, nanos)`
 /// triple, independent of the concrete `GnssTimeError` payload.
-#[derive(Debug, Clone, Copy, PartialEq)]
 enum ExpectedKind {
     Ok,
     Invalid,

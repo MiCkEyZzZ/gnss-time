@@ -97,6 +97,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     discriminant comparisons with fabricated payloads; `day_of_week()`
     invariants avoid re-deriving the implementation formula (exact weekdays
     are pinned by unit tests, the harness range-checks only).
+  - Cleaned up `fuzz_day_tod`: dropped the dead `let matches` / trailing
+    `assert!(matches, ...)` — every classification arm already returns `true`
+    or panics, so the assert could never fire (a leftover from the previous
+    `bool`-accumulator version) — and removed the now-unused
+    `#[derive(Debug, Clone, Copy, PartialEq)]` on `ExpectedKind` (`{expected:?}`
+    only existed inside the removed assert).
   - Corpus generator emits per-axis edge seeds (no cross-product) plus
     boundary jitter walks, keeping the seed corpus small (`fuzz_gps_utc`:
     407, `fuzz_week_tow`: 137, `fuzz_day_tod`: 134,
