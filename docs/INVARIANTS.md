@@ -47,19 +47,27 @@ rationale (fallibility and the required leap-second context don't fit
 `From`'s infallible contract).
 
 **Enforcement:** the absence of blanket implementations. All the
-`IntoScale` / `IntoScaleWith` implementations are written by hand, one per
-ordered pair, and their completeness is checked by the exhaustive pairwise
-tests in `matrix.rs`.
+`IntoScale` / `IntoScaleWith` implementations are written by hand in
+`src/convert.rs`. `matrix.rs` checks, exhaustively and pairwise, only the
+`ScaleId`-level *classification* of each conversion (`conversion_kind`:
+Identity/Fixed/EpochShift vs Contextual) — it does not verify the presence
+of the trait implementations themselves. That presence is enforced by the
+compiler at every call site: `gps.into_scale::<Galileo>()` compiles only if
+`impl IntoScale<Galileo> for Time<Gps>` exists, and such calls are exercised
+by the conversion smoke tests in `src/convert.rs`. TAI conversions for the
+fixed-offset scales go through the inherent methods `Time::to_tai()` /
+`Time::from_tai()` (`src/time.rs`) rather than an
+`IntoScale` impl.
 
 ### I-3: Sealed time scales
 
 External code cannot implement `TimeScale`. The set of valid scales is:
 `{Gps, Glonass, Galileo, Beidou, Tai, Utc}`.
 
-**Enforcement:** the `private::Sealed` supertrait pattern (`src/scale.rs:39`).
+**Enforcement:** the `private::Sealed` supertrait pattern (`src/scale.rs`).
 The `Sealed` trait lives in a private module and has no public path.
 
-**Test:** `test_scale_types_are_copy` (`src/scale.rs:304`) and friends in
+**Test:** `test_scale_types_are_copy` (`src/scale.rs`) and friends in
 `src/scale.rs` confirm all six marker types implement the trait; sealing
 itself is a compile-time property with no positive runtime test (a would-be
 violation is a compile error in downstream code, not a test case in this
@@ -74,56 +82,53 @@ crate).
 `Time<S>` stores `nanos: u64` — an **unsigned** count of nanoseconds since
 `S`'s epoch. This is a deliberate choice with three parts:
 
-**Why not signed (`i64`)?** A `Time<S>` is a *point in time*, not an
-*interval* — negative values would mean "before the scale's epoch," which no
-supported scale needs to represent (every scale's usable range starts at or
-after its own epoch by definition). Making the type unsigned turns "time
-before this scale existed" into a type-level impossibility rather than a
-runtime check: `Time::<S>::EPOCH` (0 ns, `src/time.rs:128`) is the smallest
-representable instant, full stop. This is also why `checked_sub_duration` and
-the `Sub` operator can fail on *positive* durations near the epoch —
-subtracting past zero is `Overflow`/panic, not a negative result.
+**Why not signed (`i64`)?** `Time<S>` is a *point in time*, not an
+*interval*: every scale's usable range starts at or after its own epoch, so
+"before the epoch" need not be representable. Making the type unsigned turns
+that state into a type-level impossibility — `Time::<S>::EPOCH` (0 ns,
+`src/time.rs`) is the smallest representable instant — and is why
+`checked_sub_duration`/`Sub` fail on positive durations near the epoch
+(subtracting past zero is `Overflow`/panic, not a negative result).
+`Duration` is signed (`i64`) precisely because it is a difference and must
+express "earlier than" — see [I-5](#i-5-duration-is-signed).
 
-Contrast with `Duration`, which *is* signed (`i64`) precisely because it
-represents a difference between two instants and must be able to express
-"earlier than" — see [I-5](#i-5-duration-is-signed).
-
-**Why not floating point (`f64`)?** `f64` has 52 bits of mantissa, enough for
-exact integers only up to 2^53 ≈ 9.007 × 10^15. A nanosecond-resolution
-timestamp reaches that magnitude in about 104 days
-(2^53 ns ≈ 104.25 days) — far short of any GNSS scale's useful lifetime.
-Past that point, `f64` silently rounds to the nearest representable value:
-two distinct nanosecond instants could compare equal, and arithmetic would be
-non-associative in ways that break the roundtrip guarantees below. Integer
-nanoseconds have none of these failure modes: every representable `u64` value
-is exact, and comparisons/arithmetic are exact until they overflow, at which
-point the crate's overflow policy (see [I-9](#i-9-overflow-policy-is-explicit-and-uniform))
-takes over instead of silently losing precision.
+**Why not floating point (`f64`)?** `f64`'s 52-bit mantissa holds exact
+integers only up to 2^53 ≈ 9.007 × 10^15 — about 104 days of nanoseconds,
+far short of any GNSS scale's useful lifetime. Beyond that, `f64` silently
+rounds: distinct nanosecond instants could compare equal, and arithmetic
+becomes non-associative, breaking the roundtrip guarantees below. Integer
+nanoseconds have neither failure mode: every `u64` value is exact, and
+arithmetic stays exact until it overflows, at which point the crate's
+overflow policy ([I-9](#i-9-overflow-policy-is-explicit-and-uniform))
+applies instead of silently losing precision.
 
 **Why 64 bits specifically?** `u64::MAX` nanoseconds ≈ 584.5 years — enough
 headroom past every scale's epoch that overflow is a genuine edge case
-(reachable only near `Time::<S>::MAX`, exercised deliberately by the
-`fuzz_gps_utc`/`fuzz_week_tow` boundary-mode fuzz targets) rather than an
-everyday concern. A `u32` count (≈ 4.29 seconds of nanosecond resolution)
+(reachable only near `Time::<S>::MAX`, deliberately exercised by the
+`fuzz_week_tow`/`fuzz_day_tod` fuzz targets, which construct instants right
+up against the `u64`-storage overflow rim — `week ≈ 30_500` / `day ≈ 213_503`;
+`fuzz_gps_utc` separately checks the overflow *boundary* on raw `u64` values
+rather than constructing such instants) rather than an everyday concern. A `u32`
+count (≈ 4.29 seconds of nanosecond resolution)
 would be useless; `u128` would double the type's size for no benefit within
 any scale's practical lifetime.
 
-**Test:** `test_size_equals_u64` (`src/time.rs:1131`, confirms the 8-byte,
+**Test:** `test_size_equals_u64` (`src/time.rs`, confirms the 8-byte,
 `u64`-identical layout); the `f64`-precision-loss argument above is
 structural, not runtime-tested (there is no `f64`-backed alternative type in
 the crate to compare against).
 
 ### I-5: `Duration` is signed
 
-`Duration` uses `i64` nanoseconds (`src/duration.rs:94`, `#[repr(transparent)]`).
+`Duration` uses `i64` nanoseconds (`src/duration.rs`, `#[repr(transparent)]`).
 Subtracting a later time from an earlier one yields a negative `Duration`, and
 it can be added back to *either* operand to recover the other. This is the
 interval counterpart to [I-4](#i-4-nanoseconds-are-stored-as-u64-not-i64-or-f64):
 a `Time<S>` is a point (`u64`, unsigned by construction), a `Duration` is a
 displacement between two points (`i64`, signed by necessity).
 
-**Test:** `test_sub_times_negative` (`src/time.rs:1280`),
-`test_negative` (`src/duration.rs:592`).
+**Test:** `test_sub_times_negative` (`src/time.rs`),
+`test_negative` (`src/duration.rs`).
 
 ---
 
@@ -141,17 +146,18 @@ CI (`RUSTFLAGS` in `.github/workflows/ci.yml`) escalate the
 deny-by-default `arithmetic_overflow` lint, which fires on compile-time
 constant overflow, so any such overflow fails the main build; the panicking
 operator implementations catch every *runtime* overflow.
-`#[allow(arithmetic_overflow)]` is banned anywhere in the crate.
+`#[allow(arithmetic_overflow)]` does not appear anywhere in the crate's
+source today (current state, not a mechanically enforced rule).
 
-**Test:** `test_add_operator_panics_at_max` (`src/time.rs:1671`),
-`test_sub_operator_panics_at_epoch` (`src/time.rs:1677`);
+**Test:** `test_add_operator_panics_at_max` (`src/time.rs`),
+`test_sub_operator_panics_at_epoch` (`src/time.rs`);
 `#[should_panic]` tests in `src/duration.rs`.
 
 ### I-7: `u64::MAX` is the hard upper limit; `EPOCH` is the hard lower limit
 
 `Time::<S>::MAX.as_nanos() == u64::MAX` and
 `Time::<S>::MIN == Time::<S>::EPOCH == Time::from_nanos(0)`
-(`src/time.rs:134`). No operation can create a `Time<S>` value outside
+(`src/time.rs`). No operation can create a `Time<S>` value outside
 `[EPOCH, MAX]`; every arithmetic path either panics, returns `None`,
 saturates to one of these two bounds, or returns `Err(Overflow)` — see
 [I-9](#i-9-overflow-policy-is-explicit-and-uniform).
@@ -162,24 +168,24 @@ check against `[0, u64::MAX]` before casting back to `u64`
 `checked_sub_duration`, `checked_elapsed` in `src/time.rs`); the cast itself
 cannot silently wrap because the range check happens first.
 
-**Test:** `test_max_is_u64_max` (`src/time.rs:1548`),
-`test_checked_add_at_max_overflows` (`src/time.rs:1583`),
-`test_checked_sub_at_epoch_underflows` (`src/time.rs:1605`);
+**Test:** `test_max_is_u64_max` (`src/time.rs`),
+`test_checked_add_at_max_overflows` (`src/time.rs`),
+`test_checked_sub_at_epoch_underflows` (`src/time.rs`);
 `fuzz_week_tow`/`fuzz_day_tod` RAW mode exercises the entire input domain of
 the constructors that produce `Time<S>` values, so any path that could escape
 `[EPOCH, MAX]` would surface as an assertion failure there.
 
 ### I-8: `checked_elapsed` fits the difference into `i64`
 
-`Time<S>::checked_elapsed(earlier)` (`src/time.rs:374`) computes
+`Time<S>::checked_elapsed(earlier)` (`src/time.rs`) computes
 `self − earlier` as a `Duration` (`i64` nanoseconds) and returns `None` if
 the true difference does not fit in `i64` — which is possible because
 `Time<S>` spans the full `u64` range (≈ 584.5 years) while `Duration` spans
 only `i64` (≈ ±292 years): the gap between `Time::<S>::MIN` and
 `Time::<S>::MAX` is exactly twice what a single `Duration` can express.
 
-**Test:** `test_checked_elapsed_overflows_when_gap_exceeds_i64` (`src/time.rs:1689`),
-`test_checked_elapsed_within_i64_range_works` (`src/time.rs:1698`).
+**Test:** `test_checked_elapsed_overflows_when_gap_exceeds_i64` (`src/time.rs`),
+`test_checked_elapsed_within_i64_range_works` (`src/time.rs`).
 
 ### I-9: Overflow policy is explicit and uniform
 
@@ -201,7 +207,7 @@ respectively. The four forms above are the *complete* set of legal behaviors;
 if you find a fifth (e.g. a method that returns a wrong-but-valid value
 instead of one of these four), that is a bug.
 
-**Test:** `test_time_max_behavior` (`src/time.rs:1533`) exercises all three
+**Test:** `test_time_max_behavior` (`src/time.rs`) exercises all three
 non-panicking forms (`checked_add`, `saturating_add`, `try_add`) against the
 same overflowing input and asserts each returns the documented outcome;
 paired with the `#[should_panic]` tests in [I-6](#i-6-no-silent-overflow) for
@@ -220,14 +226,14 @@ T_tai = T_self + S::OFFSET_TO_TAI
 This equation holds for every scale with `OffsetToTai::Fixed` (`Gps`,
 `Galileo`, `Beidou`, `Tai` itself with offset 0). All pairwise conversions
 between such scales are derived from this one formula composed twice
-(`to_tai()` then `from_tai()`, i.e. `try_convert::<T>()` — `src/time.rs:275`)
+(`to_tai()` then `from_tai()`, i.e. `try_convert::<T>()` — `src/time.rs`)
 — there is no per-pair special case.
 
 **Enforcement:** `try_convert<T>` calls `to_tai()`, then `T::from_tai()`. No
 fixed-offset conversion bypasses TAI.
 
-**Test:** `test_into_scale_gps_tai_matches_to_tai` (`src/convert.rs:916`);
-`test_roundtrip_via_tai` (`src/time.rs:1339`).
+**Test:** `test_into_scale_gps_tai_matches_to_tai` (`src/convert.rs`);
+`test_roundtrip_via_tai` (`src/time.rs`).
 
 ### I-11: Fixed-offset formulas, scale by scale
 
@@ -248,9 +254,9 @@ TAI, because GLONASS's `OffsetToTai` is `Contextual`, not `Fixed` — the
 GLONASS↔UTC relationship is fixed *relative to UTC*, not relative to TAI.
 
 **Test:** one test per row exists in `src/convert.rs` (`test_gps_to_tai_adds_19_seconds`,
-`src/convert.rs:632`; `test_gps_to_beidou_subtracts_14_seconds`,
-`src/convert.rs:707`; `test_glonass_epoch_to_utc_nanos`, `src/convert.rs:749`;
-...) and `src/time.rs` (`test_roundtrip_via_tai`, `src/time.rs:1339`) — see
+`src/convert.rs`; `test_gps_to_beidou_subtracts_14_seconds`,
+`src/convert.rs`; `test_glonass_epoch_to_utc_nanos`, `src/convert.rs`;
+...) and `src/time.rs` (`test_roundtrip_via_tai`, `src/time.rs`) — see
 the [cross-reference table](#invariant--test-cross-reference) for the full
 list.
 
@@ -263,7 +269,7 @@ UTC_ns_from_1972 = GPS_ns_from_1980 − (TAI_minus_UTC(t) − 19) × 1e9
 
 where `TAI_minus_UTC(t)` is looked up from the `LeapSecondsProvider` at the
 TAI instant corresponding to the input GPS time, and
-`UTC_TO_GPS_EPOCH_NS = 252 892 800 × 1e9` (`src/leap.rs:82`) is the constant
+`UTC_TO_GPS_EPOCH_NS = 252 892 800 × 1e9` (`src/leap.rs`) is the constant
 offset between the UTC epoch (1972-01-01) and the GPS epoch (1980-01-06).
 The `−19` subtracts out the offset already baked into GPS↔TAI, leaving only
 the leap seconds accumulated *since* the GPS epoch. The same constant appears
@@ -271,13 +277,13 @@ in the formula's code comments and is const-asserted to be exactly
 252 892 800 s (2927 days).
 
 The reverse direction, `utc_to_gps`, uses a **two-pass** algorithm
-(`src/leap.rs:952`): the first pass computes TAI approximately assuming
+(`src/leap.rs`): the first pass computes TAI approximately assuming
 `GPS − UTC = 0`, and the second pass refines the result using the leap-second
 count found on the first pass. This is what makes the conversion correct at
 every one of the 18 leap-second boundaries of the GPS era.
 
-**Test:** `test_gps_leads_utc_by_18s_at_2017_01_01` (`src/convert.rs:828`)
-and `test_gps_leads_utc_by_13s_at_1999_01_01` (`src/convert.rs:843`) pin the
+**Test:** `test_gps_leads_utc_by_18s_at_2017_01_01` (`src/convert.rs`)
+and `test_gps_leads_utc_by_13s_at_1999_01_01` (`src/convert.rs`) pin the
 formula at two transition dates; `tests/roundtrip_test.rs::test_all_gps_era_leap_second_transitions`
 covers the same formula at **all 18** transitions, as does the
 `BOUNDARY_SECONDS` list in `tests/prop_tests.rs:282`;
@@ -288,7 +294,7 @@ transitions plus jitter.
 
 The GLONASS epoch = 1995-12-31 21:00:00 UTC = 757 371 600 seconds from the
 UTC epoch (1972-01-01). This is a compile-time constant, verified as follows
-(`src/leap.rs:68`):
+(`src/leap.rs`):
 
 ```rust
 const _VERIFY_GLONASS_OFFSET: () = {
@@ -296,20 +302,20 @@ const _VERIFY_GLONASS_OFFSET: () = {
 };
 ```
 
-**Test:** `test_glonass_epoch_offset_is_757371600_seconds` (`src/leap.rs:1072`);`
-`test_glonass_epoch_offset_from_utc_epoch_is_correct` (`src/leap.rs:1087`)
+**Test:** `test_glonass_epoch_offset_is_757371600_seconds` (`src/leap.rs`);`
+`test_glonass_epoch_offset_from_utc_epoch_is_correct` (`src/leap.rs`)
 cross-checks the same constant against independent `CivilDate` arithmetic.
 
 ### I-14: GPS–Galileo identity
 
 GPS and Galileo have the *same* fixed offset,
-`OFFSET_TO_TAI = 19 000 000 000 ns` (`src/scale.rs:169`/`:183`). Therefore, for
+`OFFSET_TO_TAI = 19 000 000 000 ns` (`src/scale.rs`). Therefore, for
 the same physical moment, `T_gps.as_nanos() == T_gal.as_nanos()` — the
 conversion is a type change with zero arithmetic (`ConversionKind::Identity`
-in `src/matrix.rs:25`).
+in `src/matrix.rs`).
 
-**Test:** `test_gps_galileo_identity_via_tai` (`src/time.rs:1347`);
-`test_gps_galileo_is_identity` (`src/matrix.rs:318`).
+**Test:** `test_gps_galileo_identity_via_tai` (`src/time.rs`);
+`test_gps_galileo_is_identity` (`src/matrix.rs`).
 
 ---
 
@@ -330,15 +336,14 @@ exactly the set of instants classified `Exact` by `into_scale_with_checked` —
 this is *by definition*, not an approximation of it, since `ConvertResult`
 exists specifically to make that boundary queryable rather than inferred.
 
-**Test:** `test_gps_utc_gps_roundtrip_at_gps_epoch` (`src/leap.rs:1295`),
-`test_gps_utc_gps_roundtrip_at_2020` (`src/leap.rs:1305`),
-`test_gps_utc_roundtrip_exact_at_nanosecond_level` (`src/convert.rs:817`);
+**Test:** `test_gps_utc_gps_roundtrip_at_gps_epoch` (`src/leap.rs`),
+`test_gps_utc_gps_roundtrip_at_2020` (`src/leap.rs`),
+`test_gps_utc_roundtrip_exact_at_nanosecond_level` (`src/convert.rs`);
 `prop_gps_utc_gps_roundtrip_exact` in `tests/prop_tests.rs:127` (256 sampled
-points, ambiguity window excluded); `fuzz_gps_utc.rs` / `fuzz_utc_to_gps.rs`
-invariant **I-12** in those harnesses' numbering (roundtrip accuracy — see
-the harness doc comments) checks exactness on the `Exact` branch and a ≤1s
-bound on the `AmbiguousLeapSecond` branch for the *entire* `u64` domain, not
-just sampled points.
+points, ambiguity window excluded); the `fuzz_gps_utc.rs` / `fuzz_utc_to_gps.rs`
+harnesses check the same invariant (I-15): exactness on the `Exact` branch
+and a ≤1s bound on the `AmbiguousLeapSecond` branch, for the *entire* `u64`
+domain, not just sampled points.
 
 ---
 
@@ -350,14 +355,21 @@ A leap-second insertion adds one extra UTC second (23:59:60) that has no GPS
 counterpart — GPS time never repeats or skips a second, by construction.
 Concretely, around each of the 18 historical insertions, the mapping from
 GPS nanoseconds to UTC nanoseconds is **not injective** for exactly the
-one-second window immediately *before* the insertion: both the last regular
-GPS second and the following leap GPS second are candidates for mapping to
-the same UTC label, depending on which side of the insertion instant the
-UTC value is interpreted as observing from.
+one-second window *starting* at the transition threshold — the instant the
+leap second 23:59:60 ends and the new `TAI − UTC` value takes effect
+(00:00:00 UTC) — not the second before it. The tables store every threshold
+as an *inclusive* lower bound (`src/leap.rs`), so `n_now != n_before`
+below is true exactly for `tai ∈ [threshold, threshold + 1 s)`, i.e. in GPS
+terms (`GPS = TAI − 19 s`) for the single second
+`[threshold_gps, threshold_gps + 1 s)` with `threshold_gps = threshold − 19 s`.
+Across that boundary, the preceding GPS second (old offset) and the following
+one (new offset) both map onto the same UTC second, so the UTC label a value
+in the window receives depends on which side of the transition it is
+interpreted as observing from.
 
 `into_scale_with_checked` detects this by comparing `TAI − UTC` at the
 queried instant against `TAI − UTC` one second earlier
-(`src/convert.rs:530`):
+(`src/convert.rs`):
 
 ```text
 n_now    = tai_minus_utc_at(tai)
@@ -367,7 +379,7 @@ n_now != n_before  ⇒  ConvertResult::AmbiguousLeapSecond
 n_now == n_before  ⇒  ConvertResult::Exact
 ```
 
-This means the ambiguous window is **exactly** one second wide, anchored at
+This means the ambiguous window is **exactly** one second wide, *starting at*
 each transition threshold present in the `LeapSecondsProvider` (all 18 in the
 built-in table) — never wider, never narrower, and never present anywhere
 else.
@@ -380,9 +392,9 @@ auditing, or anything where a 1-second discrepancy at a leap-second boundary
 would be a correctness issue for the caller) and inspect the
 `ConvertResult` variant.
 
-**Test:** `test_gps_to_utc_detects_leap_second_ambiguity` (`src/convert.rs:936`),
-`test_leap_second_transition_1999_gps_jumps_by_2s` (`src/leap.rs:1375`),
-`test_leap_second_transition_2017_gps_jumps_by_2s` (`src/leap.rs:1400`);
+**Test:** `test_gps_to_utc_detects_leap_second_ambiguity` (`src/convert.rs`),
+`test_leap_second_transition_1999_gps_jumps_by_2s` (`src/leap.rs`),
+`test_leap_second_transition_2017_gps_jumps_by_2s` (`src/leap.rs`);
 `prop_ambiguous_only_near_boundaries` in `tests/prop_tests.rs:311` checks
 this for all 18 transitions programmatically rather than the two hand-picked
 ones above; `prop_gps_near_leap_converts_consistently`
@@ -400,12 +412,12 @@ target in an ≈1.8×10^19-point space).
 
 `Time<S>` and `Duration` are `Copy` types without a `Drop` implementation.
 `LeapSeconds::builtin()` returns a `&'static LeapSeconds` pointing to a static
-array (`src/leap.rs:50`). `RuntimeLeapSeconds` is a fixed-size stack/static
-buffer (`[LeapEntry; RUNTIME_CAPACITY]`, `src/leap.rs:226`), not a `Vec`. The
+array (`src/leap.rs`). `RuntimeLeapSeconds` is a fixed-size stack/static
+buffer (`[LeapEntry; RUNTIME_CAPACITY]`, `src/leap.rs`), not a `Vec`. The
 `alloc` crate is not used anywhere in the crate's own code, with or without
 the `serde` feature (see `docs/ARCHITECTURE.md#serde-support-feature--serde`).
 
-**Enforcement:** `#![no_std]` in `src/lib.rs:55` without `extern crate alloc`.
+**Enforcement:** `#![no_std]` in `src/lib.rs` without `extern crate alloc`.
 
 **Test:** `test_no_heap_allocation_in_conversions` in
 `tests/no_std_compact.rs:193`; the `no-std-transitive` CI job in
@@ -419,9 +431,9 @@ every feature combination.
 
 **Enforcement:** the layout is `{ nanos: u64, _scale: PhantomData<S> }` with
 `PhantomData` contributing zero bytes; `Duration` is `#[repr(transparent)]`
-over `i64` (`src/duration.rs:94`).
+over `i64` (`src/duration.rs`).
 
-**Test:** `test_size_equals_u64` (`src/time.rs:1131`) runs in the standard
+**Test:** `test_size_equals_u64` (`src/time.rs`) runs in the standard
 test suite and is re-verified for the embedded target in the `type-sizes` job
 in `.github/workflows/embedded.yml`; the `firmware/` size-probe crate
 additionally confirms the *compiled* representation matches (no hidden
@@ -433,7 +445,7 @@ padding introduced by a specific target ABI).
 
 ### I-19: No unsafe code
 
-`#![forbid(unsafe_code)]` in `src/lib.rs:56`. Any attempt to add unsafe code
+`#![forbid(unsafe_code)]` in `src/lib.rs`. Any attempt to add unsafe code
 is a compile error, not a warning or a lint that can be silenced locally.
 
 **Test:** `#![forbid(...)]` (vs. `#![deny(...)]`) cannot be overridden by an
@@ -442,7 +454,7 @@ build, not by a CI grep.
 
 ### I-20: No missing documentation
 
-`#![deny(missing_docs)]` in `src/lib.rs:57`. Every public item is required to
+`#![deny(missing_docs)]` in `src/lib.rs`. Every public item is required to
 have documentation.
 
 **Test:** `#![deny(missing_docs)]` is enforced by `rustc`/`cargo doc` on every
@@ -461,7 +473,7 @@ when changing a formula and you need to know every place that depends on it.
 | Invariant                        | Unit tests | Property / fuzz tests |
 | -------------------------------- | ---------- | ----------------------- |
 | I-1 Domain isolation             | `examples/no_domain_mixing.rs` (compile-fail) | — |
-| I-2 No implicit conversions      | exhaustive `impl` review in `matrix.rs` tests | — |
+| I-2 No implicit conversions      | `ScaleId`-level classification in `matrix.rs` tests (`conversion_kind`); impl presence via compile-time smoke tests in `src/convert.rs` | — |
 | I-3 Sealed scales                | `src/scale.rs::test_scale_types_are_copy` | — |
 | I-4 `u64` representation         | `src/time.rs::test_size_equals_u64` | — |
 | I-5 `Duration` signed            | `src/duration.rs::test_negative`, `src/time.rs::test_sub_times_negative` | — |
