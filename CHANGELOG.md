@@ -14,14 +14,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   architecture overview, ASCII module dependency diagram, TAI-pivot invariant,
   Fixed vs. Contextual conversion reference, sealed-trait pattern, and new
   Extending and Limitations sections.
+- Rewrote the German architecture documentation `docs/ARCHITECTURE.de.md` to
+  match the rewritten English guide (Issue #TIME-28): identical structure,
+  table of contents, ASCII module dependency diagram, tables, formulas and
+  code examples, with native German prose. The Russian translation
+  (`ARCHITECTURE.ru.md`) is not yet updated and will follow once the English
+  version is finalized.
 - Corrected inaccuracies found during the architecture audit: the matrix
   layer's role (it does contain one real composite conversion helper,
   `beidou_via_gps_to_glonass_via_utc`), the `serde_impls` dependency direction,
   the two-way `time`/`civil` module cycle, and the `LeapSecondsProvider`
   implementations (two concrete + a blanket `&P` impl).
-- Merged the previous and rewritten English architecture documents; German and
-  Russian translations (`ARCHITECTURE.de.md`, `ARCHITECTURE.ru.md`) are not yet
-  updated and will follow once the English version is finalized.
 
 ## [0.8.0] - 2026-09-15
 
