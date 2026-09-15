@@ -10,6 +10,7 @@
 #   deny     — licenses and CVE audit (cargo deny)
 #   msrv     — MSRV check = Rust 1.75
 #   embedded — invokes embedded.yml as a reusable workflow
+#   fuzz     — invokes fuzz.yml as a reusable workflow (30 s smoke per target)
 
 name: CI
 
@@ -168,6 +169,11 @@ jobs:
           name: benchmark-results
           path: target/criterion
           retention-days: 30
+
+  fuzz:
+    name: Fuzz smoke (30s per target)
+    needs: [fmt, clippy]
+    uses: ./.github/workflows/fuzz.yml
 
   docs:
     name: Docs

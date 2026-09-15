@@ -126,6 +126,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     the `fuzz` recipe is spelled `"$t"` — never `$$t`, which the just shell
     would expand to its own PID plus `t` and break `cargo fuzz run` with an
     unknown `--bin <pid>t` target.
+  - Added a CI fuzz smoke: a reusable workflow `.github/workflows/fuzz.yml`
+    invocated from `ci.yml` via `workflow_call` (plus a manual
+    `workflow_dispatch` trigger). It builds all six targets, regenerates the
+    seed corpus (`fuzz/tools/gen_corpus.sh`) and smoke-runs each target for
+    30 s through the shared `fuzz/tools/run-fuzz.sh`, so CI uses the same
+    per-target `-max_len`/`-dict`/`-rss_limit_mb` configuration as a local
+    campaign. Crashes fail the job and their artifacts
+    (`fuzz/artifacts`) are uploaded for triage.
 - Added the `LeapExtendError::OffsetOverflow` variant (non-exhaustive enum)
   returned by `RuntimeLeapSeconds::try_extend` and `LeapSeconds::try_from_slice`
   when the last accepted entry's `tai_minus_utc` is `i32::MAX`, so no valid
