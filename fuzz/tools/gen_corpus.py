@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Generate a seed corpus for the fuzz_gps_utc target.
+"""Generate the seed corpus for every fuzz target under fuzz_targets/.
 
-Output format (little-endian), matching fuzz_targets/fuzz_gps_utc.rs:
+Each section below mirrors one harness's decode layout. Layouts change
+independently — when a target changes its input format, only its section
+(and its `gen_corpus.sh` counter) needs to change.
 
-RAW mode (data[0] & 0x80 == 0), len >= 9:
-    byte 0          : 0x00
-    bytes 1..9      : u64 GPS nanoseconds over the full domain
-
-BOUNDARY mode (data[0] & 0x80 != 0), len >= 12:
-    byte 0          : 0x80 | 0   (bit 128 set; bits 0..6 reserved)
-    byte 1          : transition index offset (idx - 1, decoded as 1 + b % 18)
-    bytes 2..10     : i64 jitter in [-20 s, +20 s)
-    bytes 10..12    : 0x00, 0x00  (reserved)
+Targets covered:
+  fuzz_gps_utc    — 9/12 bytes, u64 GPS nanos
+  fuzz_utc_to_gps — 9/12 bytes, u64 UTC nanos
+  fuzz_week_tow   — 17 bytes, u32 week + u64 tow + u32 nanos
+  fuzz_day_tod    — 17 bytes, u32 day + u64 tod + u32 nanos
+  fuzz_try_extend — 1+N bytes, entry chains (RAW 12 / BOUNDARY 2 per entry)
+  fuzz_leap_lookup — flags + build count + entries + lookup instants
 
 Run from the fuzz/ directory:
     python3 tools/gen_corpus.py
@@ -23,7 +23,7 @@ import struct
 CPU_NS = 1_000_000_000
 GPS_TAI_OFFSET_NS = 19 * CPU_NS
 
-# (tai_nanos_threshold, tai_minus_utc) for entries[1..=18] — the real
+# (tai_nanos_threshold, tai_minus_utc) for entries[1..] — the real
 # leap-second transitions of the GPS era. Mirrors src/tables/leap_seconds.rs.
 TRANSITIONS = [
     (46_828_820_000_000_000, 20),  # 1981-07-01
@@ -91,8 +91,10 @@ def raw_seed(nanos: int) -> bytes:
 
 
 def boundary_seed(idx: int, jitter_ns: int) -> bytes:
-    # decoded idx = 1 + (byte1 % 18), so store byte1 = idx - 1
+    # The harness decodes: idx = 1 + (byte1 % (entries.len() - 1)). Store
+    # byte1 = idx - 1 so real transitions start at index 1.
     byte1 = idx - 1
+
     return bytes([0x80, byte1]) + struct.pack("<q", jitter_ns) + b"\x00\x00"
 
 
@@ -110,33 +112,43 @@ def main() -> None:
     for nanos in RAW_ANCHORS:
         with open(os.path.join(out_dir, f"raw_{count:04d}"), "wb") as fh:
             fh.write(raw_seed(nanos))
+
         count += 1
 
     # small perturbations of the anchors so mutations have neighbours to grow
     for nanos in RAW_ANCHORS:
         for delta in (-1, 1, -2, 2, -17, 17):
             perturbed = nanos + delta
+
             if perturbed < 0 or perturbed >= 2**64:
                 continue
+
             with open(os.path.join(out_dir, f"raw_{count:04d}"), "wb") as fh:
                 fh.write(raw_seed(perturbed))
+
             count += 1
 
     for idx, (tai_ns, _) in enumerate(TRANSITIONS, start=1):
         gps_flip = tai_ns - GPS_TAI_OFFSET_NS
+
         for jitter_ns in JITTERS:
             nanos = gps_flip + jitter_ns
+
             if nanos < 0:
                 continue
+
             with open(os.path.join(out_dir, f"bd_{count:04d}"), "wb") as fh:
                 fh.write(boundary_seed(idx, jitter_ns))
+
             count += 1
 
     print(f"generated {count} seeds in {out_dir}")
 
     # ── fuzz_week_tow ──────────────────────────────────────────────────
     wt_dir = os.path.join(here, "..", "corpus", "fuzz_week_tow")
+
     os.makedirs(wt_dir, exist_ok=True)
+
     for entry in os.listdir(wt_dir):
         os.remove(os.path.join(wt_dir, entry))
 
@@ -177,18 +189,25 @@ def main() -> None:
     for week, secs, nanos in RAW_WEEK_TOW:
         for dw in (-1, 1):
             w = week + dw
+
             if w < 0 or w >= 2**32:
                 continue
+
             for ds in (-1, 1):
                 s = secs + ds
+
                 if s < 0 or s >= 2**64:
                     continue
+
                 for dn in (-1, 1):
                     n = nanos + dn
+
                     if n < 0 or n >= 2**32:
                         continue
+
                     with open(os.path.join(wt_dir, f"wt_raw_{count:04d}"), "wb") as fh:
                         fh.write(raw_wt_seed(w, s, n))
+
                     count += 1
 
     # BOUNDARY seeds: single-axis edges are independent — week affects only
@@ -231,8 +250,10 @@ def main() -> None:
         wi: int, si: int, ni: int, jw: int = 0, js: int = 0, jn: int = 0
     ) -> None:
         nonlocal count
+
         with open(os.path.join(wt_dir, f"wt_bd_{count:04d}"), "wb") as fh:
             fh.write(wt_boundary_seed(wi, si, ni, jw, js, jn))
+
         count += 1
 
     # One seed per week edge, tows at zero.
@@ -290,6 +311,7 @@ def main() -> None:
     # ── fuzz_day_tod ─────────────────────────────────────────────────────────
     dd_dir = os.path.join(here, "..", "corpus", "fuzz_day_tod")
     os.makedirs(dd_dir, exist_ok=True)
+
     for entry in os.listdir(dd_dir):
         os.remove(os.path.join(dd_dir, entry))
 
@@ -323,24 +345,32 @@ def main() -> None:
     for day, secs, nanos in RAW_DAY_TOD:
         with open(os.path.join(dd_dir, f"dd_raw_{count:04d}"), "wb") as fh:
             fh.write(raw_dd_seed(day, secs, nanos))
+
         count += 1
 
     # small perturbations around the raw anchors
     for day, secs, nanos in RAW_DAY_TOD:
         for dw in (-1, 1):
             d = day + dw
+
             if d < 0 or d >= 2**32:
                 continue
+
             for ds in (-1, 1):
                 s = secs + ds
+
                 if s < 0 or s >= 2**64:
                     continue
+
                 for dn in (-1, 1):
                     n = nanos + dn
+
                     if n < 0 or n >= 2**32:
                         continue
+
                     with open(os.path.join(dd_dir, f"dd_raw_{count:04d}"), "wb") as fh:
                         fh.write(raw_dd_seed(d, s, n))
+
                     count += 1
 
     # BOUNDARY seeds: single-axis edges are independent — day affects only
@@ -382,8 +412,10 @@ def main() -> None:
         di: int, si: int, ni: int, jd: int = 0, js: int = 0, jn: int = 0
     ) -> None:
         nonlocal count
+
         with open(os.path.join(dd_dir, f"dd_bd_{count:04d}"), "wb") as fh:
             fh.write(dd_boundary_seed(di, si, ni, jd, js, jn))
+
         count += 1
 
     # One seed per day edge, tods at zero.
@@ -446,6 +478,7 @@ def main() -> None:
     # ── fuzz_utc_to_gps ───────────────────────────────────────────────────────
     ug_dir = os.path.join(here, "..", "corpus", "fuzz_utc_to_gps")
     os.makedirs(ug_dir, exist_ok=True)
+
     for entry in os.listdir(ug_dir):
         os.remove(os.path.join(ug_dir, entry))
 
@@ -478,33 +511,43 @@ def main() -> None:
     for nanos in RAW_UTC:
         with open(os.path.join(ug_dir, f"ug_raw_{count:04d}"), "wb") as fh:
             fh.write(raw_ug_seed(nanos))
+
         count += 1
 
     # small perturbations of the anchors so mutations have neighbours to grow
     for nanos in RAW_UTC:
         for delta in (-1, 1, -2, 2, -17, 17):
             perturbed = nanos + delta
+
             if perturbed < 0 or perturbed >= 2**64:
                 continue
+
             with open(os.path.join(ug_dir, f"ug_raw_{count:04d}"), "wb") as fh:
                 fh.write(raw_ug_seed(perturbed))
+
             count += 1
 
     # BOUNDARY seeds: UTC flip instant of every transition, jittered so the
     # 1 s ambiguity window is provably reached on every run.
     def boundary_ug_seed(idx: int, jitter_ns: int) -> bytes:
-        # decoded idx = 1 + (byte1 % 18), so store byte1 = idx - 1
+        # The harness decodes: idx = 1 + (byte1 % (entries.len() - 1)). Store
+        # byte1 = idx - 1 so real transitions start at index 1.
         byte1 = idx - 1
+
         return bytes([0x80, byte1]) + struct.pack("<q", jitter_ns) + b"\x00\x00"
 
     for idx, (tai_ns, off) in enumerate(TRANSITIONS, start=1):
         utc_flip = tai_ns - off * CPU_NS
+
         for jitter_ns in JITTERS:
             nanos = utc_flip + jitter_ns
+
             if nanos < 0:
                 continue
+
             with open(os.path.join(ug_dir, f"ug_bd_{count:04d}"), "wb") as fh:
                 fh.write(boundary_ug_seed(idx, jitter_ns))
+
             count += 1
 
     print(f"generated {count} seeds in {ug_dir}")
@@ -512,42 +555,46 @@ def main() -> None:
     # ── fuzz_try_extend ──────────────────────────────────────────────────────
     te_dir = os.path.join(here, "..", "corpus", "fuzz_try_extend")
     os.makedirs(te_dir, exist_ok=True)
+
     for entry in os.listdir(te_dir):
         os.remove(os.path.join(te_dir, entry))
 
     count = 0
 
-    CPU = 1_000_000_000
     I32_MAX = 2**31 - 1
     I32_MIN = -(2**31)
 
     def write_te(name: str, data: bytes) -> None:
         nonlocal count
+
         with open(os.path.join(te_dir, f"te_{name}_{count:04d}"), "wb") as fh:
             fh.write(data)
+
         count += 1
 
     # ── RAW: full 12-byte entries ─────────────────────────────────────────────
     def te_raw_seed(flags: int, entries: list) -> bytes:
         out = bytes([flags])
+
         for tai, off in entries:
             out += struct.pack("<Qi", tai, off)
+
         return out
 
     # Start empty: 65 valid entries → the 65th is BufferFull (1..64 Ok).
-    chain = [(t * CPU, 19 + t - 1) for t in range(1, 66)]  # off 19..83
+    chain = [(t * CPU_NS, 19 + t - 1) for t in range(1, 66)]  # off 19..83
+
     write_te("raw_empty_full", te_raw_seed(0x00, chain))
 
     # Start builtin (19 entries): 45 valid entries extend to 64, 46th is full.
-    chain = [(1_167_300_000_000_000_000 + t * CPU, 37 + t) for t in range(1, 47)]
+    chain = [(1_167_300_000_000_000_000 + t * CPU_NS, 37 + t) for t in range(1, 47)]
+
     write_te("raw_builtin_full", te_raw_seed(0x80, chain))
-
-    # Known wraparound defect: empty + MAX offset then MIN offset is *accepted*
-    # in release, while the i64 model says NonUnitIncrement.
+    # Regression seed for the i32::MAX offset wraparound that was fixed by
+    # checked_add(1) in try_extend. Now returns OffsetOverflow.
     write_te("raw_wrap_max_min", te_raw_seed(0x00, [(100, I32_MAX), (200, I32_MIN)]))
-    # Same, but with the exact boundary in between: still a defect (MAX+1).
+    # Same, but with the exact boundary in between: still OffsetOverflow after the fix.
     write_te("raw_wrap_max_max", te_raw_seed(0x00, [(100, I32_MAX), (200, I32_MAX)]))
-
     # Validation orders from an empty table (first entry arbitrary).
     write_te("raw_first_any", te_raw_seed(0x00, [(0, I32_MIN)]))
     write_te("raw_first_any2", te_raw_seed(0x00, [(0, I32_MAX)]))
@@ -556,16 +603,20 @@ def main() -> None:
     write_te("raw_not_asc2", te_raw_seed(0x00, [(100, 1), (99, 2)]))
     write_te("raw_non_unit", te_raw_seed(0x00, [(100, 1), (200, 3)]))
     write_te("raw_non_unit2", te_raw_seed(0x00, [(100, 1), (200, 1)]))
+
     # BufferFull has priority over order tests at len == RUNTIME_CAPACITY.
-    chain = [(t * CPU, 19 + t - 1) for t in range(1, 65)]
-    chain += [(64 * CPU, 0)]  # 65th entry at capacity, even invalid → BufferFull
+    chain = [(t * CPU_NS, 19 + t - 1) for t in range(1, 65)]
+    chain += [(64 * CPU_NS, 0)]  # 65th entry at capacity, even invalid → BufferFull
+
     write_te("raw_full_priority", te_raw_seed(0x00, chain))
 
     # ── BOUNDARY: 2-byte walk entries ─────────────────────────────────────────
     def te_boundary_seed(flags: int, pairs: list) -> bytes:
         out = bytes([flags])
+
         for a, b in pairs:
             out += bytes([a, b])
+
         return out
 
     # a = tai delta byte (i8), b = offset selector (7 = 19 base default).
@@ -579,8 +630,8 @@ def main() -> None:
     write_te("bnd_lt", te_boundary_seed(0x40, [(1, 0), (0xFF, 0)]))
     # NonUnitIncrement walks: sel 1 (last), 2 (last+2), 5 (0).
     write_te("bnd_non_unit", te_boundary_seed(0x40, [(1, 1), (1, 2), (1, 5)]))
-    # MAX/Min walk: sel 3 then sel 4 via boundary (exercises wrap path
-    # deterministically per run).
+    # MAX/Min walk: sel 3 then sel 4 — the fixed wraparound path is reachable
+    # deterministically per run (sel 4 clamps last == i32::MAX via the +1 check).
     write_te("bnd_wrap", te_boundary_seed(0x40, [(1, 3), (1, 4)]))
     # Offsets from the builtin start: sel 6 = 37 → NonUnitIncrement.
     write_te("bnd_builtin_off", te_boundary_seed(0xC0, [(1, 6)]))
@@ -595,7 +646,9 @@ def main() -> None:
     # entry count, then RAW (12-byte) / BOUNDARY (2-byte) entries, then lookup
     # instants (RAW 8-byte u64 TAI / BOUNDARY 2-byte selector+jitter).
     ll_dir = os.path.join(here, "..", "corpus", "fuzz_leap_lookup")
+
     os.makedirs(ll_dir, exist_ok=True)
+
     for entry in os.listdir(ll_dir):
         os.remove(os.path.join(ll_dir, entry))
 
@@ -603,16 +656,21 @@ def main() -> None:
 
     def write_ll(name: str, flags: int, build: bytes, instants: list) -> None:
         nonlocal count
+
         data = (
             bytes([flags, len(build) // (12 if flags & 0x40 else 2)])
             if (flags & 0x40 or flags & 0x20)
             else bytes([flags, 0])
         )
+
         data += build
+
         for inst in instants:
             data += inst
+
         with open(os.path.join(ll_dir, f"ll_{name}_{count:04d}"), "wb") as fh:
             fh.write(data)
+
         count += 1
 
     def raw_inst(tai: int) -> bytes:
@@ -647,6 +705,7 @@ def main() -> None:
     # Static provider alongside runtime builtin (same instants both paths).
     for t in (46_828_820_000_000_000 + 1, 1_167_264_037_000_000_000 - 1):
         write_ll("static", 0x90, b"", [raw_inst(t)])
+
     # Empty table: instants must all report the 19 s fallback.
     for t in (0, 2**32, 2**64 - 1):
         write_ll("empty", 0x00, b"", [raw_inst(t)])
@@ -655,14 +714,17 @@ def main() -> None:
     write_ll("raw_build", 0x40, chain, [raw_inst(8 * CPU_NS + 1), raw_inst(9 * CPU_NS)])
     # RAW build from builtin: extend 38 s (valid) then adjacent lookups.
     ext = struct.pack("<Qi", 1_167_264_038_000_000_000, 38)
+
     write_ll(
         "raw_ext38",
         0xC0,
         ext,
         [raw_inst(1_167_264_037_000_000_000 - 1), raw_inst(1_167_264_038_000_000_000)],
     )
+
     # BOUNDARY build: ascending chain from empty then boundary instants.
     bnd_build = bytes([1, 0]) * 6
+
     write_ll("bnd_build", 0x20, bnd_build, [raw_inst(6 * CPU_NS), raw_inst(7 * CPU_NS)])
 
     print(f"generated {count} seeds in {ll_dir}")
