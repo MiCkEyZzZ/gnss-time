@@ -3,7 +3,7 @@
 //! Fuzz target: `tai_minus_utc_at` lookup sanity for `LeapSeconds` and
 //! `RuntimeLeapSeconds`.
 //!
-//! Property-based checks (no reference binary search): the returned TAI − UTC
+//! Property checks (no reference binary search): the returned TAI − UTC
 //! offset must be **monotone non-decreasing** as the queried TAI instant
 //! increases, and must always fall inside the **dynamic** offset range taken
 //! from the table itself (`min..=max` of `entries()`, never a hardcoded

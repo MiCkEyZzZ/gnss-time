@@ -1,40 +1,50 @@
-# fuzz_leap_lookup dictionary
+# fuzz_leap_lookup dictionary.
+# libFuzzer format: name="value" (name without quotes, value is "\xNN" bytes).
+# Leading/trailing whitespace and anything before the first quote is skipped,
+# so a quoted *name* or spaces around `=` would leak into the token.
+
 # Modes (flags byte): each bit combination is a distinct fuzz domain start.
-"leap_lookup_raw_inst"   = "\x00\x00\x00\x00\x00\x00\x00\x00"
-"leap_lookup_boundary_build" = "\x20"
-"leap_lookup_raw_build"  = "\x40"
-"leap_lookup_static_too" = "\x10"
-"leap_lookup_boundary_inst" = "\x08"
-"leap_lookup_builtin_start" = "\x80"
+leap_lookup_raw_inst="\x00\x00\x00\x00\x00\x00\x00\x00"
+leap_lookup_boundary_build="\x20"
+leap_lookup_raw_build="\x40"
+leap_lookup_static_too="\x10"
+leap_lookup_boundary_inst="\x08"
+leap_lookup_builtin_start="\x80"
 
 # TAI instants near builtin thresholds (raw u64, LE).
-"tai_before_first"   = "\x00\x00\x00\x00\x00\x00\x00\x00"
-"tai_first_threshold" = "\x00\xc8\x59\x4d\x90\x5e\xa6\x00"
-"tai_1981"           = "\x00\xc8\x59\x4d\x90\x5e\xa6\x00"
-"tai_1982"           = "\x00\x92\x97\xb6\x63\x68\x16\x01"
-"tai_2017"           = "\x00\x32\x79\x0c\x75\xf4\x32\x10"
-"tai_2026"           = "\x00\x00\xb8\x87\xd5\xc4\x5c\x14"
-"tai_max_u64"        = "\xff\xff\xff\xff\xff\xff\xff\xff"
+tai_before_first="\x00\x00\x00\x00\x00\x00\x00\x00"
+tai_first_threshold="\x00\xc8\x59\x4d\x90\x5e\xa6\x00"
+tai_1981="\x00\xc8\x59\x4d\x90\x5e\xa6\x00"
+tai_1982="\x00\x92\x97\xb6\x63\x68\x16\x01"
+tai_2017="\x00\x32\x79\x0c\x75\xf4\x32\x10"
+tai_2026="\x00\x00\xb8\x87\xd5\xc4\x5c\x14"
+tai_max_u64="\xff\xff\xff\xff\xff\xff\xff\xff"
 
 # Boundary anchor selectors (a byte).
-"bnd_anchor_max"     = "\xff\x01"
-"bnd_anchor_now"     = "\xff\x03"
-"bnd_anchor_zero"    = "\xff\x00"
-"bnd_mid_table"      = "\x80"
-"bnd_start_table"    = "\x00"
-"bnd_end_table"      = "\xc0"
+bnd_anchor_max="\xff\x01"
+bnd_anchor_now="\xff\x03"
+bnd_anchor_zero="\xff\x00"
+bnd_mid_table="\x80"
+bnd_start_table="\x00"
+bnd_end_table="\xc0"
 
 # Jitter deltas around a threshold (b byte).
-"jit_neg"            = "\x80"
-"jit_minus1"         = "\xff"
-"jit_zero"           = "\x00"
-"jit_plus1"          = "\x01"
-"jit_plus2"          = "\x02"
+jit_neg="\x80"
+jit_minus1="\xff"
+jit_zero="\x00"
+jit_plus1="\x01"
+jit_plus2="\x02"
+
+# i32::MAX - 1, the boundary_offset clamp edge.
+i32_max_minus_1="\xfe\xff\xff\x7f"
 
 # Build entries (RAW 12-byte, LE): valid +1 extension above 2017 (offset 38).
-"raw_ext_38_tai"     = "\x00\xfc\x13\x48\x75\xf4\x32\x10"
-"raw_ext_38_off"     = "\x26\x00\x00\x00"
+raw_ext_38_tai="\x00\xfc\x13\x48\x75\xf4\x32\x10"
+raw_ext_38_off="\x26\x00\x00\x00"
 
 # BOUNDARY build (2-byte): a=1 strictly ascending, b=0 +1 increment.
-"bnd_build_asc"      = "\x01\x00"
-"bnd_build_wrap"     = "\x01\x03"
+bnd_build_asc="\x01\x00"
+bnd_build_wrap="\x01\x03"
+
+# Hot 2-byte pairs libFuzzer found via CMP: (a=1, b=19).
+bnd_fallback_19="\x01\x13"

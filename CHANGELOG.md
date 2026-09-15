@@ -105,8 +105,24 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - `tools/run-fuzz.sh` dispatches per-target `-max_len` and `-dict`, falling
     through to `cargo fuzz run`; `tools/gen_corpus.sh` regenerates and
     reports all six corpora.
-- Added `setup-fuzz`, `fuzz-build` and `fuzz` recipes to the `justfile`;
-  `just fuzz [secs=300]` runs all six targets locally.
+  - Rewrote `fuzz/README.md` as an end-to-end fuzzing guide: full target
+    inventory table with `max_len`, the RAW/BOUNDARY dual-mode rationale,
+    prerequisites, per-target run commands and `just` recipes, seed-corpus
+    management, crash triage/reproduction/minimization, the `i32::MAX`
+    `OffsetOverflow` finding, and a step list for adding new targets.
+  - Fixed the `fuzz_leap_lookup.dict` syntax: entries now use the libFuzzer
+    `name="value"` form (name without quotes, no spaces around `=`, values as
+    `\xNN` bytes). The previous `"name"   = "value"` form was parsed as one
+    long token — libFuzzer takes everything between the first and last quote
+    (FuzzerUtil.cpp `ParseOneDictionaryEntry`), so the quoted name and the
+    ` = ` marker leaked into every dictionary byte. Verified: parser accepts
+    all 30 entries with no `ParseDictionaryFile` error.
+  - Added two coverage-derived tokens to `fuzz_leap_lookup.dict`
+    (`bnd_fallback_19 = 0x01 0x13`, `i32_max_minus_1 = i32::MAX − 1`), both
+    hot CMP targets found during the 36 s run, and aligned the harness doc
+    comment ("property checks", not the wording for a separate tool class).
+  - Added `setup-fuzz`, `fuzz-build` and `fuzz` recipes to the `justfile`;
+    `just fuzz [secs=300]` runs all six targets locally.
 - Added the `LeapExtendError::OffsetOverflow` variant (non-exhaustive enum)
   returned by `RuntimeLeapSeconds::try_extend` and `LeapSeconds::try_from_slice`
   when the last accepted entry's `tai_minus_utc` is `i32::MAX`, so no valid
