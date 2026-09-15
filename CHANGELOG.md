@@ -5,6 +5,24 @@ All notable changes to **gnss-time** are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Rewrote the English architecture documentation `docs/ARCHITECTURE.md` into a
+  structured architecture guide (Issue #TIME-28): table of contents, layered
+  architecture overview, ASCII module dependency diagram, TAI-pivot invariant,
+  Fixed vs. Contextual conversion reference, sealed-trait pattern, and new
+  Extending and Limitations sections.
+- Corrected inaccuracies found during the architecture audit: the matrix
+  layer's role (it does contain one real composite conversion helper,
+  `beidou_via_gps_to_glonass_via_utc`), the `serde_impls` dependency direction,
+  the two-way `time`/`civil` module cycle, and the `LeapSecondsProvider`
+  implementations (two concrete + a blanket `&P` impl).
+- Merged the previous and rewritten English architecture documents; German and
+  Russian translations (`ARCHITECTURE.de.md`, `ARCHITECTURE.ru.md`) are not yet
+  updated and will follow once the English version is finalized.
+
 ## [0.8.0] - 2026-09-15
 
 ### Added
