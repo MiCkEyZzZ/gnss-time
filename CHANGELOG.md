@@ -25,6 +25,21 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `beidou_via_gps_to_glonass_via_utc`), the `serde_impls` dependency direction,
   the two-way `time`/`civil` module cycle, and the `LeapSecondsProvider`
   implementations (two concrete + a blanket `&P` impl).
+- Unified and expanded `docs/INVARIANTS.md` (Issue #TIME-29) into the
+  canonical reference for conversion guarantees: 20 numbered invariants with
+  formulas for every conversion, explicit overflow policy (panic / `checked_*`
+  / `saturating_*` / `try_*`), the `u64`-vs-`i64`/`f64` rationale, roundtrip
+  guarantee table, the one-second leap-second ambiguity window with its
+  `n_now != n_before` detection rule, the two-pass UTC → GPS algorithm, memory
+  and safety invariants, and an invariant ↔ test cross-reference table.
+- Cross-checked every `docs/INVARIANTS.md` test reference against the code
+  and fixed the inaccuracies found: the `arithmetic_overflow` lint is enforced
+  via `-D warnings` in CI (no `#[deny]` attribute exists), the two-pass tests
+  and `test_gps_leads_utc_*` live in `src/convert.rs` (not `leap.rs`), the
+  GLONASS epoch const-assert and its tests live in `src/leap.rs` (not
+  `epoch.rs`), and the property-test names were corrected to
+  `prop_gps_utc_gps_roundtrip_exact`, `prop_ambiguous_only_near_boundaries`
+  and `prop_gps_near_leap_converts_consistently`.
 
 ## [0.8.0] - 2026-09-15
 
