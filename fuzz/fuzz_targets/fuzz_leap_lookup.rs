@@ -49,7 +49,9 @@ use gnss_time::{
 };
 use libfuzzer_sys::fuzz_target;
 
-/// Realistic number of lookup instants decoded and checked per input.
+/// Maximum number of lookup instants decoded per input. 16 covers every
+/// builtin threshold with margin for RAW anchors, and keeps the pair buffer
+/// small enough to sit on the stack.
 const MAX_INSTANTS: usize = 16;
 
 /// Build-phase entries: enough to drive an empty table to full, and to grow a
@@ -64,6 +66,23 @@ const EMPTY_FALLBACK_OFFSET: i32 = 19;
 
 const BUILTIN_LAST_OFFSET: i32 = 37;
 
+/// Apply a signed 8-bit delta to a `u64` base, clamping instead of wrapping so
+/// an edge value plus jitter never silently wraps into a different validity
+/// class.
+#[inline]
+fn apply_i8_delta(
+    base: u64,
+    delta: u8,
+) -> u64 {
+    let dj = delta as i8;
+
+    if dj >= 0 {
+        base.saturating_add(dj as u64)
+    } else {
+        base.saturating_sub((-i64::from(dj)) as u64)
+    }
+}
+
 /// BOUNDARY build `tai_nanos`: last threshold ± `a` (as `i8`), clamped to
 /// `u64`. `a == 0` keeps the previous threshold (rejected by `try_extend`),
 /// `a > 0` walks strictly ascending, `a < 0` goes back down.
@@ -72,13 +91,7 @@ fn boundary_tai(
     last_tai: u64,
     a: u8,
 ) -> u64 {
-    let dj = a as i8;
-
-    if dj >= 0 {
-        last_tai.saturating_add(dj as u64)
-    } else {
-        last_tai.saturating_sub((-i64::from(dj)) as u64)
-    }
+    apply_i8_delta(last_tai, a)
 }
 
 /// BOUNDARY build `tai_minus_utc`: `b & 0x07` selects a value relative to the
@@ -125,13 +138,8 @@ fn boundary_instant(
             Some(_) => {
                 let idx = (usize::from(a) * entries.len()) / 256;
                 let base = entries[idx].tai_nanos;
-                let dj = b as i8;
 
-                if dj >= 0 {
-                    base.saturating_add(dj as u64)
-                } else {
-                    base.saturating_sub((-i64::from(dj)) as u64)
-                }
+                apply_i8_delta(base, b)
             }
         },
     }
@@ -185,9 +193,10 @@ fn check_lookup<P: LeapSecondsProvider>(
     }
 }
 
-/// Verifies the runtime table is still internally consistent after building
-/// (guards against corrupt state leaking through to lookups).
-fn assert_table<'a>(rt: &'a RuntimeLeapSeconds) -> &'a [LeapEntry] {
+/// Validates the runtime table is still internally consistent after building
+/// (guards against corrupt state leaking through to lookups) and returns its
+/// entries.
+fn validated_entries<'a>(rt: &'a RuntimeLeapSeconds) -> &'a [LeapEntry] {
     let entries = rt.entries();
 
     assert_eq!(rt.len(), entries.len(), "len()/entries() divergence");
@@ -282,7 +291,7 @@ fuzz_target!(|data: &[u8]| {
     }
 
     // The built table drives the BOUNDARY instant anchors.
-    let entries = assert_table(&rt);
+    let entries = validated_entries(&rt);
     // Lookup phase: decode instants, then property-check them.
     let step = if boundary_instants { 2 } else { 8 };
     let avail = data.len().saturating_sub(pos) / step;
