@@ -18,7 +18,7 @@ reliably reach a 2-second ambiguity window or an overflow rim.
 
 | Target               | Crate under test                                                 | What it checks                                                                                                                | `max_len` |
 | -------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------- |
-| `fuzz_gps_utc`       | `Time::<Gps>` ↔ `Time::<Utc>`                                    | Roundtrip exactness (I-12), no-panic on any `u64`, monotonicity, TAI − UTC step bounds                                        | 12        |
+| `fuzz_gps_utc`       | `Time::<Gps>` ↔ `Time::<Utc>`                                    | Roundtrip exactness (I-15), no-panic on any `u64`, monotonicity, TAI − UTC step bounds                                        | 12        |
 | `fuzz_utc_to_gps`    | `Time::<Utc>` → `Time::<Gps>`                                    | Mirror of `fuzz_gps_utc` in the UTC domain, GPS-epoch underflow boundary                                                      | 12        |
 | `fuzz_week_tow`      | `Time::<Gps>::from_week_tow`                                     | Error classification (`InvalidInput`/`Overflow`/`Ok`), exact arithmetic, field roundtrips                                     | 17        |
 | `fuzz_day_tod`       | `Time::<Glonass>::from_day_tod`                                  | Mirror of `fuzz_week_tow` for GLONASS day/TOD, `day_of_week()` range consistency                                              | 17        |

@@ -46,6 +46,24 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   to the German architecture guide (`docs/ARCHITECTURE.de.md#grenzen`,
   `#serde-unterstützung-feature--serde`) and all internal anchors validated
   against GitHub's heading-slug algorithm.
+- Added the Russian invariants guide `docs/INVARIANTS.ru.md` (Issue #TIME-29),
+  a faithful mirror of the unified English guide: identical structure, table of
+  contents, formulas, code examples and the invariant ↔ test cross-reference
+  table in native Russian prose, with document-level hooks to the Russian
+  architecture guide (`docs/ARCHITECTURE.ru.md#ограничения`) and all internal
+  anchors validated against GitHub's heading-slug algorithm.
+- Polished the English, German and Russian invariants guides (Issue #TIME-29):
+  dropped `src/file.rs:NNN` line-number references in favour of plain module
+  paths, corrected the I-2 wording (the `matrix.rs` tests classify `ScaleId`
+  pairs; impl presence is guaranteed by the conversion smoke-tests in
+  `src/convert.rs`), clarified in I-4 that only `fuzz_week_tow`/`fuzz_day_tod`
+  construct instants at the `u64` overflow rim while `fuzz_gps_utc` checks the
+  overflow boundary on raw `u64` values, and softened the I-6
+  `arithmetic_overflow` wording to describe the current state rather than a
+  mechanically enforced rule. German and Russian prose was reworked into
+  native phrasing throughout (e.g. `Durchsetzung:` → `Mechanismus:`,
+  «Обеспечение:» → «Механизм:», `Typ-Ebene-Unmöglichkeit` → `auf Typebene
+  unmöglich`).
 
 ## [0.8.0] - 2026-09-15
 
@@ -79,7 +97,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `tools/gen_corpus.sh`, `tools/run-fuzz.sh` helper scripts).
   - `fuzz_gps_utc` target (dual-mode: RAW full-`u64` domain + BOUNDARY
     structured walk around all 18 leap-second ambiguity windows) covering
-    GPS ↔ UTC roundtrip exactness (invariant I-12), UTC monotonicity and
+    GPS ↔ UTC roundtrip exactness (invariant I-15), UTC monotonicity and
     TAI − UTC step bounds.
   - `fuzz_week_tow` target (dual-mode: RAW full `week × tow` domain +
     BOUNDARY edge walk over its own edge sets) covering
@@ -103,7 +121,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     domain + BOUNDARY structured walk around all 18 leap-second ambiguity
     windows, expressed in the UTC domain) mirroring `fuzz_gps_utc` but
     driven by `Time::<Utc>::from_nanos`. Contains the full
-    `utc → gps → utc` roundtrip exactness (invariant I-12), UTC
+    `utc → gps → utc` roundtrip exactness (invariant I-15), UTC
     monotonicity, TAI − UTC step bounds, and the underflow invariant that
     `utc_to_gps` may fail (`Overflow`) only below the GPS-epoch boundary
     (UTC since 1972 ≤ 252_892_800_000_000_000 ns). BOUNDARY instants are
