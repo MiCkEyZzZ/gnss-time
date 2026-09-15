@@ -143,6 +143,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     or panics, so the assert could never fire (same leftover from the
     `bool`-accumulator version as `fuzz_day_tod`); and removed the now-unused
     derives on `ExpectedKind`.
+  - Cleaned up `tools/gen_corpus.py`: rewrote the docstring, which described
+    only `fuzz_gps_utc`, to cover every target under `fuzz_targets/` with its
+    decode layout; replaced the hardcoded `entries[1..=18]` / `byte1 % 18`
+    comments with the harness formula `idx = 1 + (byte1 % (entries.len() - 1))`;
+    dropped the duplicate `CPU` constant in the `fuzz_try_extend` section in
+    favour of `CPU_NS`; and relabelled the `i32::MAX`-wraparound seeds from
+    "known defect" to regression seeds for the `checked_add(1)` fix that now
+    surfaces `OffsetOverflow`.
   - Corpus generator emits per-axis edge seeds (no cross-product) plus
     boundary jitter walks, keeping the seed corpus small (`fuzz_gps_utc`:
     407, `fuzz_week_tow`: 137, `fuzz_day_tod`: 134,
