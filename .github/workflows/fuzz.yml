@@ -1,0 +1,70 @@
+# Fuzz smoke: build every cargo-fuzz target and smoke-run each for 30 s.
+#
+# Uses the shared tools/run-fuzz.sh so CI exercises the exact same per-target
+# -max_len / -dict configuration as a local campaign, seeded from the
+# generated RAW + BOUNDARY corpus. Crashes fail the job and their artifacts
+# are uploaded (fuzz/artifacts) for triage.
+#
+# Runs:
+#   - as a reusable workflow — invoked from ci.yml via workflow_call
+#   - manually on demand via workflow_dispatch
+
+name: fuzz smoke
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fuzz:
+    name: Fuzz smoke (30s per target)
+    runs-on: ubuntu-latest
+    env:
+      # cargo-fuzz manages its own RUSTFLAGS (sanitizer + sancov); keeping -D
+      # warnings here would fight with the injected flags.
+      RUSTFLAGS: ""
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-14
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      - name: Cache cargo
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            fuzz/target
+          key: ${{ runner.os }}-fuzz-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Generate seed corpus
+        run: ./fuzz/tools/gen_corpus.sh
+
+      - name: Fuzz build
+        run: cargo fuzz build
+
+      - name: Fuzz all targets (30 s each)
+        run: |
+          for t in fuzz_week_tow fuzz_day_tod fuzz_gps_utc fuzz_utc_to_gps fuzz_try_extend fuzz_leap_lookup; do
+            echo "::group::fuzz $t"
+            MAX_TOTAL_TIME=30 ./fuzz/tools/run-fuzz.sh "$t"
+            echo "::endgroup::"
+          done
+
+      - name: Upload crash artifacts (if any)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-crash-artifacts
+          path: fuzz/artifacts
+          if-no-files-found: ignore
+          retention-days: 30
