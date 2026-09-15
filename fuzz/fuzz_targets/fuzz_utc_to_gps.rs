@@ -20,7 +20,7 @@
 //!    `Overflow` is legal only when UTC precedes the GPS epoch (1980-01-06),
 //!    i.e. `utc_ns < UTC_TO_GPS_EPOCH_NS`, so any other failure is a defect;
 //!    `utc_to_gps` can never overflow high (`gps_ns < utc_ns` always).
-//! 2. **I-12** (roundtrip accuracy): outside the 1 s ambiguity window the
+//! 2. **I-15** (roundtrip accuracy): outside the 1 s ambiguity window the
 //!    roundtrip is exact — `ConvertResult::Exact ⇒ drift == 0`; inside it drift
 //!    ≤ 1 s is the legal bound.
 //! 3. `utc_to_gps` is non-decreasing in UTC (GPS never runs backwards when
@@ -63,7 +63,7 @@ fn check_roundtrip_and_invariants(nanos: u64) {
     let ls = LeapSeconds::builtin();
     let utc = Time::<Utc>::from_nanos(nanos);
 
-    // ── UTC → GPS → UTC roundtrip (I-12, conditionally exact) ───────────────
+    // ── UTC → GPS → UTC roundtrip (I-15, conditionally exact) ───────────────
     let gps = match utc_to_gps(utc, ls) {
         Ok(g) => g,
         // Legal only before the GPS epoch (UTC runs earlier than GPS can
@@ -112,7 +112,7 @@ fn check_roundtrip_and_invariants(nanos: u64) {
 
     assert!(
         drift <= drift_bound,
-        "I-12 violated: utc={nanos}, gps={}, check={checked:?}, drift={drift}, bound={drift_bound}",
+        "I-15 violated: utc={nanos}, gps={}, check={checked:?}, drift={drift}, bound={drift_bound}",
         gps.as_nanos()
     );
 

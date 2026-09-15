@@ -6,7 +6,7 @@
 //!
 //! - **RAW** (`data[0] & 0x80 == 0`, `len >= 9`): bytes 1..9 are a uniform
 //!   `u64` GPS-nanosecond value covering the full domain. Verifies "no panic /
-//!   no unexpected error on any `u64`" and invariant I-12 over the whole range,
+//!   no unexpected error on any `u64`" and invariant I-15 over the whole range,
 //!   including the extreme high end near `u64::MAX`.
 //! - **BOUNDARY** (`data[0] & 0x80 != 0`, `len >= 12`): `data[1]` selects a
 //!   real leap-second transition from the builtin table (`entries[1..]`,
@@ -28,7 +28,7 @@
 //!    - `utc_to_gps` can never overflow on values produced by `gps_to_utc`
 //!      (algebraically `utc_to_gps(utc) < utc` for every reachable `utc`, and
 //!      `utc >= GPS epoch`), so any failure there is a genuine defect.
-//! 2. **I-12** (roundtrip accuracy): outside the 1 s ambiguity window the
+//! 2. **I-15** (roundtrip accuracy): outside the 1 s ambiguity window the
 //!    roundtrip is *exact* — `ConvertResult::Exact ⇒ drift == 0`. Inside the
 //!    window (`AmbiguousLeapSecond`) drift ≤ 1 s is the documented legal bound.
 //!    This is deliberately stricter than the old "≤ 1 s everywhere".
@@ -75,7 +75,7 @@ fn check_roundtrip_and_invariants(nanos: u64) {
     let ls = LeapSeconds::builtin();
     let gps = Time::<Gps>::from_nanos(nanos);
 
-    // ── GPS → UTC → GPS roundtrip (I-12, conditionally exact) ───────────────
+    // ── GPS → UTC → GPS roundtrip (I-15, conditionally exact) ───────────────
     let utc = match gps_to_utc(gps, ls) {
         Ok(u) => u,
         // Legal only at the extreme high end. The overflow boundary is
@@ -127,7 +127,7 @@ fn check_roundtrip_and_invariants(nanos: u64) {
 
     assert!(
         drift <= drift_bound,
-        "I-12 violated: gps={nanos}, utc={}, check={checked:?}, drift={drift}, bound={drift_bound}",
+        "I-15 violated: gps={nanos}, utc={}, check={checked:?}, drift={drift}, bound={drift_bound}",
         utc.as_nanos()
     );
 
