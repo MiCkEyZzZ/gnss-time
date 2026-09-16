@@ -50,6 +50,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   error paths (missing trailing `Z`, missing `T`, wrong fractional width,
   invalid month, invalid hour, and pre-epoch date → `Overflow`), plus a GPS
   epoch date (`1980-01-06`) sanity check.
+- Added `impl FromStr for Duration` (Issue #TIME-31) parsing
+  `"<seconds>s <nanos>ns"`, the exact inverse of its `Display` impl: both
+  fields are independently signed and summed literally, with
+  `GnssTimeError::ParseError` for structural mismatches and
+  `GnssTimeError::Overflow` when `seconds * 1_000_000_000 + nanos` overflows
+  `i64`; fully `no_std`, with rustdoc covering semantics and round-trips.
 
 ### Changed
 

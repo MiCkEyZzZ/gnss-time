@@ -50,6 +50,7 @@
 use core::{
     fmt,
     ops::{Add, AddAssign, Neg, Sub, SubAssign},
+    str::FromStr,
 };
 
 use crate::GnssTimeError;
@@ -494,6 +495,71 @@ impl Neg for Duration {
     }
 }
 
+impl FromStr for Duration {
+    type Err = GnssTimeError;
+
+    /// Parses `"<seconds>s <nanos>ns"`, the exact inverse of `Display`.
+    ///
+    /// Both fields are independently signed and summed literally — see the
+    /// module-level doc comment above for the full semantics and examples.
+    ///
+    /// # Errors
+    ///
+    /// - [`GnssTimeError::ParseError`] for any structural mismatch (missing
+    ///   `'s'`/`'ns'` suffix, missing separating space, non-numeric field).
+    ///
+    /// - [`GnssTimeError::Overflow`] if `seconds * 1_000_000_000 + nanos`
+    ///   overflows `i64`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::Duration;
+    ///
+    /// let d: Duration = "1s 500000000ns".parse().unwrap();
+    ///
+    /// assert_eq!(d.as_nanos(), 1_500_000_000);
+    ///
+    /// let d2: Duration = "-1s -500000000ns".parse().unwrap();
+    ///
+    /// assert_eq!(d2.as_nanos(), -1_500_000_000);
+    ///
+    /// // Round-trip:
+    /// assert_eq!(d.to_string(), "1s 500000000ns");
+    /// assert_eq!(d.to_string().parse::<Duration>().unwrap(), d);
+    /// ```
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (secs_field, nanos_field) = s
+            .split_once(' ')
+            .ok_or(GnssTimeError::ParseError("expected '<seconds>s <nanos>ns'"))?;
+
+        let secs_str = secs_field
+            .strip_suffix('s')
+            .ok_or(GnssTimeError::ParseError(
+                "expected 's' suffix on seconds field",
+            ))?;
+        let nanos_str = nanos_field
+            .strip_suffix("ns")
+            .ok_or(GnssTimeError::ParseError(
+                "expected 'ns' suffix on nanos field",
+            ))?;
+
+        let seconds: i64 = secs_str
+            .parse()
+            .map_err(|_| GnssTimeError::ParseError("invalid seconds value"))?;
+        let nanos: i64 = nanos_str
+            .parse()
+            .map_err(|_| GnssTimeError::ParseError("invalid nanoseconds value"))?;
+
+        let total = seconds
+            .checked_mul(1_000_000_000)
+            .and_then(|s| s.checked_add(nanos))
+            .ok_or(GnssTimeError::Overflow)?;
+
+        Ok(Duration::from_nanos(total))
+    }
+}
+
 impl fmt::Display for Duration {
     fn fmt(
         &self,
@@ -501,7 +567,6 @@ impl fmt::Display for Duration {
     ) -> fmt::Result {
         let abs = self.0.unsigned_abs();
         let sign = if self.0 < 0 { "-" } else { "" };
-
         let secs = abs / 1_000_000_000;
         let nanos = abs % 1_000_000_000;
 
