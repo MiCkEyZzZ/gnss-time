@@ -35,20 +35,25 @@ gnss-time
 │   ├── Cargo.toml
 │   └── README.md
 ├── docs
+│   ├── API_STABILITY.de.md
+│   ├── API_STABILITY.md
+│   ├── API_STABILITY.ru.md
+│   ├── ARCHITECTURE.de.md
 │   ├── ARCHITECTURE.md
-│   ├── duration.txt
+│   ├── ARCHITECTURE.ru.md
+│   ├── EMBEDDED.de.md
 │   ├── EMBEDDED.md
-│   ├── epoch.txt
+│   ├── EMBEDDED.ru.md
+│   ├── GNSS_TIME_PRIMER.de.md
 │   ├── GNSS_TIME_PRIMER.md
+│   ├── GNSS_TIME_PRIMER.ru.md
+│   ├── INVARIANTS.de.md
 │   ├── INVARIANTS.md
-│   ├── leap.txt
+│   ├── INVARIANTS.ru.md
+│   ├── LEAP_SECONDS.de.md
 │   ├── LEAP_SECONDS.md
-│   ├── PROJECT_STRUCTURE.md
-│   ├── README.txt
-│   ├── ROADMAP.md
-│   ├── ROADMAP_2.md
-│   ├── scale.txt
-│   └── time.txt
+│   ├── LEAP_SECONDS.ru.md
+│   └── PROJECT_STRUCTURE.md
 ├── examples
 │   ├── basic_usage.rs
 │   ├── chain_conversion.rs
