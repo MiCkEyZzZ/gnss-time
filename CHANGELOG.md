@@ -45,6 +45,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   parse, `Display` → `FromStr` round-trip, wrong-clock-prefix (`"GPS "` has
   no `"GLO "` prefix) and out-of-range ToD (`86400` → `InvalidInput`) error
   paths.
+- Added unit tests for the UTC `FromStr` parser (Issue #TIME-31): UTC epoch,
+  full nanosecond precision, exact `CivilDateTime`-`Display` round-trip, and
+  error paths (missing trailing `Z`, missing `T`, wrong fractional width,
+  invalid month, invalid hour, and pre-epoch date → `Overflow`), plus a GPS
+  epoch date (`1980-01-06`) sanity check.
 
 ### Changed
 

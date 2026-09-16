@@ -2349,4 +2349,83 @@ mod tests {
 
         assert!(matches!(result, Err(GnssTimeError::InvalidInput(_))));
     }
+
+    #[test]
+    fn test_utc_from_str_epoch() {
+        let t: Time<Utc> = "1972-01-01T00:00:00.000000000Z".parse().unwrap();
+
+        assert_eq!(t, Time::<Utc>::EPOCH);
+    }
+
+    #[test]
+    fn test_utc_from_str_full_precision() {
+        let t: Time<Utc> = "2024-01-15T12:34:56.123456789Z".parse().unwrap();
+        let dt = t.to_civil();
+
+        assert_eq!(dt.year, 2024);
+        assert_eq!(dt.month, 1);
+        assert_eq!(dt.day, 15);
+        assert_eq!(dt.hour, 12);
+        assert_eq!(dt.minute, 34);
+        assert_eq!(dt.second, 56);
+        assert_eq!(dt.nanos, 123_456_789);
+    }
+
+    #[test]
+    fn test_utc_civil_display_fromstr_exact_roundtrip() {
+        let original = Time::<Utc>::from_nanos(1_234_567_890_123_456_789);
+        let s = original.to_civil().to_string();
+        let parsed: Time<Utc> = s.parse().unwrap();
+
+        assert_eq!(original, parsed);
+    }
+
+    #[test]
+    fn test_utc_from_str_missing_z_errors() {
+        let result: Result<Time<Utc>, _> = "2024-01-15T12:34:56.123456789".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_utc_from_str_missing_t_errors() {
+        let result: Result<Time<Utc>, _> = "2024-01-15 12:34:56.123456789Z".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_from_str_wrong_nanos_width_errors() {
+        let result: Result<Time<Utc>, _> = "2024-01-15T12:34:56.123Z".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_utc_from_str_invalid_month_errors() {
+        let result: Result<Time<Utc>, _> = "2024-13-15T12:34:56.000000000Z".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_utc_from_str_invalid_hour_errors() {
+        let result: Result<Time<Utc>, _> = "2024-01-15T24:00:00.000000000Z".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_utc_from_str_before_epoch_errors() {
+        let result: Result<Time<Utc>, _> = "1970-01-01T00:00:00.000000000Z".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::Overflow)));
+    }
+
+    #[test]
+    fn test_utc_from_str_gps_epoch_date() {
+        let t: Time<Utc> = "1980-01-06T00:00:00.000000000Z".parse().unwrap();
+
+        assert_eq!(t.as_nanos(), 252_892_800_000_000_000);
+    }
 }
