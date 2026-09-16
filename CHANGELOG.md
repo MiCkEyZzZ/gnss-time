@@ -19,6 +19,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `docs/API_STABILITY.md` with localized headings, cross-references to
   `docs/INVARIANTS.ru.md` and `docs/ARCHITECTURE.ru.md`, and native Russian
   prose.
+- Added German translation of the API stability contract
+  (`docs/API_STABILITY.de.md`), a faithful mirror of the English
+  `docs/API_STABILITY.md` with localized headings, cross-references to
+  `docs/INVARIANTS.de.md` and `docs/ARCHITECTURE.de.md`, and native German
+  prose.
 
 ### Changed
 
