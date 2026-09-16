@@ -14,6 +14,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   coverage audit, the `0.x` semver-bump decision table, a `pub use` re-export
   audit with `#[doc(hidden)]` recommendations, a doc-test coverage audit and a
   proposed explicit CI step for `cargo test --doc`.
+- Added Russian translation of the API stability contract
+  (`docs/API_STABILITY.ru.md`), a faithful mirror of the English
+  `docs/API_STABILITY.md` with localized headings, cross-references to
+  `docs/INVARIANTS.ru.md` and `docs/ARCHITECTURE.ru.md`, and native Russian
+  prose.
 
 ### Changed
 
