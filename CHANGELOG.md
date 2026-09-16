@@ -41,6 +41,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   lossy truncation of sub-millisecond precision, GPS epoch parse, and error
   paths (missing `"GPS "` prefix, missing `:`, wrong fractional width,
   non-numeric week, and out-of-range ToW → `InvalidInput`).
+- Added unit tests for the GLONASS `FromStr` parser (Issue #TIME-31): basic
+  parse, `Display` → `FromStr` round-trip, wrong-clock-prefix (`"GPS "` has
+  no `"GLO "` prefix) and out-of-range ToD (`86400` → `InvalidInput`) error
+  paths.
 
 ### Changed
 
