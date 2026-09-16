@@ -158,7 +158,7 @@ Arrows mean "depends on". `error` is depended on by every layer (all
 fallible operations return `GnssTimeError`) and is omitted from the arrows
 above for readability, except where it is a leaf itself.
 
-Note the `time` ↔ `civil` and `civil` ↔ `time` pair: `Time<Utc>` has a
+Note the `time` ↔ `civil` cycle: `Time<Utc>` has a
 `to_civil()` convenience that returns `CivilDateTime`, and `civil` builds
 `CivilDateTime` from `Time<Utc>`. Both modules reference each other. This is
 a module-level cycle inside the crate (legal in Rust) that exists purely for

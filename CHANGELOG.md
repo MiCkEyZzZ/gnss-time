@@ -64,6 +64,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   native phrasing throughout (e.g. `Durchsetzung:` → `Mechanismus:`,
   «Обеспечение:» → «Механизм:», `Typ-Ebene-Unmöglichkeit` → `auf Typebene
   unmöglich`).
+- Polished the English, German and Russian architecture guides to match the
+  code review (Issue #TIME-28): renamed the German section headers to
+  `Sealed-Trait` and `TAI als Pivot` and updated the corresponding TOC entries
+  and link fragments, switched German quotation marks to the typographically
+  correct `„…"` form, aligned the ASCII dependency diagrams and markdown table
+  columns, and fixed terminology inaccuracies in the Russian guide (e.g.
+  `site` → «месте вызова», `pathway` → «маршрут», `convention` →
+  «соглашению», `enforceSameOrdering` spelled out, `юнит-тест` → «модульный
+  тест», `lookup'ов` → «операций поиска», German `Kostenlos` → `Kostenfrei`,
+  `null externe` → `keine externen`).
 
 ## [0.8.0] - 2026-09-15
 
