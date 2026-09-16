@@ -1196,6 +1196,167 @@ impl FromStr for Time<Glonass> {
     }
 }
 
+impl FromStr for Time<Utc> {
+    type Err = GnssTimeError;
+
+    /// Parses an ISO 8601 / RFC 3339 UTC timestamp:
+    /// `"YYYY-MM-DDThh:mm:ss.nnnnnnnnnZ"`, with full nanosecond precision.
+    ///
+    /// This is the exact inverse of `CivilDateTime`'s `Display`
+    /// (`utc.to_civil().to_string()`), **not** of `Time<Utc>`'s own `Display` —
+    /// see the module-level doc comment for why.
+    ///
+    /// The fractional-second part must be present and exactly 9 digits
+    /// (matching what `Display` always produces); this implementation does not
+    /// accept a variable number of fractional digits, to keep parsing
+    /// unambiguous and allocation-free.
+    ///
+    /// # `no_std` note
+    ///
+    /// Despite the original design sketch for this feature proposing a
+    /// `std`/`alloc` feature gate, this implementation needs neither: all
+    /// parsing is done with `core::str::split`/`core::str::parse` on
+    /// fixed-width numeric fields, with no heap allocation anywhere in the
+    /// path. It is therefore available unconditionally, matching every other
+    /// `no_std`-by-default API in this crate.
+    ///
+    /// # Errors
+    ///
+    /// - [`GnssTimeError::ParseError`] for any structural mismatch (wrong
+    ///   separators, wrong field widths, non-numeric fields).
+    ///
+    /// - [`GnssTimeError::Overflow`] if the resulting date is before the UTC
+    ///   epoch (1972-01-01) — see [`CivilDateTime::to_utc`].
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::{Time, Utc};
+    ///
+    /// let t: Time<Utc> = "2024-01-15T12:34:56.123456789Z".parse().unwrap();
+    /// let dt = t.to_civil();
+    ///
+    /// assert_eq!(dt.year, 2024);
+    /// assert_eq!(dt.month, 1);
+    /// assert_eq!(dt.day, 15);
+    /// assert_eq!(dt.hour, 12);
+    /// assert_eq!(dt.minute, 34);
+    /// assert_eq!(dt.second, 56);
+    /// assert_eq!(dt.nanos, 123_456_789);
+    ///
+    /// // Full nanosecond-precision round-trip:
+    /// assert_eq!(t.to_civil().to_string().parse::<Time<Utc>>().unwrap(), t);
+    /// ```
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s
+            .strip_suffix('Z')
+            .ok_or(GnssTimeError::ParseError("expected trailing 'Z'"))?;
+        let (date_part, time_part) = s.split_once('T').ok_or(GnssTimeError::ParseError(
+            "expected 'T' date/time separator",
+        ))?;
+
+        // date_part: "YYY-MM-DD"
+        let mut date_fields = date_part.split('-');
+        let year_str = date_fields
+            .next()
+            .ok_or(GnssTimeError::ParseError("missing year"))?;
+        let month_str = date_fields
+            .next()
+            .ok_or(GnssTimeError::ParseError("missing month"))?;
+        let day_str = date_fields
+            .next()
+            .ok_or(GnssTimeError::ParseError("missing day"))?;
+
+        if date_fields.next().is_some() {
+            return Err(GnssTimeError::ParseError(
+                "too many '-'-separated date fields",
+            ));
+        }
+
+        let year: i32 = year_str
+            .parse()
+            .map_err(|_| GnssTimeError::ParseError("invalid year"))?;
+        let month: u8 = month_str
+            .parse()
+            .map_err(|_| GnssTimeError::ParseError("invalid month"))?;
+        let day: u8 = day_str
+            .parse()
+            .map_err(|_| GnssTimeError::ParseError("invalid day"))?;
+
+        if !(1..=12).contains(&month) {
+            return Err(GnssTimeError::ParseError("month must be in 1..=12"));
+        }
+
+        if !(1..=31).contains(&day) {
+            return Err(GnssTimeError::ParseError("day must be in 1..=31"));
+        }
+
+        // time_part: "hh:mm:ss.nnnnnnnnn"
+        let (hms_part, nanos_str) = time_part.split_once('.').ok_or(GnssTimeError::ParseError(
+            "expected '.' before fractional seconds",
+        ))?;
+
+        if nanos_str.len() != 9 {
+            return Err(GnssTimeError::ParseError(
+                "fractional part must be exactly 9 digits (nanoseconds)",
+            ));
+        }
+
+        let mut hms_fields = hms_part.split(':');
+        let hour_str = hms_fields
+            .next()
+            .ok_or(GnssTimeError::ParseError("missing hour"))?;
+        let minute_str = hms_fields
+            .next()
+            .ok_or(GnssTimeError::ParseError("missing minute"))?;
+        let second_str = hms_fields
+            .next()
+            .ok_or(GnssTimeError::ParseError("missing second"))?;
+
+        if hms_fields.next().is_some() {
+            return Err(GnssTimeError::ParseError(
+                "too many ':'-separated time fields",
+            ));
+        }
+
+        let hour: u8 = hour_str
+            .parse()
+            .map_err(|_| GnssTimeError::ParseError("invalid hour"))?;
+        let minute: u8 = minute_str
+            .parse()
+            .map_err(|_| GnssTimeError::ParseError("invalid minute"))?;
+        let second: u8 = second_str
+            .parse()
+            .map_err(|_| GnssTimeError::ParseError("invalid second"))?;
+        let nanos: u32 = nanos_str
+            .parse()
+            .map_err(|_| GnssTimeError::ParseError("invalid nanoseconds"))?;
+
+        if hour > 23 {
+            return Err(GnssTimeError::ParseError("hour must be in 0..=23"));
+        }
+
+        if minute > 59 {
+            return Err(GnssTimeError::ParseError("minute must be in 0..=59"));
+        }
+
+        if second > 59 {
+            return Err(GnssTimeError::ParseError("second must be in 0..=59"));
+        }
+
+        CivilDateTime {
+            year,
+            month,
+            day,
+            hour,
+            minute,
+            second,
+            nanos,
+        }
+        .to_utc()
+    }
+}
+
 /// Splits `"<int>.<exactly 3 digits>"` into a [`DurationParts`] carrying
 /// whole seconds and nanoseconds.
 ///

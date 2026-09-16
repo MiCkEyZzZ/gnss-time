@@ -31,6 +31,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   covering error conditions and round-trip examples), the private helper
   `split_seconds_millis`, and the new `GnssTimeError::ParseError` variant for
   all parse failures (with `Display` and `defmt::Format` support).
+- Added `impl FromStr for Time<Utc>` accepting ISO 8601 / RFC 3339 strings
+  (`"YYYY-MM-DDThh:mm:ss.nnnnnnnnnZ"`, full nanosecond precision, exactly 9
+  fractional digits), the exact inverse of `CivilDateTime`'s `Display`; fully
+  `no_std` and allocation-free, with rustdoc covering error conditions and a
+  nanosecond-precision round-trip example.
 
 ### Changed
 
