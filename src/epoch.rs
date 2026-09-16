@@ -535,7 +535,8 @@ mod tests {
     #[test]
     fn test_invalid_date_does_not_panic() {
         let date = CivilDate::new(2024, 13, 40);
-        let _ = date.days_from_unix(); // robustness check: invalid date must not panic
+        let _ = date.days_from_unix(); // robustness check: invalid date must
+                                       // not panic
     }
 
     #[test]
