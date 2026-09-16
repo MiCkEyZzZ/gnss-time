@@ -87,6 +87,26 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   the `docs/API_STABILITY.md` audit (a new variant is a patch-level, additive
   change for downstream callers). The exhaustive `match`es on these types in
   `tests/`, `fuzz/` and `examples/` gained explicit catch-all arms.
+- Cleaned up comments and docs across the crate after the stability review
+  (Issue #TIME-30):
+  - Removed the remaining Russian-language comments and doc-strings from the
+    English codebase (`src/convert.rs`, `src/time.rs`, `src/epoch.rs`,
+    `src/duration.rs`, `src/leap.rs`) and translated them into English.
+  - Fixed typos invisible to clippy/rustfmt: `fira` → `fire` and `imediately`
+    → `immediately` in `src/tables/leap_seconds.rs`; `Howaed` → `Howard`
+    Hinnant and `Georgian` → `Gregorian` era in `src/epoch.rs`; `oberflow` /
+    `Fo` → `overflow` / `For` in `src/time.rs`.
+  - Reworded `src/time.rs`'s module doc on overflow semantics so it no longer
+    self-contradicts: the `+`/`-` operators panic on overflow and the
+    checked/saturating/try_* families are the safe default.
+  - Compressed a draft-style "Actually let's compute" comment in
+    `src/civil.rs`'s `test_leap_year_feb_29` down to the verified result
+    (`11_016 − 730 = 10_286`), dropping a stray incorrect arithmetic line.
+  - Switched `#[allow(dead_code)]` to `#[expect(dead_code)]` on
+    `assert_table_invariants` so the compile-time-only role is recorded
+    instead of looking like an unconditional allowance.
+  - Promoted `CivilDateTime` to 🟢 **Stable** in `docs/API_STABILITY.md`
+    (API unchanged since `0.5.3`), aligning its badge with `DurationParts`.
 
 ## [0.8.0] - 2026-09-15
 

@@ -50,10 +50,10 @@ const DAYS_PER_400_YEAR_ERA: i64 = 146_097;
 
 /// Offset from civil date origin (0000-03-01) to Unix epoch (1970-01-01).
 ///
-/// Used by Howaed Hinnant's civil calendar algorithm.
+/// Used by Howard Hinnant's civil calendar algorithm.
 const DAYS_FROM_CIVIL_TO_UNIX_EPOCH: i64 = 719_468;
 
-/// The Number of year is one Georgian era.
+/// The number of years in one Gregorian era.
 const YEARS_PER_ERA: i64 = 400;
 
 /// Proleptic Gregorian calendar date.
@@ -432,7 +432,7 @@ mod tests {
         let feb28 = CivilDate::new(1900, 2, 28);
         let mar01 = CivilDate::new(1900, 3, 1);
 
-        // Если бы 1900 был високосным годом, разрыв был бы 2 дня. Но он равен 1.
+        // If 1900 were a leap year, the gap would be 2 days; it is 1.
         assert_eq!(feb28.days_until(mar01), 1);
     }
 
@@ -535,7 +535,8 @@ mod tests {
     #[test]
     fn test_invalid_date_does_not_panic() {
         let date = CivilDate::new(2024, 13, 40);
-        let _ = date.days_from_unix(); // просто проверка устойчивости
+        let _ = date.days_from_unix(); // robustness check: invalid date must
+                                       // not panic
     }
 
     #[test]

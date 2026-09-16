@@ -46,9 +46,9 @@
 //!
 //! ## Arithmetic overflow semantics
 //!
-//! All arithmetic is **checked by default** - panicking operators (`+`, `-`)
-//! are only suitable for cases you know cannot oberflow. Fo embedded code or
-//! long-running servers, prefer:
+//! Arithmetic operators (`+`, `-`) **panic** on overflow; they are only
+//! suitable for cases you know cannot overflow. For embedded code or
+//! long-running servers, prefer the checked/saturating/try_* variants:
 //!
 //! ```rust
 //! use gnss_time::{scale::Gps, Duration, Time};
@@ -676,7 +676,7 @@ impl Time<Gps> {
         Ok(Time::from_nanos(total))
     }
 
-    /// Создаёт GPS время из Unix timestamp (секунды с 1970-01-01 UTC).
+    /// Creates a GPS time from a Unix timestamp (seconds since 1970-01-01 UTC).
     ///
     /// # Errors
     ///

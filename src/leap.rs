@@ -56,7 +56,7 @@ static BUILTIN_LEAP_SECONDS: LeapSeconds = LeapSeconds {
 ///
 /// `UTC_nanos = GLO_nanos + GLONASS_FROM_UTC_EPOCH_NS`
 const GLONASS_FROM_UTC_EPOCH_NS: i64 = {
-    // от UTC-epoch до 1996-01-01 00:00:00 UTC
+    // From the UTC epoch to 1996-01-01 00:00:00 UTC
     let to_1996 = CivilDate::new(1972, 1, 1).nanos_until(CivilDate::new(1996, 1, 1));
 
     // minus 3 hours: GLONASS epoch = 3 hours earlier in UTC
