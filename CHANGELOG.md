@@ -117,6 +117,24 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     instead of looking like an unconditional allowance.
   - Promoted `CivilDateTime` to 🟢 **Stable** in `docs/API_STABILITY.md`
     (API unchanged since `0.5.3`), aligning its badge with `DurationParts`.
+- Applied the `docs/API_STABILITY.md` `#[doc(hidden)]` audit to the crate
+  (Issue #TIME-30), hiding implementation-detail items that must stay `pub`
+  without advertising them in `cargo doc` — all remain public and unchanged at
+  the source level:
+  - `src/epoch.rs`: the internal derivation constants `LEAP_SECONDS_AT_*_EPOCH`,
+    `DAYS_GPS_TO_*` and `NANOS_GPS_TO_*` (used only by `const` assertions and
+    the invariants docs).
+  - `src/scale.rs`: `DisplayStyle` — the type must stay public as the type of
+    `TimeScale::DISPLAY_STYLE`, but is never named directly by callers.
+  - `src/lib.rs`: `pub mod serde_impls` — contains only auto-discovered trait
+    `impl` blocks, nothing that needs a public path.
+  - `src/matrix.rs`: expanded the `ScaleId` doc to cross-reference the
+    "adding a new time scale" checklist in `docs/ARCHITECTURE.md`.
+- Marked `LeapEntry` `#[non_exhaustive]` (flagged by the audit): a future
+  field (e.g. a provenance tag) becomes a patch-level addition instead of a
+  breaking one. This is breaking for any caller using a struct literal — use
+  `LeapEntry::new(tai_nanos, tai_minus_utc)`, which every in-crate callsite
+  already does.
 
 ## [0.8.0] - 2026-09-15
 
