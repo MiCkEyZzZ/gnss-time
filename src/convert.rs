@@ -133,6 +133,7 @@ pub trait IntoScaleWith<Target: TimeScale>: Sized {
 /// Result of a leap-second-aware conversion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[must_use = "ConvertResult contains ambiguity information; call .into_inner() or match explicitly"]
+#[non_exhaustive]
 pub enum ConvertResult<T> {
     /// Unambiguous conversion result.
     Exact(T),

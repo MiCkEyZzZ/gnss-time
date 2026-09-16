@@ -28,25 +28,25 @@ Interner Aufbau von `gnss-time`.
 Schichten sind azyklisch: jede Schicht hängt nur von den Schichten unter ihr ab.
 
 ```text
-┌────────────────────────────────────────────────────────────────┐
-│  5. matrix       ConversionMatrix, ScaleId — Laufzeit-         │
-│                   Introspektion des Konvertierungsgraphen      │
-├────────────────────────────────────────────────────────────────┤
-│  4. convert       IntoScale, IntoScaleWith, ConvertResult —    │
-│                   die öffentliche Konvertierungs-API           │
-├────────────────────────────────────────────────────────────────┤
-│  3. leap          LeapSecondsProvider, LeapSeconds,            │
-│                   RuntimeLeapSeconds — die kontextabhängigen   │
-│                   (schaltsekundenbewussten) Konvertierungs-    │
-│                   funktionen                                   │
-├────────────────────────────────────────────────────────────────┤
-│  2. time          Time<S> — der zentrale Werttyp, Arithmetik,  │
-│                   Konvertierungen mit festem Offset            │
-│                   (to_tai/from_tai)                            │
-├────────────────────────────────────────────────────────────────┤
-│  1. scale + epoch  TimeScale-Trait, Markertypen (Gps, Utc,     │
-│                    …), CivilDate, Epochen-Offset-Konstanten    │
-└────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  5. matrix         ConversionMatrix, ScaleId — Laufzeit-        │
+│                    Introspektion des Konvertierungsgraphen      │
+├─────────────────────────────────────────────────────────────────┤
+│  4. convert        IntoScale, IntoScaleWith, ConvertResult —    │
+│                    die öffentliche Konvertierungs-API           │
+├─────────────────────────────────────────────────────────────────┤
+│  3. leap           LeapSecondsProvider, LeapSeconds,            │
+│                    RuntimeLeapSeconds — die kontextabhängigen   │
+│                    (schaltsekundenbewussten) Konvertierungs-    │
+│                    funktionen                                   │
+├─────────────────────────────────────────────────────────────────┤
+│  2. time           Time<S> — der zentrale Werttyp, Arithmetik,  │
+│                    Konvertierungen mit festem Offset            │
+│                    (to_tai/from_tai)                            │
+├─────────────────────────────────────────────────────────────────┤
+│  1. scale + epoch  TimeScale-Trait, Markertypen (Gps, Utc,      │
+│                    …), CivilDate, Epochen-Offset-Konstanten     │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 **Schicht 1 (`scale`, `epoch`)** definiert, *was eine Zeitskala ist*: ein
@@ -94,7 +94,7 @@ src/
 ├── tables/
 │   ├── leap_seconds.rs  — BUILTIN_TABLE (19 GPS-Ära-Einträge)
 │   └── mod.rs
-├── scale.rs        — Schicht 1: versiegeltes Trait TimeScale + 6 Markertypen
+├── scale.rs         — Schicht 1: versiegeltes Trait TimeScale + 6 Markertypen
 ├── epoch.rs         — Schicht 1: CivilDate, konstante Epochen-Offsets, Unix-Offsets
 ├── time.rs          — Schicht 2: Time<S>-Struktur, Konstruktoren, Arithmetik,
 │                      Konvertierung mit festem Offset (to_tai/from_tai), Unix-Methoden
@@ -110,7 +110,7 @@ src/
 │                      DurationParts (nur wenn feature = "serde")
 ├── duration.rs      — Duration (vorzeichenbehaftetes Intervall in Nanosekunden;
 │                      keine Abhängigkeit zu scale/time — reiner Arithmetiktyp)
-├── prelude.rs        — bequeme Reexports
+├── prelude.rs       — bequeme Reexports
 └── lib.rs           — Crate-Root, #![no_std], pub use-Reexports
 ```
 

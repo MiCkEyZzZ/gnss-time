@@ -52,6 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Leap second window detected:");
             println!("  UTC interpretation: {utc}");
         }
+        _ => unreachable!("ConvertResult is #[non_exhaustive]; no other variants exist"),
     }
 
     Ok(())

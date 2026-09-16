@@ -81,6 +81,7 @@ pub(crate) const NANOS_PER_SECOND: i64 = 1_000_000_000;
 ///
 /// Contextual scales require a leap-second provider for correct conversion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum OffsetToTai {
     /// Constant offset relative to TAI.
     Fixed(i64),
@@ -93,6 +94,7 @@ pub enum OffsetToTai {
 ///
 /// This affects `Display` and debug output.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum DisplayStyle {
     /// Week-based format:
     /// `NAME WWW:SSSSSS.mm`

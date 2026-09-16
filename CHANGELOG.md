@@ -7,6 +7,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Added `docs/API_STABILITY.md`, the public-API stability contract document:
+  a per-module API matrix with stability badges, a `#[non_exhaustive]`
+  coverage audit, the `0.x` semver-bump decision table, a `pub use` re-export
+  audit with `#[doc(hidden)]` recommendations, a doc-test coverage audit and a
+  proposed explicit CI step for `cargo test --doc`.
+
 ### Changed
 
 - Rewrote the English architecture documentation `docs/ARCHITECTURE.md` into a
@@ -74,6 +82,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   «соглашению», `enforceSameOrdering` spelled out, `юнит-тест` → «модульный
   тест», `lookup'ов` → «операций поиска», German `Kostenlos` → `Kostenfrei`,
   `null externe` → `keine externen`).
+- Marked the three remaining public enums `#[non_exhaustive]` —
+  `ConvertResult<T>`, `DisplayStyle`, `OffsetToTai` — closing the gap found by
+  the `docs/API_STABILITY.md` audit (a new variant is a patch-level, additive
+  change for downstream callers). The exhaustive `match`es on these types in
+  `tests/`, `fuzz/` and `examples/` gained explicit catch-all arms.
 
 ## [0.8.0] - 2026-09-15
 
