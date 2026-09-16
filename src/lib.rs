@@ -82,8 +82,11 @@ pub mod scale;
 pub mod time;
 
 // Serde implementations for `Time<S>`, `Duration`, and `DurationParts`.
-// Enabled by the `serde` feature flag.
+// Enabled by the `serde` feature flag. Hidden from docs: nothing in this module
+// needs a public path — the trait `impl` blocks are discovered automatically.
+// See docs/API_STABILITY.md.
 #[cfg(feature = "serde")]
+#[doc(hidden)]
 pub mod serde_impls;
 
 ////////////////////////////////////////////////////////////////////////////////
