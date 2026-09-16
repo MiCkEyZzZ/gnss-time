@@ -118,7 +118,7 @@ pub const BUILTIN_TABLE: [LeapEntry; 19] = [
 /// that every `tai_minus_utc` value increments by exactly 1.
 ///
 /// Panics at compile time if either invariant is violated.
-#[expect(dead_code)]
+#[allow(dead_code)] // `#[expect]` is unstable on MSRV 1.75
 const fn assert_table_invariants(table: &[LeapEntry]) {
     // Need at least one entry.
     assert!(!table.is_empty(), "BUILTIN_TABLE must not be empty");
