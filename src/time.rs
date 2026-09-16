@@ -2208,4 +2208,107 @@ mod tests {
 
         assert_eq!(gps.as_seconds(), expected_gps_s);
     }
+
+    #[test]
+    fn test_gps_from_str_basic() {
+        let t: Time<Gps> = "GPS 2345:432000.000".parse().unwrap();
+
+        assert_eq!(t.week(), 2345);
+        assert_eq!(t.tow_seconds(), 432_000);
+        assert_eq!(t.sub_second_nanos(), 0);
+    }
+
+    #[test]
+    fn test_gps_from_str_with_millis() {
+        let t: Time<Gps> = "GPS 0:0.500".parse().unwrap();
+
+        assert_eq!(t.sub_second_nanos(), 500_000_000);
+    }
+
+    #[test]
+    fn test_gps_display_fromstr_roundtrip_millisecond_aligned() {
+        let original = Time::<Gps>::from_week_tow(
+            2356,
+            DurationParts {
+                seconds: 432_000,
+                nanos: 500_000_000,
+            },
+        )
+        .unwrap();
+        let s = original.to_string();
+        let parsed: Time<Gps> = s.parse().unwrap();
+
+        assert_eq!(original, parsed);
+    }
+
+    #[test]
+    fn test_gps_display_fromstr_lossy_for_sub_millisecond() {
+        let original = Time::<Gps>::from_week_tow(
+            2345,
+            DurationParts {
+                seconds: 432_000,
+                nanos: 500_000_123,
+            }, // sub-ms remainder
+        )
+        .unwrap();
+        let s = original.to_string(); // truncates to "...500" ms
+        let parsed: Time<Gps> = s.parse().unwrap();
+
+        assert_ne!(
+            original, parsed,
+            "sub-millisecond precision is lost, as documented"
+        );
+        assert_eq!(parsed.sub_second_nanos(), 500_000_000);
+
+        let s2 = parsed.to_string();
+        let parsed2: Time<Gps> = s2.parse().unwrap();
+
+        assert_eq!(parsed, parsed2);
+    }
+
+    #[test]
+    fn test_gps_from_str_missing_prefix_errors() {
+        let result: Result<Time<Gps>, _> = "2345:432000.000".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_gps_from_str_missing_colon_errors() {
+        let result: Result<Time<Gps>, _> = "GPS 2345432000.000".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_gps_from_str_wrong_fraction_width_errors() {
+        let result: Result<Time<Gps>, _> = "GPS 2345:432000.0".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::ParseError(_))));
+
+        let result2: Result<Time<Gps>, _> = "GPS 2345:432000.0000".parse();
+
+        assert!(matches!(result2, Err(GnssTimeError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_gps_from_str_non_numeric_week_errors() {
+        let result: Result<Time<Gps>, _> = "GPS abc:432000.000".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_gps_from_str_out_of_range_tow_errors() {
+        let result: Result<Time<Gps>, _> = "GPS 0:604800.000".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::InvalidInput(_))));
+    }
+
+    #[test]
+    fn test_gps_from_str_epoch() {
+        let t: Time<Gps> = "GPS 0:0.000".parse().unwrap();
+
+        assert_eq!(t, Time::<Gps>::EPOCH);
+    }
 }

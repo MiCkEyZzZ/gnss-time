@@ -36,6 +36,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   fractional digits), the exact inverse of `CivilDateTime`'s `Display`; fully
   `no_std` and allocation-free, with rustdoc covering error conditions and a
   nanosecond-precision round-trip example.
+- Added unit tests for the GPS `FromStr` parser (Issue #TIME-31): basic and
+  millisecond-aligned parse, `Display` → `FromStr` round-trip, the documented
+  lossy truncation of sub-millisecond precision, GPS epoch parse, and error
+  paths (missing `"GPS "` prefix, missing `:`, wrong fractional width,
+  non-numeric week, and out-of-range ToW → `InvalidInput`).
 
 ### Changed
 
