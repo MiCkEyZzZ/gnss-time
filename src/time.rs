@@ -2311,4 +2311,42 @@ mod tests {
 
         assert_eq!(t, Time::<Gps>::EPOCH);
     }
+
+    #[test]
+    fn test_glonass_from_str_basic() {
+        let t: Time<Glonass> = "GLO 10512:43200.000".parse().unwrap();
+
+        assert_eq!(t.day(), 10512);
+        assert_eq!(t.tod_seconds(), 43_200);
+    }
+
+    #[test]
+    fn test_glonass_display_fromstr_roundtrip() {
+        let original = Time::<Glonass>::from_day_tod(
+            10512,
+            DurationParts {
+                seconds: 43_200,
+                nanos: 250_000_000,
+            },
+        )
+        .unwrap();
+        let s = original.to_string();
+        let parsed: Time<Glonass> = s.parse().unwrap();
+
+        assert_eq!(original, parsed);
+    }
+
+    #[test]
+    fn test_glonass_from_str_missing_prefix_errors() {
+        let result: Result<Time<Glonass>, _> = "GPS 10512:43200.000".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_glonass_from_str_out_of_range_tod_errors() {
+        let result: Result<Time<Glonass>, _> = "GLO 0:86400.000".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::InvalidInput(_))));
+    }
 }
