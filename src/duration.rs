@@ -785,7 +785,7 @@ mod tests {
     fn test_as_seconds_truncation_negative() {
         let d = Duration::from_nanos(-1_500_000_000);
 
-        // важно: trunc toward zero
+        // note: truncating toward zero
         assert_eq!(d.as_seconds(), -1);
     }
 

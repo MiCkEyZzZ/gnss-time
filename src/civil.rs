@@ -483,12 +483,9 @@ mod tests {
 
     #[test]
     fn test_leap_year_feb_29() {
-        // 2000 is a leap year; 2000-02-29 must parse correctly
-        // Days from 1972-01-01 to 2000-02-29:
-        // 1972 -> 2000: 28 years, with leap years 1972,1976,...,2000 -> 7 leap
-        // (28*365 + 7) - 1 = 10218 days from 1972-01-01 (0-indexed)
-        // Actually let's compute: days_from_unix(2000,2,29) - 730
-        // days_from_unix(2000,2,29) = 11_016 (verified)
+        // 2000 is a leap year; 2000-02-29 must parse correctly.
+        // days_from_unix(2000, 2, 29) = 11_016 → 11_016 − 730 = 10_286 days
+        // from the UTC epoch (730 = 1970-01-01 → 1972-01-01).
         let days_from_utc_epoch: u64 = 11_016 - 730;
         let nanos = days_from_utc_epoch * 86_400 * 1_000_000_000;
         let dt = CivilDateTime::from_utc_nanos(nanos).unwrap();

@@ -174,11 +174,11 @@ impl<T> ConvertResult<T> {
 ////////////////////////////////////////////////////////////////////////////////
 
 impl IntoScale<Glonass> for Time<Utc> {
-    /// UTC -> GLONASS: постоянный сдвиг эпохи.
+    /// UTC -> GLONASS: constant epoch offset.
     ///
     /// # Errors
     ///
-    /// [`GnssTimeError::Overflow`] если UTC раньше эпохи GLONASS
+    /// Returns [`GnssTimeError::Overflow`] if UTC is before the GLONASS epoch
     /// (1995-12-31 21:00:00 UTC).
     #[inline]
     fn into_scale(self) -> Result<Time<Glonass>, GnssTimeError> {
@@ -936,7 +936,7 @@ mod tests {
     #[test]
     fn test_gps_to_utc_detects_leap_second_ambiguity() {
         let ls = LeapSeconds::builtin();
-        // GPS time прямо на leap second boundary (2017-01-01)
+        // GPS time exactly on a leap second boundary (2017-01-01)
         let gps = Time::<Gps>::from_seconds(1_167_264_018);
         let result: ConvertResult<Time<Utc>> = gps.into_scale_with_checked(ls).unwrap();
 

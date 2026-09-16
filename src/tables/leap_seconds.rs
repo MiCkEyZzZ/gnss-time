@@ -111,14 +111,14 @@ pub const BUILTIN_TABLE: [LeapEntry; 19] = [
 
 // Compile-time integrity assertions
 //
-// These fira during `cargo build` (not just `cargo test`), so a mis-ordered or
-// duplicate entry is caught imediately rather than at runtime.
+// These fire during `cargo build` (not just `cargo test`), so a mis-ordered or
+// duplicate entry is caught immediately rather than at runtime.
 
 /// Verifies that the table is strictly sorted by `tai_nanos` (ascending) and
 /// that every `tai_minus_utc` value increments by exactly 1.
 ///
 /// Panics at compile time if either invariant is violated.
-#[allow(dead_code)]
+#[expect(dead_code)]
 const fn assert_table_invariants(table: &[LeapEntry]) {
     // Need at least one entry.
     assert!(!table.is_empty(), "BUILTIN_TABLE must not be empty");
