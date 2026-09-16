@@ -7,9 +7,9 @@ Interner Aufbau von `gnss-time`.
 - [Schichtenarchitektur](#schichtenarchitektur)
 - [Modulaufbau](#modulaufbau)
 - [Modulabhängigkeitsdiagramm](#modulabhängigkeitsdiagramm)
-- [Kerninvariante: TAI als Dreh- und Angelpunkt für Konvertierungen mit festem Offset](#kerninvariante-tai-als-dreh--und-angelpunkt-für-konvertierungen-mit-festem-offset)
+- [Kerninvariante: TAI als Pivot für Konvertierungen mit festem Offset](#kerninvariante-tai-als-pivot-für-konvertierungen-mit-festem-offset)
 - [Zwei Klassen von Konvertierungen: Fest vs. Kontextabhängig](#zwei-klassen-von-konvertierungen-fest-vs-kontextabhängig)
-- [Das versiegelte-Trait-Muster](#das-versiegelte-trait-muster)
+- [Das Sealed-Trait-Muster](#das-sealed-trait-muster)
 - [Speicherdarstellung](#speicherdarstellung)
 - [Architektur der Schaltsekunden](#architektur-der-schaltsekunden)
 - [Unix-Time-Interoperabilität](#unix-time-interoperabilität)
@@ -157,19 +157,19 @@ hängt aber nicht von ihr ab.
             (civil nimmt an keiner Konvertierung teil)
 ```
 
-Pfeile bedeuten «hängt ab von». `error` wird von jeder Schicht verwendet (alle
+Pfeile bedeuten „hängt ab von". `error` wird von jeder Schicht verwendet (alle
 fehlbaren Operationen geben `GnssTimeError` zurück) und ist in den Pfeilen
 oben aus Gründen der Lesbarkeit weggelassen — außer dort, wo es selbst ein
 Blatt ist.
 
-Beachte das Paar `time` ↔ `civil` und `civil` ↔ `time`: `Time<Utc>` besitzt
+Beachte den Zyklus `time` ↔ `civil`: `Time<Utc>` besitzt
 eine `to_civil()`-Komfortmethode, die `CivilDateTime` zurückgibt, und `civil`
 baut `CivilDateTime` aus `Time<Utc>`. Beide Module verweisen aufeinander. Das
-ist ein zyklus auf Modulebene innerhalb der Crate (in Rust zulässig), der
+ist ein Zyklus auf Modulebene innerhalb der Crate (in Rust zulässig), der
 ausschließlich für die Kalenderansicht-Komfortfunktion existiert; es ist keine
 Konvertierungsabhängigkeit.
 
-## Kerninvariante: TAI als Dreh- und Angelpunkt für Konvertierungen mit festem Offset
+## Kerninvariante: TAI als Pivot für Konvertierungen mit festem Offset
 
 Jede Konvertierung zwischen zwei Skalen, die beide einen **festen** Offset zu
 TAI besitzen, läuft über TAI als Zwischenwert:
@@ -300,7 +300,7 @@ Schaltsekunden-Einfügungen beseitigt, die von der eingebauten Tabelle abgedeckt
 werden; die Testsuite und die Fuzz-Ziele `fuzz_gps_utc`/`fuzz_utc_to_gps`
 üben jede einzelne von ihnen aus.
 
-## Das versiegelte-Trait-Muster
+## Das Sealed-Trait-Muster
 
 `TimeScale` ist ein versiegeltes Trait — es kann außerhalb dieser Crate nicht
 implementiert werden:
@@ -327,7 +327,7 @@ muss sein `OFFSET_TO_TAI` korrekt angeben und in den Konvertierungsgraphen in
 `convert.rs` und `matrix.rs` passen. Könnten externe Typen das Trait
 implementieren, müsste `try_convert::<T>()` Skalen verarbeiten, deren
 Offsetbeziehung die Crate nicht verifizieren kann, und die obige Invariante
-«alle paarweisen Konvertierungen teilen einen konsistenten TAI-Drehpunkt»
+„alle paarweisen Konvertierungen teilen einen konsistenten TAI-Pivot“
 wäre von der eigenen Testsuite der Crate nicht mehr überprüfbar. Siehe
 [Erweiterung](#erweiterung-hinzufügen-einer-neuen-zeitskala) dafür, was das
 Hinzufügen einer *neuen, von der Crate gepflegten* Skala tatsächlich erfordert.
@@ -346,7 +346,7 @@ pub struct Time<S: TimeScale> {
 - Die Markertypen `S` (`Gps`, `Glonass`, …) sind Zero-Sized.
 - Keine Heap-Allokationen im eigenen Code der Crate (ohne das `serde`-Feature;
   auch `serde_impls` selbst allokiert nicht — siehe unten).
-- Die gesamte typlevel-Skalenprüfung findet nur zur Compile-Zeit statt; zur
+- Die gesamte Typ-Level-Skalenprüfung findet nur zur Compile-Zeit statt; zur
   Laufzeit wird über die acht Bytes von `nanos` hinaus nichts gespeichert.
 
 Dies wird durch `test_size_equals_u64` im Testmodul von `time.rs` und durch die
@@ -369,7 +369,7 @@ Es existieren drei Implementierungen von `LeapSecondsProvider`:
 
 - **`LeapSeconds`** — kapselt die statische `&'static [LeapEntry]`-Tabelle
   (oder ein beliebiges anderes `'static`-Slice über
-  `from_table`/`try_from_slice`). Kostenlos, keine Laufzeit-Mutation.
+  `from_table`/`try_from_slice`). Kostenfrei, keine Laufzeit-Mutation.
 - **`RuntimeLeapSeconds`** — ein Puffer mit fester Kapazität
   (`RUNTIME_CAPACITY = 64`) und ohne Heap, der zur Laufzeit über `try_extend`
   erweitert werden kann, für Empfänger, die neue
@@ -378,7 +378,7 @@ Es existieren drei Implementierungen von `LeapSecondsProvider`:
   Ordnungs- und Einerschritt-Invarianten wie die Compile-Zeit-Tabelle — siehe
   `fuzz_try_extend.rs` für das Fuzz-Harness, das diesen Vertrag festnagelt,
   einschließlich des während dieses Audits gefundenen und behobenen
-  `OffsetOverflow`-Falls (§ [Fuzzing](../fuzz/README.md)).
+  `OffsetOverflow`-Falls (siehe [Fuzzing](../fuzz/README.md)).
 - **`&P`** — ein Blanket-`impl<P: LeapSecondsProvider> LeapSecondsProvider
   for &P`, sodass eine Referenz auf eine der obigen Implementierungen überall
   dort übergeben werden kann, wo ein Provider-Argument erwartet wird
@@ -395,7 +395,7 @@ unix_seconds    = utc_seconds_from_1972 + UTC_EPOCH_UNIX_OFFSET_S
 utc_from_1972   = unix_seconds          - UTC_EPOCH_UNIX_OFFSET_S
 ```
 
-Das ist eine reine Zähl-zu-Zähl-Zuordnung — `Time<Utc>` speichert eine lineare
+Das ist eine reine Zählabbildung — `Time<Utc>` speichert eine lineare
 Nanosekundenzahl ohne eigene Schaltsekunden-Diskontinuitäten. Schaltsekunden
 werden nur bei der *Konvertierung zwischen Zeitskalen* angewendet (der
 vorherige Abschnitt); die Unix-Zuordnung arbeitet rein auf der internen
@@ -506,10 +506,10 @@ Aufruf `postcard::to_allocvec()` im Beispiel benötigt zusätzlich `alloc`
 
 | Feature | Wirkung                                                          |
 | ------- | ---------------------------------------------------------------- |
-| (none)  | Reines `no_std`, null externe Abhängigkeiten                     |
+| (none)  | Reines `no_std`, keine externen Abhängigkeiten                   |
 | `std`   | `impl std::error::Error for GnssTimeError`                       |
 | `serde` | `Serialize`/`Deserialize` für alle öffentlichen Typen            |
-| `alloc` | Reservierter No-op — heapgestützte Serde-Fehlermeldungen geplant |
+| `alloc` | Reservierter No-op — heap-gestützte Serde-Fehlermeldungen geplant|
 | `defmt` | `impl defmt::Format` für alle öffentlichen Typen                 |
 
 ## Erweiterung: Hinzufügen einer neuen Zeitskala
@@ -544,7 +544,7 @@ als ausgeführtes Beispiel, Roadmap-Punkt #TIME-32):
    für eine kontextabhängige Skala, einen Mehrdeutigkeitsfenster-Test, der
    `fuzz_gps_utc`/`fuzz_utc_to_gps` nachbildet.
 5. **Doku** — füge eine Zeile zur Offsettabelle in
-   [Kerninvariante](#kerninvariante-tai-als-dreh--und-angelpunkt-für-konvertierungen-mit-festem-offset)
+   [Kerninvariante](#kerninvariante-tai-als-pivot-für-konvertierungen-mit-festem-offset)
    und zu `docs/GNSS_TIME_PRIMER.md` hinzu.
 
 Da `TimeScale` versiegelt ist, ist diese Liste konstruktionsbedingt
@@ -560,8 +560,8 @@ etwas, das das Typsystem automatisch erzwingt.
 **Warum gibt es kein `From<Time<Gps>> for Time<Utc>`?**
 
 `From`/`Into` sind in Rust als *infallibel* dokumentiert und werden
-konventionsgemäß als billige Konvertierungen erwartet, bei denen «kein Weg zum
-Scheitern» besteht. GPS→UTC ist keins von beidem: Es erfordert einen expliziten
+konventionsgemäß als billige Konvertierungen erwartet, bei denen „kein Weg zum
+Scheitern“ besteht. GPS→UTC ist keins von beidem: Es erfordert einen expliziten
 `LeapSecondsProvider` (es gibt keinen Default, den das Trait erreichen könnte,
 ohne den versteckten globalen Zustand wieder einzuführen, den diese Crate
 bewusst vermeidet — siehe
@@ -579,9 +579,9 @@ würde für *ein* festes Paar funktionieren, aber die Crate möchte genau ein
 Trait, dessen `impl`s über `ScaleId`/`ConversionMatrix` für die
 Introspektionsgeschichte in Schicht 5 aufzählbar sind — das Mischen von
 `TryFrom` (fest) und einem benutzerdefinierten Trait (kontextabhängig) würde
-diese Geschichte in «prüfe `TryFrom` für dieses Paar, prüfe `IntoScaleWith` für
-jenes» zerfasern, ohne eine einzige Quelle der Wahrheit dafür, «welche
-Konvertierungen existieren.» `IntoScale`/`IntoScaleWith` geben beiden Klassen
+diese Geschichte in „prüfe `TryFrom` für dieses Paar, prüfe `IntoScaleWith` für
+jenes“ zerfasern, ohne eine einzige Quelle der Wahrheit dafür, „welche
+Konvertierungen existieren.“ `IntoScale`/`IntoScaleWith` geben beiden Klassen
 eine einheitliche Form, die `matrix.rs` erschöpfend beschreiben kann.
 
 **Andere Grenzen, konstruktionsbedingt:**
@@ -602,8 +602,8 @@ eine einheitliche Form, die `matrix.rs` erschöpfend beschreiben kann.
   TAI-Zeitpunkt nach dem letzten Tabelleneintrag zurück, gemäß IERS-Konvention
   (keine Schaltsekunde wird ohne ≥6 Monate Vorankündigung eingefügt) — das ist
   eine dokumentierte Annahme, kein Bug, aber es bedeutet, dass Konvertierungen
-  für weit in der Zukunft liegende Daten stillschweigend «keine weiteren
-  Schaltsekunden» annehmen, statt einen Fehler zu werfen.
+  für weit in der Zukunft liegende Daten stillschweigend „keine weiteren
+  Schaltsekunden“ annehmen, statt einen Fehler zu werfen.
 - **Keine Kalenderarithmetik auf `Time<S>` für GNSS-Skalen.** Nur `Time<Utc>`
   besitzt eine `to_civil()`/`CivilDateTime`-Ansicht; GPS/Galileo/BeiDou/GLONASS-
   Zeitstempel müssen zuerst nach UTC konvertiert werden, wenn ein
@@ -615,7 +615,7 @@ eine einheitliche Form, die `matrix.rs` erschöpfend beschreiben kann.
 | Prüfung                         | Werkzeug                                                                                   |
 | ------------------------------- | ------------------------------------------------------------------------------------------ |
 | Kein unsicherer Code            | `#![forbid(unsafe_code)]`                                                                  |
-| Kein undokumentiertes API       | `#![deny(missing_docs)]`                                                                   |
+| Keine undokumentierte API       | `#![deny(missing_docs)]`                                                                   |
 | Build für Embedded-Ziele        | `cargo check --target thumbv7em-none-eabihf` (+ 4 weitere, siehe `docs/EMBEDDED.md`)       |
 | Typgröße = 8 Bytes              | Unit-Test `test_size_equals_u64`                                                           |
 | Sichere Arithmetik              | `-D warnings` + Abwesenheit von `#[allow(arithmetic_overflow)]`                            |
