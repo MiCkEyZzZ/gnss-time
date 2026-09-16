@@ -24,6 +24,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `docs/API_STABILITY.md` with localized headings, cross-references to
   `docs/INVARIANTS.de.md` and `docs/ARCHITECTURE.de.md`, and native German
   prose.
+- Added string parsing for GPS time (Issue #TIME-31): `impl FromStr for
+  Time<Gps>` accepting the `"GPS <week>:<tow>.<millis>"` format, the private
+  helper `split_seconds_millis`, and the new `GnssTimeError::ParseError`
+  variant for all parse failures (with `Display` and `defmt::Format`
+  support).
 
 ### Changed
 

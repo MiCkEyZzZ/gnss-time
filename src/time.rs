@@ -70,6 +70,7 @@ use core::{
     fmt,
     marker::PhantomData,
     ops::{Add, AddAssign, Sub, SubAssign},
+    str::FromStr,
 };
 
 use crate::{
@@ -1109,6 +1110,54 @@ impl<S: TimeScale> defmt::Format for Time<S> {
             }
         }
     }
+}
+
+impl FromStr for Time<Gps> {
+    type Err = GnssTimeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let rest = s
+            .strip_prefix("GPS ")
+            .ok_or(GnssTimeError::ParseError("expected 'GPS' prefix"))?;
+        let (week_str, tow_str) = rest.split_once(':').ok_or(GnssTimeError::ParseError(
+            "expected '<week>:<tow>.<millis>'",
+        ))?;
+        let week: u32 = week_str
+            .parse()
+            .map_err(|_| GnssTimeError::ParseError("invalid GPS week"))?;
+        let DurationParts { seconds, nanos } = split_seconds_millis(tow_str)?;
+
+        Time::<Gps>::from_week_tow(week, DurationParts { seconds, nanos })
+    }
+}
+
+/// Splits `"<int>.<exactly 3 digits>"` into a [`DurationParts`] carrying
+/// whole seconds and nanoseconds.
+///
+/// Returns `ParseError` if the fractional part is missing, not exactly 3
+/// digits, or either part fails to parse as the requested integer type.
+fn split_seconds_millis(s: &str) -> Result<DurationParts, GnssTimeError> {
+    let (int_part, frac_part) = s
+        .split_once('.')
+        .ok_or(GnssTimeError::ParseError("expected '<seconds>.<millis>'"))?;
+
+    if frac_part.len() != 3 {
+        return Err(GnssTimeError::ParseError(
+            "fractional part must be exactly 3 digits (milliseconds)",
+        ));
+    }
+
+    let seconds: u64 = int_part
+        .parse()
+        .map_err(|_| GnssTimeError::ParseError("invalid seconds value"))?;
+    let millis: u32 = frac_part
+        .parse()
+        .map_err(|_| GnssTimeError::ParseError("invalid milliseconds value"))?;
+
+    Ok(DurationParts {
+        seconds,
+        nanos: millis * 1_000_000,
+    })
 }
 
 ////////////////////////////////////////////////////////////////////////////////

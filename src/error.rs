@@ -45,6 +45,9 @@ pub enum GnssTimeError {
     /// The attached string provides a short static description of the issue.
     InvalidInput(&'static str),
 
+    /// A string could not be parsed into the requested type.
+    ParseError(&'static str),
+
     /// The operation requires leap-second information that is not available.
     ///
     /// This is typically required for conversions between UTC-based and
@@ -71,6 +74,7 @@ impl fmt::Display for GnssTimeError {
             }
             GnssTimeError::LeapSecondsRequired => f.write_str("leap-second data required"),
             GnssTimeError::OutOfRange => f.write_str("timestamp is out of representable range"),
+            GnssTimeError::ParseError(msg) => write!(f, "parse error: {msg}"),
         }
     }
 }
@@ -100,6 +104,7 @@ impl defmt::Format for GnssTimeError {
             GnssTimeError::OutOfRange => {
                 defmt::write!(f, "timestamp is out of representable range");
             }
+            GnssTimeError::ParseError(msg) => defmt::write!(f, "parse error: {}", msg),
         }
     }
 }
