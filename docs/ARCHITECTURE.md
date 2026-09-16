@@ -28,23 +28,23 @@ Internal design of `gnss-time`.
 are acyclic: each layer only depends on the layers below it.
 
 ```text
-┌──────────────────────────────────────────────────────────────┐
-│  5. matrix       ConversionMatrix, ScaleId — runtime         │
-│                   introspection of the conversion graph      │
-├──────────────────────────────────────────────────────────────┤
-│  4. convert       IntoScale, IntoScaleWith, ConvertResult —  │
-│                   the public conversion API surface          │
-├──────────────────────────────────────────────────────────────┤
-│  3. leap          LeapSecondsProvider, LeapSeconds,          │
-│                   RuntimeLeapSeconds — the contextual        │
-│                   (leap-second-aware) conversion functions   │
-├──────────────────────────────────────────────────────────────┤
-│  2. time          Time<S> — the core value type, arithmetic, │
-│                   fixed-offset conversions (to_tai/from_tai) │
-├──────────────────────────────────────────────────────────────┤
-│  1. scale + epoch  TimeScale trait, marker types (Gps, Utc,  │
-│                    …), CivilDate, epoch offset constants     │
-└──────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│  5. matrix         ConversionMatrix, ScaleId — runtime        │
+│                    introspection of the conversion graph      │
+├───────────────────────────────────────────────────────────────┤
+│  4. convert        IntoScale, IntoScaleWith, ConvertResult —  │
+│                    the public conversion API surface          │
+├───────────────────────────────────────────────────────────────┤
+│  3. leap           LeapSecondsProvider, LeapSeconds,          │
+│                    RuntimeLeapSeconds — the contextual        │
+│                    (leap-second-aware) conversion functions   │
+├───────────────────────────────────────────────────────────────┤
+│  2. time           Time<S> — the core value type, arithmetic, │
+│                    fixed-offset conversions (to_tai/from_tai) │
+├───────────────────────────────────────────────────────────────┤
+│  1. scale + epoch  TimeScale trait, marker types (Gps, Utc,   │
+│                    …), CivilDate, epoch offset constants      │
+└───────────────────────────────────────────────────────────────┘
 ```
 
 **Layer 1 (`scale`, `epoch`)** defines *what a time scale is*: a
@@ -92,7 +92,7 @@ src/
 ├── tables/
 │   ├── leap_seconds.rs  — BUILTIN_TABLE (19 GPS-era entries)
 │   └── mod.rs
-├── scale.rs        — layer 1: sealed trait TimeScale + 6 marker types
+├── scale.rs         — layer 1: sealed trait TimeScale + 6 marker types
 ├── epoch.rs         — layer 1: CivilDate, constant epoch offsets, Unix offsets
 ├── time.rs          — layer 2: Time<S> struct, constructors, arithmetic,
 │                      fixed-offset conversion (to_tai/from_tai), Unix methods
@@ -107,7 +107,7 @@ src/
 │                      DurationParts (only when feature = "serde")
 ├── duration.rs      — Duration (signed interval in nanoseconds; no
 │                      dependency on scale/time — pure arithmetic type)
-├── prelude.rs        — convenient re-exports
+├── prelude.rs       — convenient re-exports
 └── lib.rs           — crate root, #![no_std], pub use re-exports
 ```
 

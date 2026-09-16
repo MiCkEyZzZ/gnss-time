@@ -319,6 +319,7 @@ fn prop_gps_utc_gps_roundtrip_outside_leap_window() {
                 // leap-second boundary (see Property 8 below).
                 ambiguous_count += 1;
             }
+            _ => unreachable!("ConvertResult is #[non_exhaustive]; no other variants exist"),
         }
     }
 

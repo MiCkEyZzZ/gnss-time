@@ -98,6 +98,7 @@ fn check_roundtrip_and_invariants(nanos: u64) {
         // Inside the ambiguity window a 1 s error is the documented, legal
         // representation of a non-injective mapping.
         ConvertResult::AmbiguousLeapSecond(_) => ONE_SECOND_NS,
+        _ => unreachable!("ConvertResult is #[non_exhaustive]; no other variants exist"),
     };
 
     let utc_back = match gps_to_utc(gps, ls) {

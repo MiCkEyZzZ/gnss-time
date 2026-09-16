@@ -138,6 +138,7 @@ proptest! {
             ConvertResult::AmbiguousLeapSecond(_) => {
                 // Skip — ambiguous points are covered by separate properties.
             }
+            _ => unreachable!("ConvertResult is #[non_exhaustive]; no other variants exist"),
         }
     }
 }
@@ -348,6 +349,7 @@ proptest! {
             ConvertResult::AmbiguousLeapSecond(_utc) => {
                 // допустимый результат для точки около leap-second границы
             }
+            _ => unreachable!("ConvertResult is #[non_exhaustive]; no other variants exist"),
         }
     }
 }
