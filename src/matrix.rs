@@ -59,7 +59,12 @@ pub enum ConversionKind {
     SameScale,
 }
 
-/// Runtime time-scale identifier.
+/// Identifies one of the crate's supported time scales for runtime
+/// introspection (see `ConversionMatrix`).
+///
+/// `#[non_exhaustive]`: adding a new scale (docs/ARCHITECTURE.md#extending)
+/// adds a variant here, which should be a patch-level change, not a breaking
+/// one, matching every other step of that checklist.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum ScaleId {

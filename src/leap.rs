@@ -147,12 +147,15 @@ pub enum LeapExtendError {
     OffsetOverflow,
 }
 
-/// One leap-second table entry.
+/// One entry in a leap-second table: a TAI instant and the `TAI − UTC` offset
+/// that becomes valid at that instant.
 ///
-/// Starting from `tai_minus_utc` (internal TAI nanoseconds), `TAI - UTC =
-/// tai_minus_utc` seconds.
+/// `#[non_exhaustive]`: a future field (e.g. a provenance tag distinguishing
+/// IERS-table entries from receiver-supplied ones) is plausible; use
+/// `LeapEntry::new(tai_nanos, tai_minus_utc)` rather than a struct literal.
 ///
 /// Strict contract: the table must be sorted by `tai_nanos` in ascending order.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct LeapEntry {
     /// Internal TAI nanoseconds (inclusive lower bound).

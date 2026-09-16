@@ -249,33 +249,43 @@ pub const GPS_EPOCH_UNIX_S: i64 = UNIX_EPOCH.seconds_until(GPS_EPOCH);
 // = 3657 * 86_400 = 315_964_800
 
 /// TAI − UTC at GPS epoch.
+#[doc(hidden)]
 pub const LEAP_SECONDS_AT_GPS_EPOCH: i64 = 19;
 
 /// TAI − UTC at GLONASS epoch.
+#[doc(hidden)]
 pub const LEAP_SECONDS_AT_GLONASS_EPOCH: i64 = 30;
 
 /// TAI − UTC at Galileo epoch.
+#[doc(hidden)]
 pub const LEAP_SECONDS_AT_GALILEO_EPOCH: i64 = 32;
 
 /// TAI − UTC at `BeiDou` epoch.
+#[doc(hidden)]
 pub const LEAP_SECONDS_AT_BEIDOU_EPOCH: i64 = 33;
 
 /// Days between GPS and Galileo epochs.
+#[doc(hidden)]
 pub const DAYS_GPS_TO_GALILEO: i64 = GPS_EPOCH.days_until(GALILEO_EPOCH);
 
 /// Days between GPS and `BeiDou` epochs.
+#[doc(hidden)]
 pub const DAYS_GPS_TO_BEIDOU: i64 = GPS_EPOCH.days_until(BEIDOU_EPOCH);
 
 /// Days between GPS and GLONASS epochs.
+#[doc(hidden)]
 pub const DAYS_GPS_TO_GLONASS: i64 = GPS_EPOCH.days_until(GLONASS_EPOCH);
 
 /// Days between Unix and GPS epochs.
+#[doc(hidden)]
 pub const DAYS_UNIX_TO_GPS: i64 = UNIX_EPOCH.days_until(GPS_EPOCH);
 
 /// Nanoseconds between GPS and Galileo epochs.
+#[doc(hidden)]
 pub const NANOS_GPS_TO_GALILEO_EPOCH: i64 = GPS_EPOCH.nanos_until(GALILEO_EPOCH);
 
 /// Nanoseconds between GPS and `BeiDou` epochs (calendar only).
+#[doc(hidden)]
 pub const NANOS_GPS_TO_BEIDOU_EPOCH_CALENDAR: i64 = GPS_EPOCH.nanos_until(BEIDOU_EPOCH);
 
 // Galileo−GPS calendar delta must equal 619 315 200 s.

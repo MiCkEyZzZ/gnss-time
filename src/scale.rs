@@ -90,9 +90,13 @@ pub enum OffsetToTai {
     Contextual,
 }
 
-/// Defines how a [`crate::Time<S>`] value is formatted for display.
+/// Controls how `Display for Time<S>` renders a timestamp for a given scale.
 ///
-/// This affects `Display` and debug output.
+/// This is an implementation detail of the `Display` impl and is not meant to
+/// be named directly — see `docs/API_STABILITY.md`. It stays `pub` (required by
+/// the `TimeScale::DISPLAY_STYLE` associated const's type) but is hidden from
+/// generated documentation.
+#[doc(hidden)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum DisplayStyle {
