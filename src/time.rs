@@ -1115,6 +1115,33 @@ impl<S: TimeScale> defmt::Format for Time<S> {
 impl FromStr for Time<Gps> {
     type Err = GnssTimeError;
 
+    /// Parses `"GPS <week>:<tow_seconds>.<millis>"`, the exact inverse of this
+    /// type's `Display` impl.
+    ///
+    /// # Errors
+    ///
+    /// - [`GnssTimeError::ParseError`] if the string does not match the `"GPS
+    ///   "` prefix, is missing the `:` or `.` separators, has a fractional part
+    ///   that isn't exactly 3 digits, or contains a non-numeric
+    ///   week/seconds/millis component
+    ///
+    /// - [`GnssTimeError::InvalidInput`] / [`GnssTimeError::Overflow`] if the
+    ///   numeric values themselves are out of range — see
+    ///   [`Time::<Gps>::from_week_tow`]
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use gnss_time::{Gps, Time};
+    ///
+    /// let t: Time<Gps> = "GPS 2345:432000.000".parse().unwrap();
+    ///
+    /// assert_eq!(t.week(), 2345);
+    /// assert_eq!(t.tow_seconds(), 432_000);
+    ///
+    /// // Round-trips through Display for millisecond-aligned values:
+    /// assert_eq!(t.to_string(), "GPS 2345:432000.000");
+    /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let rest = s
             .strip_prefix("GPS ")
@@ -1128,6 +1155,44 @@ impl FromStr for Time<Gps> {
         let DurationParts { seconds, nanos } = split_seconds_millis(tow_str)?;
 
         Time::<Gps>::from_week_tow(week, DurationParts { seconds, nanos })
+    }
+}
+
+impl FromStr for Time<Glonass> {
+    type Err = GnssTimeError;
+
+    /// Parses `"GLO <day>:<tod_seconds>.<millis>"`, the exact inverse of this
+    /// type's `Display` impl.
+    ///
+    /// # Errors
+    ///
+    /// Same error conditions as [`Time::<Gps>::from_str`], adapted for the
+    /// GLONASS day/time-of-day domain — see [`Time::<Glonass>::from_day_tod`].
+    ///
+    /// # Example
+    ///
+    ///  ```rust
+    /// use gnss_time::{Glonass, Time};
+    ///
+    /// let t: Time<Glonass> = "GLO 10512:43200.000".parse().unwrap();
+    ///
+    /// assert_eq!(t.day(), 10512);
+    /// assert_eq!(t.tod_seconds(), 43_200);
+    /// assert_eq!(t.to_string(), "GLO 10512:43200.000");
+    /// ```
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let rest = s
+            .strip_prefix("GLO ")
+            .ok_or(GnssTimeError::ParseError("expected 'GLO' prefix"))?;
+        let (day_str, tod_str) = rest
+            .split_once(':')
+            .ok_or(GnssTimeError::ParseError("expected '<day>:<tod>.<millis>'"))?;
+        let day: u32 = day_str
+            .parse()
+            .map_err(|_| GnssTimeError::ParseError("invalid GLONASS day"))?;
+        let DurationParts { seconds, nanos } = split_seconds_millis(tod_str)?;
+
+        Time::<Glonass>::from_day_tod(day, DurationParts { seconds, nanos })
     }
 }
 

@@ -24,11 +24,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `docs/API_STABILITY.md` with localized headings, cross-references to
   `docs/INVARIANTS.de.md` and `docs/ARCHITECTURE.de.md`, and native German
   prose.
-- Added string parsing for GPS time (Issue #TIME-31): `impl FromStr for
-  Time<Gps>` accepting the `"GPS <week>:<tow>.<millis>"` format, the private
-  helper `split_seconds_millis`, and the new `GnssTimeError::ParseError`
-  variant for all parse failures (with `Display` and `defmt::Format`
-  support).
+- Added string parsing for GNSS time (Issue #TIME-31): `impl FromStr for
+  Time<Gps>` accepting the `"GPS <week>:<tow>.<millis>"` format and `impl
+  FromStr for Time<Glonass>` accepting the `"GLO <day>:<tod>.<millis>"`
+  format, both as exact inverses of their `Display` impls (with full rustdoc
+  covering error conditions and round-trip examples), the private helper
+  `split_seconds_millis`, and the new `GnssTimeError::ParseError` variant for
+  all parse failures (with `Display` and `defmt::Format` support).
 
 ### Changed
 
@@ -140,6 +142,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   breaking one. This is breaking for any caller using a struct literal — use
   `LeapEntry::new(tai_nanos, tai_minus_utc)`, which every in-crate callsite
   already does.
+
+### Fixed
+
+- Fixed the MSRV (Rust 1.75) build: replaced the `#[expect(dead_code)]`
+  attribute on `assert_table_invariants` (stabilized only in Rust 1.81, so it
+  failed the `cargo +1.75.0 check` step of `just ci`) with the stable
+  `#[allow(dead_code)]`.
 
 ## [0.8.0] - 2026-09-15
 
