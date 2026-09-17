@@ -417,7 +417,7 @@ relationship between `time` and `civil` is bidirectional at the module level:
 ## Serde support (`feature = "serde"`)
 
 ```toml
-gnss-time = { version = "0.8", features = ["serde"] }
+gnss-time = { version = "0.9", features = ["serde"] }
 ```
 
 ### Formats

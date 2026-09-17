@@ -423,7 +423,7 @@ Unix-отображение работает исключительно с вн�
 ## Поддержка Serde (`feature = "serde"`)
 
 ```toml
-gnss-time = { version = "0.8", features = ["serde"] }
+gnss-time = { version = "0.9", features = ["serde"] }
 ```
 
 ### Форматы

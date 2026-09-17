@@ -1,6 +1,6 @@
 [package]
 name = "gnss-time"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2021"
 rust-version = "1.75"
 description = "Type-safe GNSS time scales: GPS, GLONASS, Galileo, BeiDou, TAI, UTC — no_std by default"
@@ -118,7 +118,7 @@ std = []
 #
 # Usage in Cargo.toml:
 #   [dependencies]
-#   gnss-time = { version = "0.8", features = ["defmt"] }
+#   gnss-time = { version = "0.9", features = ["defmt"] }
 #   defmt     = "0.3"
 #
 # defmt versions: https://crates.io/crates/defmt

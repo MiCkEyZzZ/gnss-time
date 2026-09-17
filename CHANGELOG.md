@@ -7,6 +7,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-17
+
+### Breaking
+
+- `LeapEntry` is now `#[non_exhaustive]`. Downstream code that constructed
+  entries with a struct literal must switch to `LeapEntry::new(tai_nanos,
+  tai_minus_utc)`.
+- `ConvertResult<T>`, `DisplayStyle`, `OffsetToTai` are now
+  `#[non_exhaustive]`. Downstream `match` expressions need a catch-all arm.
+
 ### Added
 
 - Added `docs/API_STABILITY.md`, the public-API stability contract document:

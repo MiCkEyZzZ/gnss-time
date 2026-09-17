@@ -7,14 +7,14 @@ Diese Anleitung beschreibt die Verwendung von `gnss-time` in `no_std`-Umgebungen
 ```toml
 # Cargo.toml
 [dependencies]
-gnss-time = { version = "0.8", default-features = false }
+gnss-time = { version = "0.9", default-features = false }
 
 # Für Embedded-Logging über probe-rs:
-gnss-time = { version = "0.8", features = ["defmt"] }
+gnss-time = { version = "0.9", features = ["defmt"] }
 defmt      = "0.3"
 
 # Für kompakte Binärserialisierung:
-gnss-time = { version = "0.8", features = ["serde"] }
+gnss-time = { version = "0.9", features = ["serde"] }
 postcard   = { version = "1", default-features = false, features = ["heapless"] }
 heapless   = "0.8"
 serde      = { version = "1", default-features = false }
@@ -217,7 +217,7 @@ Abhängigkeiten hinzu:
 
 ```toml
 [dependencies]
-gnss-time = { version = "0.8", features = ["serde"] }
+gnss-time = { version = "0.9", features = ["serde"] }
 postcard   = { version = "1", default-features = false, features = ["heapless"] }
 heapless   = "0.8"
 serde      = { version = "1", default-features = false }

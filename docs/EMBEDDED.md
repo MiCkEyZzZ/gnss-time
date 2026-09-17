@@ -7,14 +7,14 @@ How to use `gnss-time` in `no_std` environments (STM32, nRF52, ESP32-C3, etc.).
 ```toml
 # Cargo.toml
 [dependencies]
-gnss-time = { version = "0.8", default-features = false }
+gnss-time = { version = "0.9", default-features = false }
 
 # For embedded logging via probe-rs:
-gnss-time = { version = "0.8", features = ["defmt"] }
+gnss-time = { version = "0.9", features = ["defmt"] }
 defmt      = "0.3"
 
 # For compact binary serialization:
-gnss-time = { version = "0.8", features = ["serde"] }
+gnss-time = { version = "0.9", features = ["serde"] }
 postcard   = { version = "1", default-features = false, features = ["heapless"] }
 heapless   = "0.8"
 serde      = { version = "1", default-features = false }
@@ -209,7 +209,7 @@ Enable the `serde` feature and add `postcard` to the dependencies:
 
 ```toml
 [dependencies]
-gnss-time = { version = "0.8", features = ["serde"] }
+gnss-time = { version = "0.9", features = ["serde"] }
 postcard   = { version = "1", default-features = false, features = ["heapless"] }
 heapless   = "0.8"
 serde      = { version = "1", default-features = false }
