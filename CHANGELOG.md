@@ -201,6 +201,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   attribute on `assert_table_invariants` (stabilized only in Rust 1.81, so it
   failed the `cargo +1.75.0 check` step of `just ci`) with the stable
   `#[allow(dead_code)]`.
+- Fixed the MSRV (Rust 1.75) build for the `serde` feature: replaced the
+  `#[expect(dead_code)]` attribute on the `TimeVisitor<S>` serde helper in
+  `src/time.rs` (stabilized only in Rust 1.81, so it fails compilation on
+  older toolchains) with the stable `#[allow(dead_code)]`.
 
 ## [0.8.0] - 2026-09-15
 

@@ -139,7 +139,7 @@ pub struct DurationParts {
 }
 
 #[cfg(feature = "serde")]
-#[expect(dead_code)]
+#[allow(dead_code)]
 struct TimeVisitor<S>(PhantomData<S>);
 
 impl<S: TimeScale> Time<S> {
