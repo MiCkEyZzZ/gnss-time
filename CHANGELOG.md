@@ -51,16 +51,23 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   invalid month, invalid hour, and pre-epoch date → `Overflow`), plus a GPS
   epoch date (`1980-01-06`) sanity check.
 - Added `impl FromStr for Duration` (Issue #TIME-31) parsing
-  `"<seconds>s <nanos>ns"`, the exact inverse of its `Display` impl: both
-  fields are independently signed and summed literally, with
-  `GnssTimeError::ParseError` for structural mismatches and
-  `GnssTimeError::Overflow` when `seconds * 1_000_000_000 + nanos` overflows
-  `i64`; fully `no_std`, with rustdoc covering semantics and round-trips.
+  `"<seconds>s <nanos>ns"`, the exact inverse of its `Display` impl: an
+  optional `-` sign on the seconds field belongs to the whole value, both
+  fields are non-negative magnitudes (`seconds * 1_000_000_000 + nanos`),
+  and any other form (e.g. a signed nanos field) is rejected with
+  `GnssTimeError::ParseError`; `GnssTimeError::Overflow` when the value does
+  not fit into `i64`. `Display → FromStr` round-trips are value-preserving
+  for every representable `Duration`, including negative sub-second values
+  and `Duration::MIN`. Fully `no_std`, with rustdoc covering semantics and
+  round-trips.
 - Added unit tests for the `Duration` `FromStr` parser (Issue #TIME-31):
-  basic parse, negative both-fields parse, zero parse, and error paths
+  basic parse, whole-value negative parse (`-1s 500000000ns` → `-1_500_000_000`),
+  negative sub-second parse (`-0s 1ns` → `-1`), zero parse, rejection of a
+  signed nanos field (`-1s -500000000ns` → `ParseError`), and error paths
   (missing separating space, missing `s`/`ns` suffix, non-numeric field →
   `ParseError`, and `seconds * 1_000_000_000 + nanos` overflowing `i64` →
-  `Overflow`).
+  `Overflow`). `Display → FromStr` round-trip tests cover many values as well
+  as `Duration::MAX` and `Duration::MIN`.
 
 ### Changed
 
