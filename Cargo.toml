@@ -2,6 +2,9 @@
 name = "gnss-time"
 version = "0.9.0"
 edition = "2021"
+# Minimum supported Rust version.
+# Enforced by the `msrv` / `msrv-verify` CI jobs and by `just msrv`.
+# Raising this is a MINOR version bump — see docs/API_STABILITY.md.
 rust-version = "1.75"
 description = "Type-safe GNSS time scales: GPS, GLONASS, Galileo, BeiDou, TAI, UTC — no_std by default"
 documentation = "https://docs.rs/gnss-time"

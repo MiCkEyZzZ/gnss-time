@@ -7,6 +7,45 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Added the MSRV / toolchain matrix to CI (Issue #TIME-35) as a
+  self-contained workflow (`.github/workflows/msrv.yml`):
+  - `toolchain-matrix` — regression coverage on **stable** (default, `std`,
+    `serde`, `defmt`, all — blocking) and **beta** (default + all —
+    informational via `continue-on-error`, because beta can emit
+    future-incompat warnings about dependencies, e.g. `proc-macro-error2`).
+  - `msrv` — the declared `rust-version = "1.75"` checked across all five
+    feature combos with `cargo check --lib --locked` (lib-only: the
+    dev-dependency tree is on edition 2024 and cannot even be *resolved* by
+    cargo 1.75).
+  - `msrv-verify` — `cargo-msrv verify` asserts the declared minimum is the
+    *actual* minimum, not an aspirational one (`cargo msrv find` is kept out
+    of CI: its answer is a decision, not a pass/fail fact).
+  - The workflow documents the repository-specific gotchas it handles: the
+    pinned nightly in `rust-toolchain.toml` (outranked by `RUSTUP_TOOLCHAIN`,
+    with a `Show effective toolchain` guard step), the committed **v3**
+    lockfile (built with `--locked`, never regenerated — cargo 1.75's
+    resolver is not MSRV-aware), and why the MSRV jobs skip fmt, clippy and
+    `-D warnings`.
+
+### Changed
+
+- Updated the `justfile` `msrv` recipe (Issue #TIME-35) to mirror the CI
+  job: the same five-combination feature matrix, now `--locked` against the
+  committed lockfile and including the previously missing `serde`
+  combination, with a comment explaining the `+1.75.0` override and the
+  local = CI parity.
+- Documented the MSRV policy in `Cargo.toml` (Issue #TIME-35): a comment
+  above `rust-version = "1.75"` pointing to its enforcement (the CI
+  `msrv`/`msrv-verify` jobs and `just msrv`) and noting that raising it is a
+  MINOR version bump.
+- Added the MSRV rows to the `0.x` semver table in `docs/API_STABILITY.md`
+  (Issue #TIME-35), mirrored in the German and Russian translations: raising
+  `rust-version` is a **minor** bump (a consumer pinned to an older
+  toolchain can no longer compile the crate — indistinguishable from a
+  breaking change), while lowering it is a **patch**.
+
 ## [0.9.0] - 2026-09-17
 
 ### Breaking

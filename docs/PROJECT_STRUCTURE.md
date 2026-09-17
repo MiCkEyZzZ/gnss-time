@@ -17,6 +17,7 @@ gnss-time
 │   │   ├── ci.yml
 │   │   ├── embedded.yml
 │   │   ├── fuzz.yml
+│   │   ├── msrv.yml
 │   │   ├── publish.yml
 │   │   └── semantic-pull-request.yml
 │   ├── CODEOWNERS
