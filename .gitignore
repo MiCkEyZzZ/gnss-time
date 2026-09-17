@@ -7,6 +7,8 @@
 dist/
 tmp/
 *.lock
+# root Cargo.lock is committed on purpose (--locked CI/MSRV strategy)
+!/Cargo.lock
 
 # IDE / editor files
 .idea/
