@@ -15,11 +15,6 @@
 # Generate CHANGELOG.md from conventional commits via git-cliff.
 changelog_update = true
 
-# Refuse to silently bury a breaking change in a patch release: if a commit
-# is marked breaking (`feat!:` / `fix!:` / a `BREAKING CHANGE:` footer), it
-# is always surfaced in its own changelog section.
-protect_breaking_commits = true
-
 # ── Versioning ──────────────────────────────────────────────────────────────
 
 # Adding a feature flag alone should not force a minor bump. For 0.x, Cargo
@@ -89,6 +84,11 @@ changelog_path = "./CHANGELOG.md"
 # the changelog.
 
 [changelog]
+# Refuse to silently bury a breaking change in a patch release: if a commit
+# is marked breaking (`feat!:` / `fix!:` / a `BREAKING CHANGE:` footer), it
+# is always surfaced in its own changelog section.
+protect_breaking_commits = true
+
 # Must match the top of CHANGELOG.md verbatim; git-cliff replaces this block
 # on every update, so a mismatch would duplicate the title block.
 header = """
