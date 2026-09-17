@@ -271,7 +271,7 @@ release-changelog:
 # Mirrors the semver-checks CI job. Both feature sets are checked because a
 # feature-gated item is still public API to anyone enabling that feature.
 # Requires the crate to already be published on crates.io (it is, as of
-# v0.9.0), which is also why this recipe is not part of `just ci`:
+# v0.9.1), which is also why this recipe is not part of `just ci`:
 # offline runs must not fail.
 semver-check:
     @echo "── default features ────────────────────────────────────────────"

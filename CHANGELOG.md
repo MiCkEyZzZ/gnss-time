@@ -40,7 +40,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     `docs/API_STABILITY.md`: `features_always_increment_minor = false` (a
     feature on `0.x` is a patch, minor is the breaking boundary),
     `semver_check = true` (cargo-semver-checks gate), `protect_breaking_commits`
-    always surfaces breaking changes, `git_tag_name = "v{{ version }}"` kept compatible with the
+    always surfaces breaking changes, `git_tag_name = "v{{ version }}"` kept compatible
+    with the
     existing tag history, and `!`-marked commits untouched by the skip rules.
   - Added a `semver-checks` job to `.github/workflows/ci.yml` that runs
     cargo-semver-checks against the last crates.io release on every PR —
@@ -1507,7 +1508,9 @@ for all constructors:
 - Conversions via TAI use integer arithmetic with no allocations.
 - Leap second table lookup uses binary search over a `&'static` slice.
 
-[Unreleased]: https://github.com/MiCkEyZzZ/gnss-time/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/MiCkEyZzZ/gnss-time/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/MiCkEyZzZ/gnss-time/compare/v0.9.0...v0.9.1
+[0.9.0]: https://github.com/MiCkEyZzZ/gnss-time/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/MiCkEyZzZ/gnss-time/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/MiCkEyZzZ/gnss-time/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/MiCkEyZzZ/gnss-time/compare/v0.5.3...v0.6.0
