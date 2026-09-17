@@ -338,7 +338,7 @@ dependencies = [
 
 [[package]]
 name = "gnss-time"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "criterion",
  "defmt 0.3.100",
