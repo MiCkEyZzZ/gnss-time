@@ -121,12 +121,19 @@ docsrs:
 
 # =============================================================================
 # MSRV validation
+#
+# Mirrors the `msrv` job in .github/workflows/msrv.yml: same feature matrix,
+# same `--locked`-against-the-committed-v3-lockfile strategy. Uses an explicit
+# `+1.75.0`: the only rustup override level that outranks the
+# `nightly-2026-02-14` pinned by rust-toolchain.toml.
 # =============================================================================
 
 msrv:
-    cargo +1.75.0 check --workspace --lib --no-default-features
-    cargo +1.75.0 check --workspace --lib --features std
-    cargo +1.75.0 check --workspace --lib --no-default-features --features defmt
+    cargo +1.75.0 check --workspace --lib --no-default-features --locked
+    cargo +1.75.0 check --workspace --lib --features std --locked
+    cargo +1.75.0 check --workspace --lib --no-default-features --features defmt --locked
+    cargo +1.75.0 check --workspace --lib --no-default-features --features serde --locked
+    cargo +1.75.0 check --workspace --lib --all-features --locked
 
 # =============================================================================
 # Feature matrix validation

@@ -1,0 +1,208 @@
+# MSRV / toolchain regression matrix (Issue #TIME-35).
+#
+# Self-contained workflow: nothing in ci.yml needs to change, and these three
+# jobs run independently of the main pipeline.
+#
+# Jobs:
+#   toolchain-matrix — "does the crate still build on current toolchains".
+#                      stable is blocking; beta is informational (a beta-line
+#                      failure must never break main, but must be visible).
+#   msrv             — pinned to the `rust-version = "1.75"` field in
+#                      Cargo.toml, feature matrix. Built with the committed
+#                      lockfile and `--locked` (see gotcha 3).
+#   msrv-verify      — cargo-msrv asserts that the number written in
+#                      Cargo.toml is the *actual* minimum, not an aspirational
+#                      one.
+#
+# Gotchas specific to this repository, handled below:
+#
+#   1. `rust-toolchain.toml` pins nightly-2026-02-14, which rustup prefers
+#      over its default toolchain. dtolnay/rust-toolchain writes
+#      RUSTUP_TOOLCHAIN into $GITHUB_ENV, and that env var outranks
+#      rust-toolchain.toml — so the matrix toolchain really is the one used.
+#      The "Show effective toolchain" step makes any regression of this
+#      behaviour visible in the log instead of silently no-op'ing the whole
+#      matrix. (Locally the justfile uses an explicit `+1.75.0`, the only
+#      level above the env var.)
+#
+#   2. MSRV jobs run `cargo check --lib` ONLY. The dev-dependency tree
+#      (criterion -> clap -> clap_lex) is on edition 2024, which cargo 1.75
+#      cannot even *resolve* (it fails before compilation starts). Anything
+#      touching dev-deps therefore always fails on MSRV — lib-only is the
+#      check consumers actually compile.
+#
+#   3. `Cargo.lock` is lockfile v3 here, which cargo 1.75 reads fine, so the
+#      MSRV jobs build against the committed lockfile with `--locked`. Do NOT
+#      delete / regenerate the lockfile in MSRV jobs: cargo 1.75's resolver is
+#      not MSRV-aware (resolver "3" landed in 1.84), so a from-scratch resolve
+#      would fetch whatever is latest today, making MSRV results flaky and
+#      non-reproducible, and failing for reasons unrelated to this crate.
+#
+#   4. MSRV jobs deliberately do not run fmt or clippy and do not set
+#      RUSTFLAGS="-D warnings": rustfmt.toml enables unstable_features, lib.rs
+#      denies clippy::pedantic, and a pinned old toolchain emits a different
+#      warning/lint set than today's. Gating MSRV on lint-cleanliness would
+#      test "do the lint sets match" instead of "does the crate compile on
+#      1.75"; clippy/-D warnings are enforced by the main pipeline and by the
+#      stable rows of the toolchain matrix.
+#
+#   5. beta rows set `continue-on-error` because beta can emit
+#      future-incompat warnings about dependencies (e.g.
+#      proc-macro-error2), and beta output must be observed, not gated on.
+
+name: MSRV
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Toolchain matrix — stable / beta regression coverage.
+  # --------------------------------------------------------------------------
+  toolchain-matrix:
+    name: ${{ matrix.toolchain }} · ${{ matrix.features || 'default' }}
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - toolchain: stable
+            features: ""
+            experimental: false
+          - toolchain: stable
+            features: "std"
+            experimental: false
+          - toolchain: stable
+            features: "serde"
+            experimental: false
+          - toolchain: stable
+            features: "defmt"
+            experimental: false
+          - toolchain: stable
+            features: "std,serde,defmt"
+            experimental: false
+          - toolchain: beta
+            features: ""
+            experimental: true
+          - toolchain: beta
+            features: "std,serde,defmt"
+            experimental: true
+
+    env:
+      RUSTFLAGS: -D warnings
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install ${{ matrix.toolchain }}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+
+      - name: Show effective toolchain
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: cargo check
+        run: |
+          if [ -z "${{ matrix.features }}" ]; then
+            cargo check --lib --all-targets --locked
+          else
+            cargo check --lib --all-targets --features "${{ matrix.features }}" --locked
+          fi
+
+      - name: cargo test
+        run: |
+          if [ -z "${{ matrix.features }}" ]; then
+            cargo test --locked
+          else
+            cargo test --features "${{ matrix.features }}" --locked
+          fi
+
+  # --------------------------------------------------------------------------
+  # MSRV — pinned to the `rust-version` declared in Cargo.toml.
+  # --------------------------------------------------------------------------
+  msrv:
+    name: MSRV (1.75) · ${{ matrix.features || 'default' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          - ""
+          - "std"
+          - "serde"
+          - "defmt"
+          - "std,serde,defmt"
+
+    env:
+      RUSTFLAGS: ""
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install MSRV toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.75.0"
+
+      - name: Show effective toolchain
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: cargo check --lib
+        run: |
+          if [ -z "${{ matrix.features }}" ]; then
+            cargo check --lib --no-default-features --locked
+          else
+            cargo check --lib --no-default-features --features "${{ matrix.features }}" --locked
+          fi
+
+  # --------------------------------------------------------------------------
+  # cargo-msrv verify — asserts that `rust-version` is correct, not just
+  # aspirational.
+  # --------------------------------------------------------------------------
+  msrv-verify:
+    name: cargo-msrv verify
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: ""
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install stable (host toolchain for cargo-msrv)
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: Cache cargo-msrv binary
+        uses: actions/cache@v6
+        with:
+          path: ~/.cargo/bin/cargo-msrv
+          # Bump this key only when intentionally upgrading cargo-msrv.
+          key: ${{ runner.os }}-cargo-msrv
+
+      - name: Install cargo-msrv
+        run: |
+          if ! command -v cargo-msrv >/dev/null 2>&1; then
+            cargo install cargo-msrv --locked
+          fi
+          cargo msrv --version
+
+      # `verify` reads `rust-version` from Cargo.toml and confirms the crate
+      # builds with exactly that toolchain. It does NOT search for a lower
+      # one — that is `cargo msrv find`, deliberately left out of CI because
+      # it is slow and its answer is a decision, not a pass/fail fact.
+      - name: cargo msrv verify
+        run: cargo msrv verify -- cargo check --lib --all-features

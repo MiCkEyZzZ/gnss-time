@@ -42,6 +42,8 @@ strictly, with one addition specific to how the crate is built:
 | Widening a numeric parameter type (e.g. `u16` → `u32`, as in `#TIME-27.1`'s `from_week_tow`) | **minor** — call sites can break even though the change is "more permissive," because type inference and overload-like generic bounds can select differently                           |
 | Narrowing a numeric parameter type, or changing a return type                                | **major** (or minor pre-1.0, but treated with major-level scrutiny)                                                                                                                    |
 | Changing the `TimeScale::OFFSET_TO_TAI` constant for an existing scale                       | **major** — this is a correctness constant, not an API shape; changing it silently changes every downstream conversion's *numeric result*, which is a worse break than a compile error |
+| Raising the MSRV (`rust-version` in `Cargo.toml`)                                           | **minor** — a consumer pinned to an older toolchain can no longer compile the crate at all; from their perspective this is indistinguishable from a breaking change                     |
+| Lowering the MSRV                                                                           | **patch** — purely additive: anything that compiled before still compiles                                                                                                            |
 
 **Why is a new leap-second table entry a *patch*, not a minor bump?** A
 leap-second insertion is IERS-announced, external, factual data — it does

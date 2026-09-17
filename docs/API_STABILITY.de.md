@@ -43,6 +43,8 @@ Regel strikt, mit einer Ergänzung, die für den Aufbau der Crate spezifisch ist
 | Vergrößern eines numerischen Parametertyps (z.B. `u16` → `u32`, wie bei `from_week_tow` in `#TIME-27.1`) | **minor** — Aufrufstellen können brechen, selbst wenn die Änderung „permissiver" ist, weil Typinferenz und overload-artige generische Grenzen anders auswählen können                    |
 | Verengen eines numerischen Parametertyps oder Ändern eines Rückgabetyps                                | **major** (oder minor vor `1.0`, aber mit Prüfung auf major-Ebene)                                                                                                                          |
 | Ändern der Konstante `TimeScale::OFFSET_TO_TAI` für eine bestehende Skala                             | **major** — das ist eine Korrektheitskonstante, keine API-Form; sie leise zu ändern ändert das *numerische Ergebnis* jeder nachgelagerten Konvertierung, was ein schwerwiegenderer Bruch als ein Kompilierfehler ist |
+| Erhöhung der MSRV (`rust-version` in `Cargo.toml`)                                                  | **minor** — ein Konsument, der an eine ältere Toolchain gebunden ist, kann die Crate dann überhaupt nicht mehr kompilieren; aus seiner Sicht ist das nicht von einer brechenden Änderung zu unterscheiden       |
+| Senkung der MSRV                                                                                     | **patch** — rein additiv: alles, was vorher kompilierte, kompiliert weiter                                                                                                                                    |
 
 **Warum ist ein neuer Schaltsekunden-Tabelleneintrag ein *patch* und kein
 Minor-Bump?** Eine Schaltsekunden-Einfügung wird von der IERS angekündigt; es
