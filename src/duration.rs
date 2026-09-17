@@ -843,6 +843,7 @@ mod tests {
     #[test]
     fn test_as_seconds_truncation_positive() {
         let d = Duration::from_nanos(1_500_000_000);
+
         assert_eq!(d.as_seconds(), 1);
     }
 
@@ -1010,5 +1011,61 @@ mod tests {
             Duration::MIN.try_sub(Duration::ONE_NANOSECOND),
             Err(GnssTimeError::Overflow)
         );
+    }
+
+    #[test]
+    fn test_from_str_basic() {
+        let d: Duration = "1s 500000000ns".parse().unwrap();
+
+        assert_eq!(d.as_nanos(), 1_500_000_000);
+    }
+
+    #[test]
+    fn test_from_str_negative_both() {
+        let d: Duration = "-1s -500000000ns".parse().unwrap();
+
+        assert_eq!(d.as_nanos(), -1_500_000_000);
+    }
+
+    #[test]
+    fn test_from_str_zero() {
+        let d: Duration = "0s 0ns".parse().unwrap();
+
+        assert_eq!(d, Duration::ZERO);
+    }
+
+    #[test]
+    fn test_from_str_missing_space_errors() {
+        let result: Result<Duration, _> = "1s500000000ns".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_from_str_missing_s_suffix_errors() {
+        let result: Result<Duration, _> = "1 500000000ns".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_from_str_missing_ns_suffix_errors() {
+        let result: Result<Duration, _> = "1s 500000000".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_from_str_non_numeric_errors() {
+        let result: Result<Duration, _> = "abcs 500000000ns".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::ParseError(_))));
+    }
+
+    #[test]
+    fn test_from_str_overflow_errors() {
+        let result: Result<Duration, _> = "9223372037s 0ns".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::Overflow)));
     }
 }

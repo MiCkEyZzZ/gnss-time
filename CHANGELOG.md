@@ -56,6 +56,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `GnssTimeError::ParseError` for structural mismatches and
   `GnssTimeError::Overflow` when `seconds * 1_000_000_000 + nanos` overflows
   `i64`; fully `no_std`, with rustdoc covering semantics and round-trips.
+- Added unit tests for the `Duration` `FromStr` parser (Issue #TIME-31):
+  basic parse, negative both-fields parse, zero parse, and error paths
+  (missing separating space, missing `s`/`ns` suffix, non-numeric field →
+  `ParseError`, and `seconds * 1_000_000_000 + nanos` overflowing `i64` →
+  `Overflow`).
 
 ### Changed
 
