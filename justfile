@@ -240,6 +240,83 @@ audit:
 release-check:
     cargo publish --dry-run
 
+# ════════════════════════════════════════════════════════════════════════════
+# Release (Issue #TIME-36)
+#
+# Releases are driven by release-plz: push to main → release-plz opens a
+# Release PR → you merge it → release-plz tags, publishes to crates.io, and
+# creates the GitHub Release.
+#
+# These recipes verify and preview that process locally. They do not publish.
+# ════════════════════════════════════════════════════════════════════════════
+
+# Install the release tooling (one-time setup)
+install-release-tools:
+    cargo install release-plz --locked
+    cargo install cargo-semver-checks --locked
+    @echo "✓ release-plz + cargo-semver-checks installed"
+
+# Preview the Release PR release-plz would open: next version and changelog.
+#
+# Read-only — makes no commits, no tags, no network writes.
+release-preview:
+    release-plz update --dry-run
+
+# Show the changelog entry that would be generated for the next release.
+release-changelog:
+    release-plz changelog
+
+# Check the public API against the last published version on crates.io.
+#
+# Mirrors the semver-checks CI job. Both feature sets are checked because a
+# feature-gated item is still public API to anyone enabling that feature.
+# Requires the crate to already be published on crates.io (it is, as of
+# v0.9.0), which is also why this recipe is not part of `just ci`:
+# offline runs must not fail.
+semver-check:
+    @echo "── default features ────────────────────────────────────────────"
+    cargo semver-checks check-release --only-explicit-features
+    @echo "── all features ────────────────────────────────────────────────"
+    cargo semver-checks check-release --all-features
+    @echo "✓ semver check passed"
+
+# Verify the crate packages cleanly for crates.io.
+#
+# This catches the failure mode the explicit `include` list in Cargo.toml
+# makes possible: a file present locally but omitted from the published
+# .crate archive, so the crate builds for you and fails for everyone else.
+package-check:
+    cargo publish --dry-run
+    @echo "── files that would be published ───────────────────────────────"
+    cargo package --list
+
+# Full pre-release gate: everything CI runs on the Release PR, plus a preview.
+#
+# Run this before pushing the commits you intend to release. Note there is no
+# separate `doctest` recipe in this justfile — doctests already run as part of
+# `test-all` (cargo test compiles them).
+release: lint test-all msrv semver-check package-check release-preview
+    @echo ""
+    @echo "✓ Pre-release checks passed."
+    @echo ""
+    @echo "  Next: push to main. release-plz will open a Release PR."
+    @echo "  Merge that PR to publish."
+
+# Escape hatch: publish manually, bypassing release-plz.
+#
+# Only for when the automation is broken. Prefer the Release PR: this skips
+# the semver gate, the generated changelog, and the CI run that the PR
+# would have had.
+#
+# Requires CARGO_REGISTRY_TOKEN in the environment.
+release-publish: release
+    @echo ""
+    @echo "⚠  Publishing manually — bypassing release-plz."
+    @read -p "Type the version being published to confirm: " v; \
+      test "$v" = "$(grep '^version' Cargo.toml | head -1 | sed 's/.*= *"\(.*\)"/\1/')" \
+      || { echo "Version mismatch — aborting."; exit 1; }
+    cargo publish
+
 # =============================================================================
 # CI aggregate
 # =============================================================================

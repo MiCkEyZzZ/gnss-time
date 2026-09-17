@@ -1,0 +1,114 @@
+# Automated releases via release-plz.
+#
+# Replaces the tag-driven publish.yml — see CHANGELOG.md § Tip and the
+# release workflow comment block in publish.yml before enabling, because
+# running both at once would attempt to publish the same version twice.
+# publish.yml has been switched to `workflow_dispatch` (break-glass only),
+# so it no longer fires automatically on tags.
+#
+# How it works:
+#
+#   1. On every push to main, the `release-pr` job inspects commits since
+#      the last published version, decides the next semver bump from the
+#      conventional-commit prefixes, and opens (or updates) a "Release PR"
+#      containing the version bump in Cargo.toml plus the generated
+#      CHANGELOG.md entry.
+#   2. You review and merge that PR when you want to cut a release.
+#   3. Merging it changes the version in Cargo.toml, which the `release` job
+#      detects on the next push to main. It then tags, publishes to
+#      crates.io, and creates the GitHub Release.
+#
+# Nothing is published without a human merging the Release PR.
+#
+# Required repository setup (all of it):
+#   - Secret RELEASE_PLZ_TOKEN: a PAT with contents:write + pull-requests:write
+#   - Secret CARGO_REGISTRY_TOKEN: crates.io publish token
+#   - Settings → Actions → General → "Allow GitHub Actions to create and
+#     approve pull requests" enabled
+
+name: release-plz
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Open / update the Release PR.
+  #
+  # Runs on every main push. Idempotent: if a Release PR is already open it
+  # is amended in place rather than duplicated.
+  # --------------------------------------------------------------------------
+  release-pr:
+    name: Release PR
+    runs-on: ubuntu-latest
+    # Skip when the push *is* the release commit, to avoid a redundant run
+    # immediately after the `release` job tags a version.
+    if: "${{ !startsWith(github.event.head_commit.message, 'chore: release') }}"
+    concurrency:
+      group: release-plz-${{ github.ref }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # release-plz needs full history to read conventional commits since
+          # the last release. A shallow clone silently produces an empty
+          # changelog.
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
+
+      # rust-toolchain.toml pins nightly-2026-02-14 for this tree, and
+      # release-plz shells out to cargo. Nightly publishes fine, but pinning
+      # stable here keeps `cargo publish`/`cargo-semver-checks` on a
+      # predictable toolchain rather than whatever nightly does that week.
+      # RUSTUP_TOOLCHAIN (set by this action) overrides rust-toolchain.toml.
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run release-plz release-pr
+        uses: release-plz/action@v0.5
+        with:
+          command: release-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  # --------------------------------------------------------------------------
+  # Publish when the version in Cargo.toml changed (i.e. Release PR merged).
+  #
+  # release-plz compares the local version against what is on crates.io. If
+  # they match, this job is a no-op — so it is safe to run on every push.
+  # --------------------------------------------------------------------------
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-plz-publish
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run release-plz release
+        uses: release-plz/action@v0.5
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

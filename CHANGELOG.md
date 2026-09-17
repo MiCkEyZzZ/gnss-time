@@ -28,6 +28,29 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
     lockfile (built with `--locked`, never regenerated — cargo 1.75's
     resolver is not MSRV-aware), and why the MSRV jobs skip fmt, clippy and
     `-D warnings`.
+- Added release automation via **release-plz** (Issue #TIME-36):
+  - `.github/workflows/release.yml` with two jobs: `release-pr` opens/updates a
+    "chore: release v…" Release PR on every push to `main` (bumping the
+    version, generating the CHANGELOG entry), and `release` tags, publishes to
+    crates.io and creates the GitHub Release when that PR is merged. Nothing
+    is published without a human merging the Release PR.
+  - `release-plz.toml` — config that mirrors the contract in
+    `docs/API_STABILITY.md`: `features_always_increment_minor = false` (a
+    feature on `0.x` is a patch, minor is the breaking boundary),
+    `semver_check = true` (cargo-semver-checks gate), `protect_breaking_commits`
+    always surfaces breaking changes, `git_tag_name = "v{{ version }}"` kept compatible with the
+    existing tag history, and `!`-marked commits untouched by the skip rules.
+  - Added a `semver-checks` job to `.github/workflows/ci.yml` that runs
+    cargo-semver-checks against the last crates.io release on every PR —
+    complementary to the release-time gate in release-plz.
+  - Added `just` release recipes: `release` is a local pre-flight (lint,
+    tests, MSRV, semver-check, package-check, `release-plz update --dry-run`
+    preview); `semver-check`, `package-check`, `release-preview`,
+    `release-changelog`, `install-release-tools` as building blocks;
+    `release-publish` is the documented break-glass path with a version
+    confirmation prompt.
+  - Updated `docs/PROJECT_STRUCTURE.md` to list the new `release.yml` workflow
+    and the `release-plz.toml` config file.
 
 ### Changed
 
@@ -45,6 +68,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `rust-version` is a **minor** bump (a consumer pinned to an older
   toolchain can no longer compile the crate — indistinguishable from a
   breaking change), while lowering it is a **patch**.
+- Switched `.github/workflows/publish.yml` from a tag trigger to
+  `workflow_dispatch` (Issue #TIME-36): it no longer fires on `v*.*.*` tags,
+  so it can no longer double-publish a version alongside release-plz. It
+  remains as a manual break-glass path; the `check-version` job now validates
+  the typed input against `Cargo.toml` instead of the tag name.
+- Fixed the scope suggestions in `.github/workflows/semantic-pull-request.yml`
+  (Issue #TIME-36): the leftover **Gorka** scopes (`bits`, `encoding`, …)
+  were leftovers from an unrelated project and are replaced with this crate's
+  module scopes (`time`, `scale`, `convert`, `leap`, `epoch`, `civil`,
+  `duration`, `matrix`, `serde`, `error`, `tests`, `fuzz`, `bench`, `ci`,
+  `docs`). The regex itself is unchanged — scopes are optional.
 
 ## [0.9.0] - 2026-09-17
 
