@@ -500,16 +500,19 @@ impl FromStr for Duration {
 
     /// Parses `"<seconds>s <nanos>ns"`, the exact inverse of `Display`.
     ///
-    /// Both fields are independently signed and summed literally — see the
-    /// module-level doc comment above for the full semantics and examples.
+    /// The optional `-` sign (on the seconds field) belongs to the whole
+    /// value: both fields are non-negative magnitudes combined as
+    /// `seconds * 1_000_000_000 + nanos`, then the sign is applied. Any other
+    /// form (e.g. a signed nanos field) is rejected.
     ///
     /// # Errors
     ///
     /// - [`GnssTimeError::ParseError`] for any structural mismatch (missing
-    ///   `'s'`/`'ns'` suffix, missing separating space, non-numeric field).
+    ///   `'s'`/`'ns'` suffix, missing separating space, non-numeric field,
+    ///   negative nanos field).
     ///
-    /// - [`GnssTimeError::Overflow`] if `seconds * 1_000_000_000 + nanos`
-    ///   overflows `i64`.
+    /// - [`GnssTimeError::Overflow`] if the resulting value does not fit into
+    ///   `i64`.
     ///
     /// # Example
     ///
@@ -520,13 +523,14 @@ impl FromStr for Duration {
     ///
     /// assert_eq!(d.as_nanos(), 1_500_000_000);
     ///
-    /// let d2: Duration = "-1s -500000000ns".parse().unwrap();
+    /// let d2: Duration = "-1s 500000000ns".parse().unwrap();
     ///
     /// assert_eq!(d2.as_nanos(), -1_500_000_000);
     ///
     /// // Round-trip:
     /// assert_eq!(d.to_string(), "1s 500000000ns");
     /// assert_eq!(d.to_string().parse::<Duration>().unwrap(), d);
+    /// assert_eq!(d2.to_string().parse::<Duration>().unwrap(), d2);
     /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (secs_field, nanos_field) = s
@@ -544,19 +548,41 @@ impl FromStr for Duration {
                 "expected 'ns' suffix on nanos field",
             ))?;
 
-        let seconds: i64 = secs_str
+        if nanos_str.starts_with('-') {
+            return Err(GnssTimeError::ParseError(
+                "nanos field must be non-negative; the sign belongs to the whole value",
+            ));
+        }
+
+        let (negative, secs_str) = match secs_str.strip_prefix('-') {
+            Some(rest) => (true, rest),
+            None => (false, secs_str),
+        };
+
+        let secs_mag: u64 = secs_str
             .parse()
             .map_err(|_| GnssTimeError::ParseError("invalid seconds value"))?;
-        let nanos: i64 = nanos_str
+        let nanos_mag: u64 = nanos_str
             .parse()
             .map_err(|_| GnssTimeError::ParseError("invalid nanoseconds value"))?;
 
-        let total = seconds
+        let magnitude = secs_mag
             .checked_mul(1_000_000_000)
-            .and_then(|s| s.checked_add(nanos))
+            .and_then(|s| s.checked_add(nanos_mag))
             .ok_or(GnssTimeError::Overflow)?;
 
-        Ok(Duration::from_nanos(total))
+        if negative {
+            let total = i128::from(magnitude)
+                .checked_neg()
+                .and_then(|v| i64::try_from(v).ok())
+                .ok_or(GnssTimeError::Overflow)?;
+
+            Ok(Duration::from_nanos(total))
+        } else {
+            let total = i64::try_from(magnitude).map_err(|_| GnssTimeError::Overflow)?;
+
+            Ok(Duration::from_nanos(total))
+        }
     }
 }
 
@@ -1021,10 +1047,24 @@ mod tests {
     }
 
     #[test]
-    fn test_from_str_negative_both() {
-        let d: Duration = "-1s -500000000ns".parse().unwrap();
+    fn test_from_str_negative() {
+        let d: Duration = "-1s 500000000ns".parse().unwrap();
 
         assert_eq!(d.as_nanos(), -1_500_000_000);
+    }
+
+    #[test]
+    fn test_from_str_negative_sub_second() {
+        let d: Duration = "-0s 1ns".parse().unwrap();
+
+        assert_eq!(d.as_nanos(), -1);
+    }
+
+    #[test]
+    fn test_from_str_signed_nanos_field_errors() {
+        let result: Result<Duration, _> = "-1s -500000000ns".parse();
+
+        assert!(matches!(result, Err(GnssTimeError::ParseError(_))));
     }
 
     #[test]
@@ -1067,5 +1107,49 @@ mod tests {
         let result: Result<Duration, _> = "9223372037s 0ns".parse();
 
         assert!(matches!(result, Err(GnssTimeError::Overflow)));
+    }
+
+    #[test]
+    fn test_display_fromstr_roundtrip_many_values() {
+        let cases: &[i64] = &[
+            0,
+            1,
+            -1,
+            999_999_999,
+            -999_999_999,
+            1_000_000_000,
+            -1_000_000_000,
+            1_500_000_000,
+            -1_500_000_000,
+            i64::MAX,
+            i64::MIN,
+        ];
+        for &n in cases {
+            let d = Duration::from_nanos(n);
+            let s = d.to_string();
+            let parsed: Duration = s.parse().unwrap_or_else(|e| {
+                panic!("failed to parse Display output {s:?} for nanos={n}: {e:?}")
+            });
+
+            assert_eq!(d, parsed, "round-trip failed for nanos={n}, display={s:?}");
+        }
+    }
+
+    #[test]
+    fn test_display_fromstr_roundtrip_max() {
+        let d = Duration::MAX;
+        let s = d.to_string();
+        let parsed: Duration = s.parse().unwrap();
+
+        assert_eq!(d, parsed);
+    }
+
+    #[test]
+    fn test_display_fromstr_roundtrip_min() {
+        let d = Duration::MIN;
+        let s = d.to_string();
+        let parsed: Duration = s.parse().unwrap();
+
+        assert_eq!(d, parsed);
     }
 }
