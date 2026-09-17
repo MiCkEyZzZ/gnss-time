@@ -11,6 +11,7 @@
 #   msrv     — MSRV check = Rust 1.75
 #   embedded — invokes embedded.yml as a reusable workflow
 #   fuzz     — invokes fuzz.yml as a reusable workflow (30 s smoke per target)
+#   semver-checks — API breaking-change gate vs the last crates.io release
 
 name: CI
 
@@ -221,6 +222,58 @@ jobs:
 
       - name: cargo check — defmt feature
         run: cargo check --lib --no-default-features --features defmt
+
+  semver-checks:
+    name: cargo-semver-checks
+    runs-on: ubuntu-latest
+    # Only meaningful on PRs — there is nothing to compare a main push
+    # against that release-plz does not already check at release time.
+    if: github.event_name == 'pull_request'
+
+    env:
+      CARGO_TERM_COLOR: always
+      # cargo-semver-checks builds rustdoc JSON for both the baseline and the
+      # current version. `-D warnings` (set globally in this workflow) would
+      # fail the job on warnings coming from the *published baseline*, which
+      # is not something this PR can fix.
+      RUSTFLAGS: ""
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # cargo-semver-checks needs a toolchain that can emit rustdoc JSON for
+      # both versions. It manages its own nightly internally; stable here is
+      # for the host build. RUSTUP_TOOLCHAIN set by this action overrides the
+      # nightly pinned in rust-toolchain.toml.
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-semver-checks-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-semver-checks
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-semver-checks
+
+      # Compares the PR's public API against the latest version published on
+      # crates.io. Checks the default (no-feature) build and all features
+      # separately, because a feature-gated item is still public API for
+      # anyone enabling that feature — --all-features alone would miss a
+      # break that only shows up in the default build, and vice versa.
+      - name: semver-checks (default features)
+        run: cargo semver-checks check-release --only-explicit-features
+
+      - name: semver-checks (all features)
+        run: cargo semver-checks check-release --all-features
 
   embedded:
     name: Embedded

@@ -47,8 +47,9 @@ jobs:
              * Semantic pattern:
              * type(scope?): description
              *
-             * Examples scope for Gorka:
-             * bits, encoding, gnss, io, error, tests, ci, docs
+             * Suggested scopes for gnss-time:
+             * time, scale, convert, leap, epoch, civil, duration,
+             * matrix, serde, error, tests, fuzz, bench, ci, docs
              */
             const re = /^(feat|fix|docs|chore|perf|refactor|test|ci|build|style)(\([^)]+\))?:\s.+/i;
 
@@ -63,7 +64,7 @@ jobs:
                   "**Expected format:** `type(scope?): short description`",
                   "",
                   "**Example:**",
-                  "`feat(bits): add variable-length encoding`"
+                  "`feat(civil): add ISO 8601 parsing via FromStr`"
                 ].join("\n")
               });
 
@@ -83,13 +84,14 @@ jobs:
                   "**Allowed types:**",
                   "`feat`, `fix`, `docs`, `chore`, `perf`, `refactor`, `test`, `ci`, `build`, `style`",
                   "",
-                  "**Suggested scopes for Gorka:**",
-                  "`bits`, `encoding`, `gnss`, `io`, `error`, `tests`, `ci`, `docs`",
+                  "**Suggested scopes for gnss-time:**",
+                  "`time`, `scale`, `convert`, `leap`, `epoch`, `civil`, `duration`,",
+                  "`matrix`, `serde`, `error`, `tests`, `fuzz`, `bench`, `ci`, `docs`",
                   "",
                   "**Examples:**",
-                  "- `feat(bits): add bit packing optimization`",
-                  "- `fix(gnss): correct glonass frame parsing`",
-                  "- `perf(encoding): reduce allocations in delta encoder`",
+                  "- `feat(civil): add ISO 8601 parsing via FromStr`",
+                  "- `fix(leap): reject descending tables in RuntimeLeapSeconds::from_slice`",
+                  "- `perf(convert): avoid redundant TAI round-trip in GPS→UTC`",
                   "",
                   "Please update the PR title."
                 ].join("\n")

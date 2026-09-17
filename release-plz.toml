@@ -1,0 +1,136 @@
+# release-plz configuration for gnss-time.
+#
+# Docs: https://release-plz.dev/docs/config
+#
+# This is a single-publishable-crate repository: the root workspace contains
+# `gnss-time` and `benches` (which sets `publish = false` in its own
+# Cargo.toml), while `firmware/` and `fuzz/` are standalone workspaces
+# outside the root one. release-plz therefore only ever processes the one
+# crate worth publishing.
+
+[workspace]
+
+# ── Changelog ───────────────────────────────────────────────────────────────
+
+# Generate CHANGELOG.md from conventional commits via git-cliff.
+changelog_update = true
+
+# Refuse to silently bury a breaking change in a patch release: if a commit
+# is marked breaking (`feat!:` / `fix!:` / a `BREAKING CHANGE:` footer), it
+# is always surfaced in its own changelog section.
+protect_breaking_commits = true
+
+# ── Versioning ──────────────────────────────────────────────────────────────
+
+# Adding a feature flag alone should not force a minor bump. For 0.x, Cargo
+# treats the MINOR position as the breaking-change boundary; a feature is a
+# patch-level addition. Let bumps be driven by commit type instead, which is
+# exactly what docs/API_STABILITY.md's semver table enforces.
+features_always_increment_minor = false
+
+# ── Semver verification ─────────────────────────────────────────────────────
+
+# Run cargo-semver-checks before publishing. It compares the public API
+# against the last published version on crates.io and blocks a release whose
+# bump is smaller than the actual breakage.
+#
+# This is the automated counterpart to docs/API_STABILITY.md: that document
+# states the policy, this enforces it. cargo-semver-checks treats 0.x the
+# same way the semver table does — the MINOR position is the breaking
+# boundary.
+semver_check = true
+
+# ── Git tags and GitHub releases ────────────────────────────────────────────
+
+git_tag_enable = true
+
+# release-plz's default tag format is `<package>-v<version>` (e.g.
+# `gnss-time-v0.9.0`), which suits workspaces with several crates. This repo
+# already has a history of `v0.9.0`-style tags, and the (disabled) publish.yml
+# used the same trigger pattern. Keeping the bare form means existing tags,
+# links and release notes stay consistent.
+git_tag_name = "v{{ version }}"
+
+git_release_enable = true
+git_release_name = "v{{ version }}"
+git_release_type = "auto"           # prerelease if the version has a pre-release part
+
+# ── Release PR ──────────────────────────────────────────────────────────────
+
+pr_labels = ["release"]
+pr_name = "chore: release v{{ version }}"
+
+# ── Publishing ──────────────────────────────────────────────────────────────
+
+# Never publish from a dirty tree — a stray uncommitted file would otherwise
+# end up in the .crate archive.
+publish_allow_dirty = false
+allow_dirty = false
+
+# Keep `cargo publish`'s verification build. Its `include` list in Cargo.toml
+# is explicit, which is exactly the setting that can silently break a
+# published package while building fine locally.
+publish_no_verify = false
+
+# Do not run `cargo update` as part of the release. Dependency bumps should
+# arrive through dependabot as reviewable PRs, not be folded into a release
+# commit where they are easy to miss.
+dependencies_update = false
+
+[[package]]
+name = "gnss-time"
+changelog_path = "./CHANGELOG.md"
+
+# ── Changelog rendering (git-cliff) ─────────────────────────────────────────
+#
+# Sections match the conventional-commit types accepted by
+# .github/workflows/semantic-pull-request.yml. Keep the two in sync: a type
+# allowed there but not parsed here would produce commits that vanish from
+# the changelog.
+
+[changelog]
+# Must match the top of CHANGELOG.md verbatim; git-cliff replaces this block
+# on every update, so a mismatch would duplicate the title block.
+header = """
+# Changelog
+
+All notable changes to **gnss-time** are documented in this file.
+
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+"""
+
+body = """
+## [{{ version | trim_start_matches(pat = "v") }}]\
+{%- if release_link %}({{ release_link }}){% endif %} - {{ timestamp | date(format = "%Y-%m-%d") }}
+{% for group, commits in commits | group_by(attribute = "group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}
+- {{ commit.message | upper_first }}\
+{%- if commit.breaking %} **(breaking)**{% endif %}\
+{%- if commit.links %} ({% for link in commit.links %}[{{ link.text }}]({{ link.href }}){% endfor %}){% endif %}
+{% endfor %}
+{% endfor %}
+"""
+
+trim = true
+
+commit_parsers = [
+    { message = "^feat", group = "Added" },
+    { message = "^fix", group = "Fixed" },
+    { message = "^perf", group = "Performance" },
+    { message = "^refactor", group = "Changed" },
+    { message = "^docs", group = "Documentation" },
+    { message = "^test", group = "Testing" },
+    # Release commits created by release-plz itself must not appear in the
+    # changelog they are generating.
+    { message = "^chore: release", skip = true },
+    { message = "^chore\\(deps\\)", group = "Dependencies" },
+    { message = "^chore", skip = true },
+    { message = "^ci", skip = true },
+    { message = "^build", skip = true },
+    { message = "^style", skip = true },
+]
+
+# Oldest first, so a release section reads in the order the work happened.
+sort_commits = "oldest"

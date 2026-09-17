@@ -19,6 +19,7 @@ gnss-time
 │   │   ├── fuzz.yml
 │   │   ├── msrv.yml
 │   │   ├── publish.yml
+│   │   ├── release.yml
 │   │   └── semantic-pull-request.yml
 │   ├── CODEOWNERS
 │   ├── dependabot.yml
@@ -137,6 +138,7 @@ gnss-time
 ├── LICENSE.APACHE
 ├── LICENSE.MIT
 ├── README.md
+├── release-plz.toml
 ├── rust-toolchain.toml
 ├── rustfmt.toml
 ├── taplo.toml
