@@ -47,7 +47,7 @@ All examples compile and run with `cargo run --example $name`.
 
 ## Civil time (ISO 8601 / RFC 3339)
 
-| Example                       | Description                                                                 |
-| ----------------------------- | --------------------------------------------------------------------------- |
-| [`civil_time`](civil_time.rs) | Pretty-print `Time<Utc>` as `YYYY-MM-DDThh:mm:ss.nnnnnnnnnZ` and parse back |
+| Example                        | Description                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------- |
+| [`civil_time`](civil_time.rs)  | Pretty-print `Time<Utc>` as `YYYY-MM-DDThh:mm:ss.nnnnnnnnnZ` and parse back     |
 | [`parse_time`](parse_time.rs)  | `FromStr` tour: GPS/GLO/ISO 8601/`Duration` parsing, round-trips, error classes |
