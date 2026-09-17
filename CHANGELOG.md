@@ -6,12 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-# Changelog
 
-All notable changes to **gnss-time** are documented in this file.
-
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.9.1] - 2026-09-17
 
 ### Added
 
@@ -85,6 +81,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   module scopes (`time`, `scale`, `convert`, `leap`, `epoch`, `civil`,
   `duration`, `matrix`, `serde`, `error`, `tests`, `fuzz`, `bench`, `ci`,
   `docs`). The regex itself is unchanged — scopes are optional.
+
+### Fixed
+
+- Moved `protect_breaking_commits` into the `[changelog]` section of
+  `release-plz.toml` (it is a changelog option, not a workspace one — the
+  workspace placement was silently ignored) and un-ignored the root
+  `Cargo.lock` in `.gitignore` (the `--locked` MSRV/CI strategy relies on
+  the committed lockfile).
 
 ## [0.9.0] - 2026-09-17
 

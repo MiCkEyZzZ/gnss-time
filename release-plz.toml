@@ -10,6 +10,11 @@
 
 [workspace]
 
+# Only open a release PR when there is at least one user-facing `feat:` or
+# `fix:` commit. Chore/CI/docs/test/refactor commits were triggering pointless
+# patch releases on every push to main.
+release_commits = "^(feat|fix)[(:]"
+
 # ── Changelog ───────────────────────────────────────────────────────────────
 
 # Generate CHANGELOG.md from conventional commits via git-cliff.
