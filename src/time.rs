@@ -65,6 +65,27 @@
 //! // Fallible - returns Err(GnssTimeError::Overflow)
 //! assert!(t.try_add(d).is_err());
 //! ```
+//!
+//! ## `Display` and `FromStr` asymmetry for `Time<Utc>`
+//!
+//! `Display for Time<Utc>` prints the raw scalar in seconds and nanoseconds
+//! (`"UTC +1234567890s 123456789ns"` for
+//! `Time::<Utc>::from_nanos(1_234_567_890_123_456_789)`), while
+//! `FromStr for Time<Utc>` accepts an ISO 8601 / RFC 3339 timestamp
+//! (`"2024-01-15T12:34:56.123456789Z"`). The two are deliberately **not**
+//! inverse operations: ISO 8601 needs a calendar view (year/month/day), which
+//! lives in `CivilDateTime`, not in the scalar `Time<Utc>`.
+//!
+//! To round-trip a UTC timestamp, go through the civil view:
+//!
+//! ```rust
+//! use gnss_time::{Time, Utc};
+//!
+//! let utc = Time::<Utc>::from_nanos(1_234_567_890_123_456_789);
+//! let s = utc.to_civil().to_string();
+//! let back: Time<Utc> = s.parse().unwrap();
+//! assert_eq!(utc, back);
+//! ```
 
 use core::{
     fmt,

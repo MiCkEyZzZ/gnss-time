@@ -77,6 +77,10 @@ path = "examples/unix_time.rs"
 name = "embedded_minimal"
 path = "examples/embedded_minimal.rs"
 
+[[example]]
+name = "parse_time"
+path = "examples/parse_time.rs"
+
 [dependencies]
 defmt = { version = "0.3", optional = true }
 serde = { version = "1", default-features = false, optional = true }

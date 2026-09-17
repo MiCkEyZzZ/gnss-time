@@ -68,9 +68,24 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `ParseError`, and `seconds * 1_000_000_000 + nanos` overflowing `i64` →
   `Overflow`). `Display → FromStr` round-trip tests cover many values as well
   as `Duration::MAX` and `Duration::MIN`.
+- Added `examples/parse_time.rs` (Issue #TIME-31), a runnable end-to-end
+  demonstration of all four new `FromStr` parsers: `Time<Gps>`
+  (`"GPS <week>:<tow>.<millis>"`), `Time<Glonass>`
+  (`"GLO <day>:<tod>.<millis>"`), `Time<Utc>` (ISO 8601 / RFC 3339, exact
+  round-trip via `CivilDateTime`'s `Display`), and `Duration`
+  (`"<seconds>s <nanos>ns"`). It covers `Display` round-trips, the three error
+  classes (`ParseError` / `InvalidInput` / `Overflow`), and config-file-style
+  line-by-line parsing; registered in `Cargo.toml` as a `[[example]]`.
 
 ### Changed
 
+- Added a module-level doc section to `time.rs` (Issue #TIME-31) describing the
+  `Display` / `FromStr` asymmetry for `Time<Utc>`: `Display` prints the raw
+  scalar seconds/nanoseconds value while `FromStr` accepts ISO 8601, the two
+  are deliberately not inverses (a calendar view lives in `CivilDateTime`, not
+  in the scalar `Time<Utc>`), and UTC round-tripping goes through
+  `to_civil()` / `CivilDateTime::to_string()`. This resolves the previously
+  dangling cross-reference from `impl FromStr for Time<Utc>`.
 - Rewrote the English architecture documentation `docs/ARCHITECTURE.md` into a
   structured architecture guide (Issue #TIME-28): table of contents, layered
   architecture overview, ASCII module dependency diagram, TAI-pivot invariant,
