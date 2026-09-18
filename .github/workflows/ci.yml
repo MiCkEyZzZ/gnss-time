@@ -5,6 +5,7 @@
 #   fmt      — formatting (cargo fmt + taplo)
 #   clippy   — static analysis, all feature combinations
 #   test     — cargo test (default, std, defmt, std+defmt, serde)
+#   coverage — cargo-llvm-cov over --all-features + doctests, uploaded to Codecov
 #   bench    — benchmark smoke-check (compile + run, no timing assertions)
 #   docs     — cargo doc with no warnings
 #   deny     — licenses and CVE audit (cargo deny)
@@ -135,6 +136,73 @@ jobs:
           else
             cargo test --features "$FEATURES"
           fi
+
+  coverage:
+    name: Coverage (llvm-cov + Codecov)
+    runs-on: ubuntu-latest
+    env:
+      # cargo-llvm-cov adds its own instrumentation flags; the workflow-wide
+      # `-D warnings` would conflict with them and fail on warnings that only
+      # appear under instrumentation, which is not what this job gates on.
+      RUSTFLAGS: ""
+    permissions:
+      # OIDC: the action exchanges a GitHub-issued token for Codecov access,
+      # so no CODECOV_TOKEN secret is needed on the runner.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-02-14
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Cache cargo
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-coverage-${{ hashFiles('**/Cargo.lock') }}
+
+      # --all-features: serde_impls.rs, the defmt::Format impls and the
+      # std::error::Error impl are feature-gated; measuring without them would
+      # report whole files as 0% and drag the total down.
+      # --doctests: doctests exercise real conversion paths from public-item
+      # examples, a meaningful share of coverage (requires nightly).
+      # Single invocation is required: a separate `cargo llvm-cov report`
+      # later loses the doctest profile data and under-reports (~1pp), so the
+      # gate and the lcov export must share the same profraw collection.
+      # `--fail-under-lines` doubles as the hard gate (a PR that drops line
+      # coverage below the threshold fails CI directly) and as the report.
+      - name: Collect coverage + enforce gate (90%) + generate lcov
+        run: cargo llvm-cov test --all-features --doctests --lcov --output-path lcov.info --fail-under-lines 90
+
+      # Codecov is a non-blocking extra: the repo could not be activated from
+      # the maintainer's region, so a failed upload must never turn CI red.
+      # If the repo ever gets activated, reports start flowing with no change.
+      - name: Upload to Codecov
+        continue-on-error: true
+        uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          fail_ci_if_error: false
+          use_oidc: true
+
+      # Keep the raw report regardless, so the run's data is never lost and
+      # can be diffed locally.
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lcov-${{ github.sha }}
+          path: lcov.info
+          retention-days: 14
 
   bench:
     name: Benchmark smoke + results artifact

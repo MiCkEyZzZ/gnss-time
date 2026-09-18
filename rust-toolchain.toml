@@ -2,7 +2,13 @@
 # Specific nightly for reproducibility.
 # Update carefully — always verify MSRV (1.75) after upgrading.
 channel = "nightly-2026-02-14"
-components = ["rustfmt", "clippy", "rust-src", "rust-analyzer"]
+components = [
+    "rustfmt",
+    "clippy",
+    "rust-src",
+    "rust-analyzer",
+    "llvm-tools-preview",
+]
 targets = [
     "thumbv7em-none-eabihf",
     "thumbv6m-none-eabi",
