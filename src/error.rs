@@ -368,4 +368,23 @@ mod tests {
             assert!(error.source().is_none());
         }
     }
+
+    #[cfg(feature = "defmt")]
+    #[test]
+    fn defmt_format_runs_for_all_variants() {
+        use defmt::Format;
+
+        let errors = [
+            GnssTimeError::Overflow,
+            GnssTimeError::InvalidInput("reason"),
+            GnssTimeError::ParseError("token"),
+            GnssTimeError::LeapSecondsRequired,
+            GnssTimeError::OutOfRange,
+        ];
+
+        for error in errors {
+            let formatter = defmt::export::make_formatter();
+            error.format(formatter);
+        }
+    }
 }

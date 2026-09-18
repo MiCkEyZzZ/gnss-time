@@ -179,6 +179,11 @@ mod tests {
     }
 
     #[test]
+    fn builtin_table_passes_compile_time_invariants_at_runtime() {
+        assert_table_invariants(&BUILTIN_TABLE);
+    }
+
+    #[test]
     fn first_entry_is_gps_epoch() {
         let first = BUILTIN_TABLE[0];
 
@@ -197,6 +202,21 @@ mod tests {
     #[test]
     fn thresholds_are_strictly_ascending() {
         for pair in BUILTIN_TABLE.windows(2) {
+            assert!(
+                pair[1].tai_nanos > pair[0].tai_nanos,
+                "thresholds are not strictly ascending: {} <= {}",
+                pair[1].tai_nanos,
+                pair[0].tai_nanos,
+            );
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "not strictly ascending")]
+    fn thresholds_are_strictly_ascending_rejects_bad_table() {
+        static BAD: [LeapEntry; 2] = [LeapEntry::new(10, 19), LeapEntry::new(5, 20)];
+
+        for pair in BAD.windows(2) {
             assert!(
                 pair[1].tai_nanos > pair[0].tai_nanos,
                 "thresholds are not strictly ascending: {} <= {}",
