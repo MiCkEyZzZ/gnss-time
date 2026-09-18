@@ -37,14 +37,6 @@ gnss-time
 │   ├── Cargo.toml
 │   └── README.md
 ├── docs
-│   ├── articles
-│   │   ├── epoch.txt
-│   │   ├── leap.txt
-│   │   ├── measuring_rust_binary_bloat.md
-│   │   ├── relations_of_utc_and_tai_with.md
-│   │   ├── running_rust_on_microcontrollers.md
-│   │   ├── the_ntp_timescale_and_leap_seconds.md
-│   │   └── the_state_of_time_in_rust_leaps_and_bounds.md
 │   ├── API_STABILITY.de.md
 │   ├── API_STABILITY.md
 │   ├── API_STABILITY.ru.md
@@ -63,11 +55,7 @@ gnss-time
 │   ├── LEAP_SECONDS.de.md
 │   ├── LEAP_SECONDS.md
 │   ├── LEAP_SECONDS.ru.md
-│   ├── PROJECT_STRUCTURE.md
-│   ├── README.txt
-│   ├── ROADMAP.md
-│   ├── ROADMAP_2.md
-│   └── ROADMAP_3.md
+│   └── PROJECT_STRUCTURE.md
 ├── examples
 │   ├── basic_usage.rs
 │   ├── chain_conversion.rs
@@ -76,7 +64,7 @@ gnss-time
 │   ├── convert_contextual.rs
 │   ├── display_formats.rs
 │   ├── dynamic_conversion.rs
-│   ├── embedded_minimal.rs
+│   ├── embedded_minimal
 │   ├── embedded_safe_arithmetic.rs
 │   ├── glonass_day_tod.rs
 │   ├── glonass_receiver.rs
@@ -86,18 +74,12 @@ gnss-time
 │   ├── matrix_inspection.rs
 │   ├── multi_constellation.rs
 │   ├── no_domain_mixing.rs
-│   ├── no_std_example.rs
 │   ├── parse_time.rs
 │   ├── README.md
 │   ├── receiver_timestamp.rs
 │   ├── scale_conversion.rs
 │   ├── sync_alignment.rs
 │   └── unix_time.rs
-├── ffi
-│   ├── src
-│   │   └── lib.rs
-│   ├── Cargo.toml
-│   └── README.md
 ├── firmware
 │   ├── src
 │   │   └── main.rs
@@ -144,16 +126,11 @@ gnss-time
 │   ├── serde_test.rs
 │   └── time_integration_test.rs
 ├── .editorconfig
-├── .gitattributes
 ├── .gitignore
-├── .zed
-│   └── settings.json
-├── AGENTS.md
 ├── AUTHOR.md
 ├── Cargo.lock
 ├── Cargo.toml
 ├── CHANGELOG.md
-├── CITATION.cff
 ├── clippy.toml
 ├── codecov.yml
 ├── deny.toml
