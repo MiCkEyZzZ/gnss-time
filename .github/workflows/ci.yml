@@ -145,6 +145,10 @@ jobs:
       # `-D warnings` would conflict with them and fail on warnings that only
       # appear under instrumentation, which is not what this job gates on.
       RUSTFLAGS: ""
+    permissions:
+      # OIDC: the action exchanges a GitHub-issued token for Codecov access,
+      # so no CODECOV_TOKEN secret is needed on the runner.
+      id-token: write
     steps:
       - uses: actions/checkout@v7
 
@@ -184,7 +188,7 @@ jobs:
         with:
           files: lcov.info
           fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
+          use_oidc: true
 
       # Keep the raw report even if the Codecov upload fails, so the run's
       # data is never lost.
