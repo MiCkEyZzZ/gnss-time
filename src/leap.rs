@@ -1708,4 +1708,140 @@ mod tests {
             Err(LeapExtendError::OffsetOverflow)
         ));
     }
+
+    #[test]
+    fn test_try_from_slice_empty_returns_empty_table() {
+        static EMPTY: [LeapEntry; 0] = [];
+
+        assert!(matches!(
+            LeapSeconds::try_from_slice(&EMPTY),
+            Err(LeapExtendError::EmptyTable)
+        ));
+    }
+
+    #[test]
+    fn test_try_from_slice_not_ascending_returns_error() {
+        static BAD: [LeapEntry; 2] = [LeapEntry::new(10, 19), LeapEntry::new(10, 20)];
+
+        assert!(matches!(
+            LeapSeconds::try_from_slice(&BAD),
+            Err(LeapExtendError::NotStrictlyAscending)
+        ));
+    }
+
+    #[test]
+    fn test_try_from_slice_non_unit_increment_returns_error() {
+        static BAD: [LeapEntry; 2] = [LeapEntry::new(10, 19), LeapEntry::new(20, 21)];
+
+        assert!(matches!(
+            LeapSeconds::try_from_slice(&BAD),
+            Err(LeapExtendError::NonUnitIncrement)
+        ));
+    }
+
+    #[test]
+    fn test_try_from_slice_valid_table_succeeds() {
+        static TABLE: [LeapEntry; 2] = [LeapEntry::new(0, 19), LeapEntry::new(1_000_000, 20)];
+        let ls = LeapSeconds::try_from_slice(&TABLE).unwrap();
+
+        assert_eq!(ls.len(), 2);
+        assert_eq!(ls.entries(), &TABLE);
+    }
+
+    #[test]
+    fn test_runtime_from_slice_valid_table_succeeds() {
+        let entries = [
+            LeapEntry::new(0, 19),
+            LeapEntry::new(1_000_000, 20),
+            LeapEntry::new(2_000_000, 21),
+        ];
+        let rt = RuntimeLeapSeconds::from_slice(&entries).unwrap();
+
+        assert_eq!(rt.len(), 3);
+        assert_eq!(rt.entries(), &entries);
+    }
+
+    #[test]
+    fn test_runtime_from_slice_empty_returns_empty_table() {
+        let err = RuntimeLeapSeconds::from_slice(&[]).unwrap_err();
+
+        assert_eq!(err, LeapExtendError::EmptyTable);
+    }
+
+    #[test]
+    fn test_runtime_try_extend_buffer_full_returns_error() {
+        let mut rt = RuntimeLeapSeconds::new();
+
+        for i in 0..RUNTIME_CAPACITY {
+            let tai_nanos = u64::try_from(i).unwrap();
+            let tai_minus_utc = 19 + i32::try_from(i).unwrap();
+
+            rt.try_extend(LeapEntry::new(tai_nanos, tai_minus_utc))
+                .unwrap();
+        }
+
+        let err = rt.try_extend(LeapEntry::new(0, 19)).unwrap_err();
+
+        assert_eq!(err, LeapExtendError::BufferFull);
+    }
+
+    #[test]
+    fn test_galileo_to_utc_roundtrip() {
+        let ls = LeapSeconds::builtin();
+        let gal = Time::<Galileo>::from_seconds(1_000_000_000);
+        let utc = galileo_to_utc(gal, &ls).unwrap();
+        let back = utc_to_galileo(utc, &ls).unwrap();
+
+        assert_eq!(gal, back);
+    }
+
+    #[test]
+    fn test_beidou_to_utc_roundtrip() {
+        let ls = LeapSeconds::builtin();
+        let bdt = Time::<Beidou>::from_seconds(1_000_000_000);
+        let utc = beidou_to_utc(bdt, &ls).unwrap();
+        let back = utc_to_beidou(utc, &ls).unwrap();
+
+        assert_eq!(bdt, back);
+    }
+
+    #[test]
+    fn test_glonass_galileo_roundtrip() {
+        let ls = LeapSeconds::builtin();
+        let glo = Time::<Glonass>::from_seconds(1_000_000_000);
+        let gal = glonass_to_galileo(glo, &ls).unwrap();
+        let back = galileo_to_glonass(gal, &ls).unwrap();
+
+        assert_eq!(glo, back);
+    }
+
+    #[test]
+    fn test_glonass_beidou_roundtrip() {
+        let ls = LeapSeconds::builtin();
+        let glo = Time::<Glonass>::from_seconds(1_000_000_000);
+        let bdt = glonass_to_beidou(glo, &ls).unwrap();
+        let back = beidou_to_glonass(bdt, &ls).unwrap();
+
+        assert_eq!(glo, back);
+    }
+
+    #[test]
+    fn test_utc_to_galileo_roundtrip() {
+        let ls = LeapSeconds::builtin();
+        let utc = Time::<Utc>::from_seconds(1_000_000_000);
+        let gal = utc_to_galileo(utc, &ls).unwrap();
+        let back = galileo_to_utc(gal, &ls).unwrap();
+
+        assert_eq!(utc, back);
+    }
+
+    #[test]
+    fn test_utc_to_beidou_roundtrip() {
+        let ls = LeapSeconds::builtin();
+        let utc = Time::<Utc>::from_seconds(1_000_000_000);
+        let bdt = utc_to_beidou(utc, &ls).unwrap();
+        let back = beidou_to_utc(bdt, &ls).unwrap();
+
+        assert_eq!(utc, back);
+    }
 }
