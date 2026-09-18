@@ -171,18 +171,13 @@ jobs:
       # report whole files as 0% and drag the total down.
       # --doctests: doctests exercise real conversion paths from public-item
       # examples, a meaningful share of coverage (requires nightly).
-      # Single invocation: covers unit + integration + doctests in one profile,
-      # mirroring the main `test` job instead of a separate nextest runner.
-      - name: Collect coverage + generate lcov
-        run: cargo llvm-cov test --all-features --doctests --lcov --output-path lcov.info
-
-      - name: Coverage summary
-        run: cargo llvm-cov report --summary-only
-
-      # The hard gate lives here, not on Codecov: a PR that drops line
-      # coverage below this threshold fails CI directly.
-      - name: Enforce coverage threshold (90%)
-        run: cargo llvm-cov report --fail-under-lines 90
+      # Single invocation is required: a separate `cargo llvm-cov report`
+      # later loses the doctest profile data and under-reports (~1pp), so the
+      # gate and the lcov export must share the same profraw collection.
+      # `--fail-under-lines` doubles as the hard gate (a PR that drops line
+      # coverage below the threshold fails CI directly) and as the report.
+      - name: Collect coverage + enforce gate (90%) + generate lcov
+        run: cargo llvm-cov test --all-features --doctests --lcov --output-path lcov.info --fail-under-lines 90
 
       # Codecov is a non-blocking extra: the repo could not be activated from
       # the maintainer's region, so a failed upload must never turn CI red.
