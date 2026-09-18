@@ -108,3 +108,264 @@ impl defmt::Format for GnssTimeError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::string::ToString;
+
+    use super::*;
+
+    #[test]
+    fn test_overflow_display() {
+        let error = GnssTimeError::Overflow;
+
+        assert_eq!(error.to_string(), "arithmetic overflow in nanoseconds");
+    }
+
+    #[test]
+    fn test_invalid_input_display() {
+        let error = GnssTimeError::InvalidInput("invalid scale");
+
+        assert_eq!(error.to_string(), "invalid input: invalid scale");
+    }
+
+    #[test]
+    fn test_parse_error_display() {
+        let error = GnssTimeError::ParseError("invalid RFC 3339 timestamp");
+
+        assert_eq!(error.to_string(), "parse error: invalid RFC 3339 timestamp");
+    }
+
+    #[test]
+    fn test_leap_seconds_required_display() {
+        let error = GnssTimeError::LeapSecondsRequired;
+
+        assert_eq!(error.to_string(), "leap-second data required");
+    }
+
+    #[test]
+    fn test_out_of_range_display() {
+        let error = GnssTimeError::OutOfRange;
+
+        assert_eq!(error.to_string(), "timestamp is out of representable range");
+    }
+
+    #[test]
+    fn test_invalid_input_preserves_message() {
+        let message = "custom validation failure";
+        let error = GnssTimeError::InvalidInput(message);
+
+        assert_eq!(error, GnssTimeError::InvalidInput(message));
+        assert_eq!(
+            error.to_string(),
+            "invalid input: custom validation failure"
+        );
+    }
+
+    #[test]
+    fn test_parse_error_preserves_message() {
+        let message = "invalid integer";
+        let error = GnssTimeError::ParseError(message);
+
+        assert_eq!(error, GnssTimeError::ParseError(message));
+        assert_eq!(error.to_string(), "parse error: invalid integer");
+    }
+
+    #[test]
+    fn test_empty_messages_are_supported() {
+        assert_eq!(
+            GnssTimeError::InvalidInput("").to_string(),
+            "invalid input: "
+        );
+        assert_eq!(GnssTimeError::ParseError("").to_string(), "parse error: ");
+    }
+
+    #[test]
+    fn test_messages_with_special_characters_are_preserved() {
+        let invalid = GnssTimeError::InvalidInput("expected week/TOW: got 0/NaN");
+        assert_eq!(
+            invalid.to_string(),
+            "invalid input: expected week/TOW: got 0/NaN"
+        );
+
+        let parse = GnssTimeError::ParseError("expected YYYY-MM-DDTHH:MM:SS");
+
+        assert_eq!(
+            parse.to_string(),
+            "parse error: expected YYYY-MM-DDTHH:MM:SS"
+        );
+    }
+
+    #[test]
+    fn test_all_variants_are_distinct() {
+        let errors = [
+            GnssTimeError::Overflow,
+            GnssTimeError::InvalidInput("x"),
+            GnssTimeError::ParseError("x"),
+            GnssTimeError::LeapSecondsRequired,
+            GnssTimeError::OutOfRange,
+        ];
+
+        for (i, lhs) in errors.iter().enumerate() {
+            for (j, rhs) in errors.iter().enumerate() {
+                assert_eq!(lhs == rhs, i == j);
+            }
+        }
+    }
+
+    #[test]
+    fn test_same_parameterized_variants_are_equal() {
+        assert_eq!(
+            GnssTimeError::InvalidInput("x"),
+            GnssTimeError::InvalidInput("x")
+        );
+        assert_eq!(
+            GnssTimeError::ParseError("x"),
+            GnssTimeError::ParseError("x")
+        );
+    }
+
+    #[test]
+    fn test_different_parameterized_variants_are_not_equal() {
+        assert_ne!(
+            GnssTimeError::InvalidInput("x"),
+            GnssTimeError::InvalidInput("y")
+        );
+        assert_ne!(
+            GnssTimeError::ParseError("x"),
+            GnssTimeError::ParseError("y")
+        );
+        assert_ne!(
+            GnssTimeError::InvalidInput("x"),
+            GnssTimeError::ParseError("x")
+        );
+    }
+
+    #[test]
+    fn test_clone_equals_original() {
+        let errors = [
+            GnssTimeError::Overflow,
+            GnssTimeError::InvalidInput("invalid"),
+            GnssTimeError::ParseError("parse"),
+            GnssTimeError::LeapSecondsRequired,
+            GnssTimeError::OutOfRange,
+        ];
+
+        for error in errors {
+            assert_eq!(error, error.clone());
+        }
+    }
+
+    #[test]
+    fn test_copy_preserves_value() {
+        let original = GnssTimeError::InvalidInput("invalid");
+        let copied = original;
+
+        assert_eq!(original, copied);
+    }
+
+    #[test]
+    fn test_hash_is_consistent_for_equal_values() {
+        use core::hash::{Hash, Hasher};
+
+        #[derive(Default)]
+        struct TestHasher(u64);
+
+        impl Hasher for TestHasher {
+            fn finish(&self) -> u64 {
+                self.0
+            }
+
+            fn write(
+                &mut self,
+                bytes: &[u8],
+            ) {
+                for byte in bytes {
+                    self.0 = self.0.wrapping_mul(31).wrapping_add(u64::from(*byte));
+                }
+            }
+        }
+
+        let lhs = GnssTimeError::InvalidInput("invalid");
+        let rhs = GnssTimeError::InvalidInput("invalid");
+        let mut lhs_hasher = TestHasher::default();
+        let mut rhs_hasher = TestHasher::default();
+
+        lhs.hash(&mut lhs_hasher);
+        rhs.hash(&mut rhs_hasher);
+
+        assert_eq!(lhs_hasher.finish(), rhs_hasher.finish());
+    }
+
+    #[test]
+    fn hash_distinguishes_different_values() {
+        use core::hash::{Hash, Hasher};
+
+        #[derive(Default)]
+        struct TestHasher(u64);
+
+        impl Hasher for TestHasher {
+            fn finish(&self) -> u64 {
+                self.0
+            }
+
+            fn write(
+                &mut self,
+                bytes: &[u8],
+            ) {
+                for byte in bytes {
+                    self.0 = self.0.wrapping_mul(31).wrapping_add(u64::from(*byte));
+                }
+            }
+        }
+
+        let lhs = GnssTimeError::InvalidInput("a");
+        let rhs = GnssTimeError::InvalidInput("b");
+
+        let mut lhs_hasher = TestHasher::default();
+        let mut rhs_hasher = TestHasher::default();
+
+        lhs.hash(&mut lhs_hasher);
+        rhs.hash(&mut rhs_hasher);
+
+        assert_ne!(lhs_hasher.finish(), rhs_hasher.finish());
+    }
+
+    #[test]
+    fn errors_are_send_and_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+
+        assert_send_sync::<GnssTimeError>();
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn implements_std_error() {
+        fn assert_error<T: std::error::Error>() {}
+
+        assert_error::<GnssTimeError>();
+
+        let error = GnssTimeError::Overflow;
+        let error: &dyn std::error::Error = &error;
+
+        assert_eq!(error.to_string(), "arithmetic overflow in nanoseconds");
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn std_error_has_no_source() {
+        use std::error::Error;
+
+        let errors = [
+            GnssTimeError::Overflow,
+            GnssTimeError::InvalidInput("invalid"),
+            GnssTimeError::ParseError("parse"),
+            GnssTimeError::LeapSecondsRequired,
+            GnssTimeError::OutOfRange,
+        ];
+
+        for error in errors {
+            assert!(error.source().is_none());
+        }
+    }
+}
