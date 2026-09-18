@@ -203,6 +203,41 @@ bench-smoke:
     cargo bench -p benches --locked -- --test
 
 # =============================================================================
+# Coverage
+#
+# Uses cargo-llvm-cov against the pinned nightly (see rust-toolchain.toml,
+# which now lists llvm-tools-preview). A single `test --doctests` invocation
+# covers unit + integration + doctests in one profile, mirroring the main
+# `test` job — no nextest involved.
+#
+#   just coverage        → terminal summary
+#   just coverage-html   → browser-ready report (highlights uncovered branches)
+#   just coverage-check  → enforces the project threshold (90%), like CI
+# =============================================================================
+# The coverage threshold this project commits to. Keep in sync with
+# codecov.yml's project target.
+
+coverage_threshold := "90"
+
+coverage:
+    cargo llvm-cov clean --workspace
+    cargo llvm-cov test --all-features --doctests --summary-only
+
+coverage-html:
+    cargo llvm-cov clean --workspace
+    cargo llvm-cov test --all-features --doctests --open
+
+coverage-check:
+    cargo llvm-cov clean --workspace
+    cargo llvm-cov test --all-features --doctests --fail-under-lines {{ coverage_threshold }}
+    @echo "✓ coverage ≥ {{ coverage_threshold }}%"
+
+coverage-lcov:
+    cargo llvm-cov clean --workspace
+    cargo llvm-cov test --all-features --doctests --lcov --output-path lcov.info
+    @echo "✓ lcov.info written"
+
+# =============================================================================
 # Fuzzing
 # =============================================================================
 
@@ -258,6 +293,7 @@ install-release-tools:
 
 # Preview the Release PR release-plz would open: next version and changelog.
 #
+
 # Read-only — makes no commits, no tags, no network writes.
 release-preview:
     release-plz update --dry-run
@@ -272,6 +308,7 @@ release-changelog:
 # feature-gated item is still public API to anyone enabling that feature.
 # Requires the crate to already be published on crates.io (it is, as of
 # v0.9.1), which is also why this recipe is not part of `just ci`:
+
 # offline runs must not fail.
 semver-check:
     @echo "── default features ────────────────────────────────────────────"
@@ -284,6 +321,7 @@ semver-check:
 #
 # This catches the failure mode the explicit `include` list in Cargo.toml
 # makes possible: a file present locally but omitted from the published
+
 # .crate archive, so the crate builds for you and fails for everyone else.
 package-check:
     cargo publish --dry-run
@@ -294,6 +332,7 @@ package-check:
 #
 # Run this before pushing the commits you intend to release. Note there is no
 # separate `doctest` recipe in this justfile — doctests already run as part of
+
 # `test-all` (cargo test compiles them).
 release: lint test-all msrv semver-check package-check release-preview
     @echo ""
@@ -308,6 +347,7 @@ release: lint test-all msrv semver-check package-check release-preview
 # the semver gate, the generated changelog, and the CI run that the PR
 # would have had.
 #
+
 # Requires CARGO_REGISTRY_TOKEN in the environment.
 release-publish: release
     @echo ""
