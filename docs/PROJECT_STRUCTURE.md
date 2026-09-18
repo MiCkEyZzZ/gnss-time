@@ -132,6 +132,7 @@ gnss-time
 ├── Cargo.toml
 ├── CHANGELOG.md
 ├── clippy.toml
+├── codecov.yml
 ├── deny.toml
 ├── INSTALL
 ├── justfile

@@ -90,6 +90,10 @@ serde = { version = "1", default-features = false, optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.8.2", features = ["html_reports"] }
+# defmt with unstable-test: enables a host-safe logger (thread-local byte
+# buffer) so unit tests can exercise defmt::Format impls without requiring
+# a real defmt-rtt / probe-rs logger.
+defmt = { version = "0.3", features = ["unstable-test"] }
 # proptest requires std (thread-local RNG, std::collections).
 # Used only in tests/prop_tests.rs, which is guarded by #[cfg(feature = "std")].
 # On a host `cargo test` run std is always available, so this always compiles.
