@@ -466,4 +466,41 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_matrix_kind_matches_scale_conversion_kind() {
+        let matrix = ConversionMatrix::new();
+
+        for &from in &ScaleId::ALL {
+            for &to in &ScaleId::ALL {
+                assert_eq!(
+                    matrix.kind(from, to),
+                    from.conversion_kind(to),
+                    "{from:?} -> {to:?}",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_matrix_default() {
+        let matrix = <ConversionMatrix as Default>::default();
+
+        assert_eq!(matrix.path_count(false), 14);
+        assert_eq!(matrix.path_count(true), 16);
+    }
+
+    #[test]
+    fn test_same_scale_is_not_fixed_and_does_not_need_leap_seconds() {
+        for &scale in &ScaleId::ALL {
+            assert!(
+                !scale.is_fixed(scale),
+                "{scale:?} -> {scale:?} should not be fixed",
+            );
+            assert!(
+                !scale.needs_leap_seconds(scale),
+                "{scale:?} -> {scale:?} should not need leap seconds",
+            );
+        }
+    }
 }
