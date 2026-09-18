@@ -1,0 +1,86 @@
+# Codecov configuration for gnss-time.
+#
+# Place at the repository root (Codecov also accepts .github/codecov.yml).
+#
+# Two separate gates, doing different jobs:
+#
+#   project - total coverage across the crate. Set to 90% per Issue #TIME-37,
+#             with a 1% drop tolerance so an unrelated refactor that moves
+#             lines around does not fail CI.
+#
+#   patch   - coverage of the lines this PR changed. Set higher (95%) and
+#             with no drop tolerance, because new code has no excuse: you are
+#             writing it now, alongside its tests.
+#
+# The patch gate is the one that actually prevents rot. A project-only gate
+# lets coverage decay indefinitely as long as each individual PR is small
+# enough not to move the total by 1%.
+
+codecov:
+  require_ci_to_pass: true
+  notify:
+    # Only one coverage job uploads; do not wait for more.
+    after_n_builds: 1
+
+coverage:
+  precision: 2
+  round: down
+  range: "85..95"
+
+  status:
+    project:
+      default:
+        target: 90%
+        threshold: 1%
+        if_ci_failed: error
+        informational: false
+
+    patch:
+      default:
+        target: 95%
+        threshold: 0%
+        if_ci_failed: error
+        informational: false
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Exclusions
+#
+# Each entry below is code that cannot be meaningfully covered by the test
+# suite, not code that is merely inconvenient to test. Anything excluded for
+# convenience would defeat the point of the gate.
+# ─────────────────────────────────────────────────────────────────────────────
+
+ignore:
+  # Separate crates with their own Cargo.toml and their own purposes, none of
+  # which is the library's tested surface:
+  #
+  #   benches/  — performance harness, and a workspace member — llvm-cov
+  #               --workspace builds it. But benchmark bodies are not coverage:
+  #               they run once and measure timing, not assert. Measuring them
+  #               only inflates the number.
+  #   firmware/ — bare-metal .text size probe. Not a workspace member on
+  #               purpose (see firmware/Cargo.toml): llvm-cov on the host
+  #               toolchain does not build it at all.
+  #   fuzz/     — standalone cargo-fuzz workspace. Not a workspace member
+  #               either; llvm-cov does not build it.
+  #
+  # Listed explicitly so a future workspace restructure does not silently pull
+  # them into the coverage report.
+  - "benches/**"
+  - "firmware/**"
+  - "fuzz/**"
+
+  # Examples are compiled and run by `cargo run --example`, but are
+  # demonstrations, not tests. Their coverage says nothing about whether the
+  # library is tested - and including them would inflate the number, since
+  # they exercise happy paths almost exclusively.
+  - "examples/**"
+
+  # Integration tests themselves: measuring coverage of the test code is
+  # circular
+  - "tests/**"
