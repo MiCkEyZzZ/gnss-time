@@ -970,4 +970,101 @@ mod tests {
             &[0x05, 0x80, 0xCA, 0xB5, 0xEE, 0x01]
         );
     }
+
+    #[test]
+    fn test_time_unknown_field_fails() {
+        let json = r#"{"scale":"GPS","nanos":0,"unknown":123}"#;
+        let result: Result<Time<Gps>, _> = serde_json::from_str(json);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_duration_unknown_field_fails() {
+        let json = r#"{"nanos":0,"unknown":123}"#;
+        let result: Result<Duration, _> = serde_json::from_str(json);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_duration_parts_unknown_field_fails() {
+        let json = r#"{"seconds":0,"nanos":0,"unknown":123}"#;
+        let result: Result<DurationParts, _> = serde_json::from_str(json);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_time_wrong_json_type_fails() {
+        let json = "123";
+        let result: Result<Time<Gps>, _> = serde_json::from_str(json);
+
+        assert!(result.is_err());
+
+        let msg = result.unwrap_err().to_string();
+
+        assert!(
+            msg.contains("map") || msg.contains("scale") || msg.contains("nanos"),
+            "unexpected error: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_duration_wrong_json_type_fails() {
+        let json = "123";
+        let result: Result<Duration, _> = serde_json::from_str(json);
+
+        assert!(result.is_err());
+
+        let msg = result.unwrap_err().to_string();
+
+        assert!(
+            msg.contains("map") || msg.contains("nanos"),
+            "unexpected error: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_duration_parts_wrong_json_type_fails() {
+        let json = "123";
+        let result: Result<DurationParts, _> = serde_json::from_str(json);
+
+        assert!(result.is_err());
+
+        let msg = result.unwrap_err().to_string();
+
+        assert!(
+            msg.contains("map") || msg.contains("seconds") || msg.contains("nanos"),
+            "unexpected error: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_duration_parts_postcard_missing_seconds_fails() {
+        let bytes = [0u8];
+        let result: Result<DurationParts, _> = postcard::from_bytes(&bytes);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_duration_parts_postcard_missing_nanos_fails() {
+        let bytes = [0x01];
+        let result: Result<DurationParts, _> = postcard::from_bytes(&bytes);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_duration_parts_postcard_invalid_nanos_fails() {
+        let p = DurationParts {
+            seconds: 0,
+            nanos: 1_000_000_000,
+        };
+        let bytes = postcard::to_allocvec(&p).unwrap();
+        let result: Result<DurationParts, _> = postcard::from_bytes(&bytes);
+
+        assert!(result.is_err(), "invalid nanos must be rejected");
+    }
 }
