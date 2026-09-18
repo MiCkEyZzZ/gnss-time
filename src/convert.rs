@@ -1092,4 +1092,72 @@ mod tests {
 
         assert_eq!(utc, back);
     }
+
+    #[test]
+    fn test_galileo_glonass_galileo_roundtrip() {
+        let ls = LeapSeconds::builtin();
+        let gal = Time::<Galileo>::from_seconds(1_000_000_000);
+        let glo: Time<Glonass> = gal.into_scale_with(ls).unwrap();
+        let back: Time<Galileo> = glo.into_scale_with(ls).unwrap();
+
+        assert_eq!(gal, back);
+    }
+
+    #[test]
+    fn test_beidou_glonass_beidou_roundtrip() {
+        let ls = LeapSeconds::builtin();
+        let bdt = Time::<Beidou>::from_seconds(1_000_000_000);
+        let glo: Time<Glonass> = bdt.into_scale_with(ls).unwrap();
+        let back: Time<Beidou> = glo.into_scale_with(ls).unwrap();
+
+        assert_eq!(bdt, back);
+    }
+
+    #[test]
+    fn test_utc_to_galileo_to_utc_roundtrip() {
+        let ls = LeapSeconds::builtin();
+        let utc = Time::<Utc>::from_nanos(1_000_000_000_123_456_789);
+        let gal: Time<Galileo> = utc.into_scale_with(ls).unwrap();
+        let back: Time<Utc> = gal.into_scale_with(ls).unwrap();
+
+        assert_eq!(utc, back);
+    }
+
+    #[test]
+    fn test_utc_to_beidou_to_utc_roundtrip() {
+        let ls = LeapSeconds::builtin();
+        let utc = Time::<Utc>::from_nanos(1_000_000_000_123_456_789);
+        let bdt: Time<Beidou> = utc.into_scale_with(ls).unwrap();
+        let back: Time<Utc> = bdt.into_scale_with(ls).unwrap();
+
+        assert_eq!(utc, back);
+    }
+
+    #[test]
+    fn test_galileo_to_utc_detects_leap_second_ambiguity() {
+        let ls = LeapSeconds::builtin();
+        let gal = Time::<Galileo>::from_seconds(1_167_264_018);
+        let result: ConvertResult<Time<Utc>> = gal.into_scale_with_checked(ls).unwrap();
+
+        assert!(matches!(result, ConvertResult::AmbiguousLeapSecond(_)));
+    }
+
+    #[test]
+    fn test_beidou_to_utc_detects_leap_second_ambiguity() {
+        let ls = LeapSeconds::builtin();
+        let gps = Time::<Gps>::from_seconds(1_167_264_018);
+        let bdt: Time<Beidou> = gps.into_scale().unwrap();
+        let result: ConvertResult<Time<Utc>> = bdt.into_scale_with_checked(ls).unwrap();
+
+        assert!(matches!(result, ConvertResult::AmbiguousLeapSecond(_)));
+    }
+
+    #[test]
+    fn test_checked_glonass_to_gps_is_exact() {
+        let ls = LeapSeconds::builtin();
+        let glo = Time::<Glonass>::from_seconds(1_000_000);
+        let result: ConvertResult<Time<Gps>> = glo.into_scale_with_checked(ls).unwrap();
+
+        assert!(result.is_exact());
+    }
 }
