@@ -168,3 +168,82 @@ const _ASSERT_LAST_ENTRY: () = {
         "BUILTIN_TABLE: last entry must have tai_minus_utc == 37"
     );
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn table_has_expected_number_of_entries() {
+        assert_eq!(BUILTIN_TABLE.len(), 19);
+    }
+
+    #[test]
+    fn first_entry_is_gps_epoch() {
+        let first = BUILTIN_TABLE[0];
+
+        assert_eq!(first.tai_nanos, 0);
+        assert_eq!(first.tai_minus_utc, 19);
+    }
+
+    #[test]
+    fn last_entry_is_latest_known_leap_second() {
+        let last = BUILTIN_TABLE[BUILTIN_TABLE.len() - 1];
+
+        assert_eq!(last.tai_nanos, 1_167_264_037_000_000_000);
+        assert_eq!(last.tai_minus_utc, 37);
+    }
+
+    #[test]
+    fn thresholds_are_strictly_ascending() {
+        for pair in BUILTIN_TABLE.windows(2) {
+            assert!(
+                pair[1].tai_nanos > pair[0].tai_nanos,
+                "thresholds are not strictly ascending: {} <= {}",
+                pair[1].tai_nanos,
+                pair[0].tai_nanos,
+            );
+        }
+    }
+
+    #[test]
+    fn tai_minus_utc_increments_by_one() {
+        for pair in BUILTIN_TABLE.windows(2) {
+            assert_eq!(
+                pair[1].tai_minus_utc,
+                pair[0].tai_minus_utc + 1,
+                "TAI−UTC does not increment by one"
+            );
+        }
+    }
+
+    #[test]
+    fn tai_minus_utc_range_is_19_to_37() {
+        assert_eq!(BUILTIN_TABLE.first().unwrap().tai_minus_utc, 19);
+        assert_eq!(BUILTIN_TABLE.last().unwrap().tai_minus_utc, 37);
+
+        for entry in BUILTIN_TABLE {
+            assert!(
+                (19..=37).contains(&entry.tai_minus_utc),
+                "unexpected TAI−UTC value: {}",
+                entry.tai_minus_utc,
+            );
+        }
+    }
+
+    #[test]
+    fn no_duplicate_thresholds() {
+        for pair in BUILTIN_TABLE.windows(2) {
+            assert_ne!(pair[0].tai_nanos, pair[1].tai_nanos);
+        }
+    }
+
+    #[test]
+    fn every_entry_has_nonzero_threshold_except_epoch() {
+        assert_eq!(BUILTIN_TABLE[0].tai_nanos, 0);
+
+        for entry in &BUILTIN_TABLE[1..] {
+            assert_ne!(entry.tai_nanos, 0);
+        }
+    }
+}
