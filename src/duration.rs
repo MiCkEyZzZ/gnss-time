@@ -1434,4 +1434,40 @@ mod tests {
             assert_eq!(original, back, "round-trip failed for {original:?}");
         }
     }
+
+    #[test]
+    fn test_duration_to_i64() {
+        let d = Duration::from_seconds(-7);
+        let n: i64 = d.into();
+
+        assert_eq!(n, -7_000_000_000);
+    }
+
+    #[test]
+    fn test_from_i64_to_duration() {
+        let d: Duration = (-7_000_000_000_i64).into();
+
+        assert_eq!(d, Duration::from_seconds(-7));
+    }
+
+    #[test]
+    fn test_i64_roundtrip() {
+        let cases: &[i64] = &[0, 1, -1, i64::MAX, i64::MIN, 1_500_000_000, -1_500_000_000];
+
+        for &n in cases {
+            let d: Duration = n.into();
+            let back: i64 = d.into();
+
+            assert_eq!(n, back);
+        }
+    }
+
+    #[test]
+    fn test_i64_from_covers_full_range() {
+        let min_d: Duration = i64::MIN.into();
+        let max_d: Duration = i64::MAX.into();
+
+        assert_eq!(min_d.as_nanos(), i64::MIN);
+        assert_eq!(max_d.as_nanos(), i64::MAX);
+    }
 }
