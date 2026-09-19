@@ -126,6 +126,7 @@ gnss-time
 │   ├── serde_test.rs
 │   └── time_integration_test.rs
 ├── .editorconfig
+├── .gitattributes
 ├── .gitignore
 ├── AUTHOR.md
 ├── Cargo.lock
