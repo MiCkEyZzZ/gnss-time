@@ -600,6 +600,86 @@ impl fmt::Display for Duration {
     }
 }
 
+impl TryFrom<core::time::Duration> for Duration {
+    type Error = GnssTimeError;
+
+    /// Converts a `core::time::Duration` into a `gnss_time::Duration`.
+    ///
+    /// `core::time::Duration` is always non-negative, so the result is always
+    /// non-negative too - this direction only fails on magnitude, never on
+    /// sign.
+    ///
+    /// # Errors
+    ///
+    /// - [`GnssTimeError::Overflow`] if the input exceeds `i64::MAX`
+    ///   nanoseconds (≈ 292 years) — `core::time::Duration` can represent
+    ///   values far beyond `gnss_time::Duration`'s range.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::Duration;
+    ///
+    /// let std_d = core::time::Duration::from_secs(1);
+    /// let d: Duration = std_d.try_into().unwrap();
+    /// assert_eq!(d, Duration::from_seconds(1));
+    ///
+    /// // Sub-second precision is preserved:
+    /// let std_d = core::time::Duration::from_nanos(123_456_789);
+    /// let d: Duration = std_d.try_into().unwrap();
+    /// assert_eq!(d.as_nanos(), 123_456_789);
+    ///
+    /// // A core::time::Duration beyond i64::MAX nanoseconds does not fit:
+    /// let huge = core::time::Duration::from_secs(u64::MAX);
+    /// assert!(Duration::try_from(huge).is_err());
+    /// ```
+    fn try_from(value: core::time::Duration) -> Result<Self, Self::Error> {
+        let nanos = i64::try_from(value.as_nanos()).map_err(|_| GnssTimeError::Overflow)?;
+
+        Ok(Duration::from_nanos(nanos))
+    }
+}
+
+impl TryFrom<Duration> for core::time::Duration {
+    type Error = GnssTimeError;
+
+    /// Converts a `gnss_time::Duration` into a `core::time::Duration`.
+    ///
+    /// # Errors
+    ///
+    /// - [`GnssTimeError::OutOfRange`] if `value` is negative -
+    ///   `core::time::Duration` cannot represent a negative interval, and there
+    ///   is no honest clamping or truncation to fall back to. Use
+    ///   [`Duration::abs`] first if you specifically want the magnitude:
+    ///
+    /// ```rust
+    /// use gnss_time::Duration;
+    ///
+    /// let negative = Duration::from_seconds(-5);
+    /// let magnitude: core::time::Duration = negative.abs().unwrap().try_into().unwrap();
+    /// assert_eq!(magnitude, core::time::Duration::from_secs(5));
+    /// ```
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::Duration;
+    ///
+    /// let d = Duration::from_seconds(1);
+    /// let std_d: core::time::Duration = d.try_into().unwrap();
+    /// assert_eq!(std_d, core::time::Duration::from_secs(1));
+    ///
+    /// // Negative durations have no representation in core::time::Duration:
+    /// let negative = Duration::from_seconds(-1);
+    /// assert!(core::time::Duration::try_from(negative).is_err());
+    /// ```
+    fn try_from(value: Duration) -> Result<Self, Self::Error> {
+        let nanos = u64::try_from(value.as_nanos()).map_err(|_| GnssTimeError::OutOfRange)?;
+
+        Ok(core::time::Duration::from_nanos(nanos))
+    }
+}
+
 // defmt support: embedded logging via probe-rs / defmt-rtt.
 #[cfg(feature = "defmt")]
 impl defmt::Format for Duration {
