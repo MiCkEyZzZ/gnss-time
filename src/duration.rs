@@ -586,6 +586,46 @@ impl FromStr for Duration {
     }
 }
 
+impl From<Duration> for i64 {
+    /// Returns the raw nanosecond count, identical to [`Duration::as_nanos`].
+    ///
+    /// Infallible: `Duration` as `i64` nanoseconds at the representation level,
+    /// so this is a direct, lossless read of that value,
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::Duration;
+    ///
+    /// let d = Duration::from_seconds(-7);
+    /// let n: i64 = d.into();
+    /// assert_eq!(n, -7_000_000_000);
+    /// ```
+    fn from(value: Duration) -> Self {
+        value.as_nanos()
+    }
+}
+
+impl From<i64> for Duration {
+    /// Constructs a `Duration` from a raw nanosecond count, identical to
+    /// [`Duration::from_nanos`].
+    ///
+    /// Infallible: every `i64` value is a valid nanosecond count for
+    /// `Duration` — there is no narrower range to violate.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use gnss_time::Duration;
+    ///
+    /// let d: Duration = (-7_000_000_000_i64).into();
+    /// assert_eq!(d, Duration::from_seconds(-7));
+    /// ```
+    fn from(value: i64) -> Self {
+        Duration::from_nanos(value)
+    }
+}
+
 impl fmt::Display for Duration {
     fn fmt(
         &self,
