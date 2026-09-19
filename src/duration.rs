@@ -1232,4 +1232,166 @@ mod tests {
 
         assert_eq!(d, parsed);
     }
+
+    #[test]
+    fn test_from_std_one_second() {
+        let std_d = core::time::Duration::from_secs(1);
+        let d: Duration = std_d.try_into().unwrap();
+
+        assert_eq!(d, Duration::from_seconds(1));
+    }
+
+    #[test]
+    fn test_from_std_zero() {
+        let std_d = core::time::Duration::ZERO;
+        let d: Duration = std_d.try_into().unwrap();
+
+        assert_eq!(d, Duration::ZERO);
+    }
+
+    #[test]
+    fn test_from_std_preserves_sub_second_nanos() {
+        let std_d = core::time::Duration::from_nanos(123_456_789);
+        let d: Duration = std_d.try_into().unwrap();
+
+        assert_eq!(d.as_nanos(), 123_456_789);
+    }
+
+    #[test]
+    fn test_from_std_preserves_mixed_secs_and_nanos() {
+        let std_d = core::time::Duration::new(5, 500_000_000);
+        let d: Duration = std_d.try_into().unwrap();
+
+        assert_eq!(d.as_nanos(), 5_500_000_000);
+    }
+
+    #[test]
+    fn test_from_std_max_i64_nanos_succeeds() {
+        // i64::MAX nanoseconds is exactly representable
+        let std_d = core::time::Duration::from_nanos(i64::MAX as u64);
+        let d: Duration = std_d.try_into().unwrap();
+
+        assert_eq!(d.as_nanos(), i64::MAX);
+    }
+
+    #[test]
+    fn test_from_std_beyond_i64_max_overflows() {
+        // i64::MAX + 1 nanoseconds does not fit
+        let std_d = core::time::Duration::from_nanos(i64::MAX as u64 + 1);
+        let result: Result<Duration, _> = std_d.try_into();
+
+        assert!(matches!(result, Err(GnssTimeError::Overflow)));
+    }
+
+    #[test]
+    fn test_from_std_u64_max_secs_overflows() {
+        let std_d = core::time::Duration::from_secs(u64::MAX);
+        let result: Result<Duration, _> = std_d.try_into();
+
+        assert!(matches!(result, Err(GnssTimeError::Overflow)));
+    }
+
+    #[test]
+    fn test_from_std_is_never_negative() {
+        // core::time::Duration cannot be negative, so this direction never fails for
+        // sign reason - only ever for magnitude (testes above).
+        let std_d = core::time::Duration::from_nanos(1);
+        let d: Duration = std_d.try_into().unwrap();
+
+        assert!(!d.is_negative());
+    }
+
+    #[test]
+    fn test_to_std_one_second() {
+        let d = Duration::from_seconds(1);
+        let std_d: core::time::Duration = d.try_into().unwrap();
+
+        assert_eq!(std_d, core::time::Duration::from_secs(1));
+    }
+
+    #[test]
+    fn test_to_std_zero() {
+        let d = Duration::ZERO;
+        let std_d: core::time::Duration = d.try_into().unwrap();
+
+        assert_eq!(std_d, core::time::Duration::ZERO);
+    }
+
+    #[test]
+    fn test_to_std_preserves_sub_second_nanos() {
+        let d = Duration::from_nanos(123_456_789);
+        let std_d: core::time::Duration = d.try_into().unwrap();
+
+        assert_eq!(std_d.as_nanos(), 123_456_789);
+    }
+
+    #[test]
+    fn test_to_std_negative_errors() {
+        let d = Duration::from_seconds(-1);
+        let result: Result<core::time::Duration, _> = d.try_into();
+
+        assert!(matches!(result, Err(GnssTimeError::OutOfRange)));
+    }
+
+    #[test]
+    fn test_to_std_negative_one_nanosecond_errors() {
+        // Boundary: even the smallest possible negative value must fail,
+        // not just "large" negative values.
+        let d = Duration::from_nanos(-1);
+        let result: Result<core::time::Duration, _> = d.try_into();
+
+        assert!(matches!(result, Err(GnssTimeError::OutOfRange)));
+    }
+
+    #[test]
+    fn test_to_std_max_succeeds() {
+        let d = Duration::MAX;
+        let std_d: core::time::Duration = d.try_into().unwrap();
+
+        assert_eq!(std_d.as_nanos(), i64::MAX as u128);
+    }
+
+    #[test]
+    fn test_to_std_min_errors() {
+        // Duration::MIN is negative by construction (see I-5)
+        let d = Duration::MIN;
+        let result: Result<core::time::Duration, _> = d.try_into();
+
+        assert!(matches!(result, Err(GnssTimeError::OutOfRange)));
+    }
+
+    #[test]
+    fn test_to_std_negative_via_abs_succeeds() {
+        let negative = Duration::from_seconds(-5);
+        let magnitude: core::time::Duration = negative.abs().unwrap().try_into().unwrap();
+
+        assert_eq!(magnitude, core::time::Duration::from_secs(5));
+    }
+
+    #[test]
+    fn test_roundtrip_std_to_ours_to_std() {
+        let original = core::time::Duration::new(12_345, 678_901_234);
+        let ours: Duration = original.try_into().unwrap();
+        let back: core::time::Duration = ours.try_into().unwrap();
+
+        assert_eq!(original, back);
+    }
+
+    #[test]
+    fn test_roundtrip_ours_to_std_to_ours_nonnegative() {
+        let cases = [
+            Duration::ZERO,
+            Duration::from_seconds(1),
+            Duration::from_nanos(1),
+            Duration::MAX,
+            Duration::from_nanos(999_999_999),
+        ];
+
+        for original in cases {
+            let std_d: core::time::Duration = original.try_into().unwrap();
+            let back: Duration = std_d.try_into().unwrap();
+
+            assert_eq!(original, back, "round-trip failed for {original:?}");
+        }
+    }
 }
