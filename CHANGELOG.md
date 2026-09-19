@@ -7,6 +7,32 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.9.2](https://github.com/MiCkEyZzZ/gnss-time/compare/v0.9.1...v0.9.2) - 2026-09-19
+
+### Added
+
+- Core::time::Duration interop via TryFrom (TIME-34) ([#195](https://github.com/MiCkEyZzZ/gnss-time/pull/195))
+
+
+### Testing
+
+- Cover Display/defmt match arms of GnssTimeError ([#186](https://github.com/MiCkEyZzZ/gnss-time/pull/186))
+
+- Cover builtin leap-second table invariants (TIME-37) ([#188](https://github.com/MiCkEyZzZ/gnss-time/pull/188))
+
+- Round-trip and leap ambiguity coverage (TIME-37) ([#189](https://github.com/MiCkEyZzZ/gnss-time/pull/189))
+
+- Cover unknown-field and malformed-input paths (TIME-37) ([#190](https://github.com/MiCkEyZzZ/gnss-time/pull/190))
+
+- Cover matrix-kind vs scale-conversion consistency (TIME-37) ([#191](https://github.com/MiCkEyZzZ/gnss-time/pull/191))
+
+- Cover slice construction and scale round-trips (TIME-37) ([#192](https://github.com/MiCkEyZzZ/gnss-time/pull/192))
+
+- Exercise defmt::Format and table invariant paths (TIME-37) ([#193](https://github.com/MiCkEyZzZ/gnss-time/pull/193))
+
+- Cover std Duration conversion impls (TIME-34) ([#197](https://github.com/MiCkEyZzZ/gnss-time/pull/197))
+
+
 ## [0.9.1] - 2026-09-17
 
 ### Added
